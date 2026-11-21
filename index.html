@@ -69,6 +69,7 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .iconbtn.undo .cost{font-size:11px;font-weight:600;color:#ff8fb8;margin-top:1px}
 .iconbtn.undo .cost:empty{display:none}
 .iconbtn:disabled{opacity:.3}
+#undoAsk{z-index:60}
 .iconbtn.repo{position:relative;opacity:.38}
 .iconbtn.repo[hidden]{display:none}
 .iconbtn.repo.ready{opacity:1;color:#ffd23f;box-shadow:0 0 0 1.5px rgba(255,210,63,.7),0 0 14px rgba(255,184,28,.45)}
@@ -187,6 +188,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <button class="btn" id="goUndo">Undo last move</button>
         <button class="btn ghost" id="playAgain">Play again</button>
         <button class="btn invitebtn" id="goInvite">Challenge a friend</button>
+      </div>
+    </div>
+    <div class="overlay" id="undoAsk">
+      <div class="card">
+        <h2>Undo your last move?</h2>
+        <div class="sub" id="undoAskTxt"></div>
+        <button class="btn" id="undoYes">Undo</button>
+        <button class="btn ghost" id="undoNo">Keep playing</button>
       </div>
     </div>
     <div class="overlay" id="rescue">
@@ -2540,8 +2549,20 @@ const UI = (() => {
   $('closeSettings').addEventListener('click', () => st.classList.remove('show'));
   $('restart2').addEventListener('click', () => { st.classList.remove('show'); newGame(); });
   $('playAgain').addEventListener('click', () => { Sound.unlock(); newGame(); });
-  $('undoBtn').addEventListener('click', () => { Sound.unlock(); if (!Input.isDragging()) undo(); });
-  $('goUndo').addEventListener('click', () => { Sound.unlock(); undo(); });
+  // The first time, explain what Undo does and what it costs before taking any points
+  const askEl = $('undoAsk');
+  function askUndo() {
+    if (!undoSnap || undoTokens() < 1) return;
+    if (Store.get('undoExplained', false)) { undo(); return; }
+    const cost = undoCost(), left = undoTokens();
+    $('undoAskTxt').textContent = `This takes back the piece you just placed. It costs ${CONFIG.undo.costPercent}% of your score (${cost.toLocaleString()} ${cost === 1 ? 'point' : 'points'}) and uses 1 of your ${left} saved ${left === 1 ? 'undo' : 'undos'}.`;
+    $('undoYes').textContent = cost > 0 ? `Undo for ${cost.toLocaleString()} ${cost === 1 ? 'point' : 'points'}` : 'Undo';
+    askEl.classList.add('show');
+  }
+  $('undoYes').addEventListener('click', () => { askEl.classList.remove('show'); Store.set('undoExplained', true); undo(); });
+  $('undoNo').addEventListener('click', () => askEl.classList.remove('show'));
+  $('undoBtn').addEventListener('click', () => { Sound.unlock(); if (!Input.isDragging()) askUndo(); });
+  $('goUndo').addEventListener('click', () => { Sound.unlock(); askUndo(); });
   // invite friends: a ready-to-send challenge message with your best score and the game link
   const inv = $('invite');
   function openInvite() {
@@ -2572,7 +2593,7 @@ const UI = (() => {
     setTimeout(() => showGameOver(), 500);
   });
   $('bonusBtn').addEventListener('click', () => { Sound.unlock(); if (!useBonusPiece()) toast('Place a piece first to make room in your tray'); });
-  return { update, placeHint, showHint, dismissHint, toast, showGameOver, hideGameOver, modalOpen: () => go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show'),
+  return { update, placeHint, showHint, dismissHint, toast, showGameOver, hideGameOver, modalOpen: () => go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show') || askEl.classList.contains('show'),
     showRescue() { rescueEl.classList.add('show'); },
     flashRepo() { const b = $('repoBtn'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 1600); } };
 })();
