@@ -176,7 +176,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <div class="row"><span>Helping hand<div class="note">Playtest: how much the early game helps</div></span>
           <div class="seg" id="assistSeg"><button data-v="strong">Strong</button><button data-v="medium">Medium</button><button data-v="light">Light</button></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
-        <div class="howto">Drag pieces onto the grid. Complete a row or column to pop it. Each popped line fills the mystery meter; fill it to earn a mystery piece that reveals a special shape when you pick it up. Every few mystery pieces you earn a golden Frame Bubble: drop it anywhere to pop the whole board and clear the frame, for a big bonus, a new look and a bigger points multiplier. Every 10 frames you earn a bonus piece to use whenever you like. The undo arrow takes back your last move for 10% of your score. Undos are earned: one free in each of your first 3 games, one every 5th game, and one for every 10 frames you clear (you can hold up to 3).</div>
+        <div class="howto">Drag pieces onto the grid. Complete a row or column to pop it. Every so often, popping lines earns a surprise: a mystery piece that reveals a special shape when you pick it up, or, more rarely, a golden Frame Bubble. Drop the Frame Bubble anywhere to pop the whole board and clear the frame, for a big bonus, a new look and a bigger points multiplier. Every 10 frames you earn a bonus piece to use whenever you like. The undo arrow takes back your last move for 10% of your score. Undos are earned: one free in each of your first 3 games, one every 5th game, and one for every 10 frames you clear (you can hold up to 3).</div>
         <button class="btn invitebtn" id="setInvite" style="margin:0 0 10px">Invite friends</button>
         <button class="btn" id="closeSettings">Done</button>
         <button class="btn ghost" id="restart2">Start a new game</button>
@@ -226,7 +226,12 @@ const CONFIG = {
   mystery: { enabled: true, firstAfterLines: 6, everyLines: 8, maxCells: 14, maxBox: 5, minLines: 2,
     // Frame Bubble: after this many ordinary mystery pieces (frame 1, 2, 3+), the next one is a golden
     // Frame Bubble. Place it anywhere and every bubble on the board pops: frame clear.
-    frameBubbleAfter: [1, 2, 3] },
+    frameBubbleAfter: [1, 2, 3],   // (old fixed rule, no longer used)
+    // Random rewards (Option A): after minLines cleared lines, each further line has chancePerLine
+    // of producing a reward; one is guaranteed by maxLines. Each reward is a Frame Bubble with
+    // starChance, and the starBy-th reward in a row is always one. Measured: about 1 mystery piece
+    // and 0.5 Frame Bubbles per game; a Frame Bubble in about 4 games out of 10.
+    chancePerLine: 0.05, minLines: 10, maxLines: 30, starChance: 0.25, starBy: 4 },
 
   waterfall: {
     trigger: 'boardEmpty',         // 'boardEmpty' | 'lines' | 'either'
@@ -1135,12 +1140,15 @@ function move(slot, gx, gy) {
   const MY = CONFIG.mystery;
   if (MY.enabled && lines > 0 && !piece.mystery) {
     state.mysteryLines += lines;
-    const tgt = mysteryTarget();
-    if (state.mysteryLines >= tgt) {
-      state.mysteryLines = Math.min(state.mysteryLines - tgt, MY.everyLines - 1);
+    // a random roll for each line cleared, once enough lines have gone by; guaranteed at maxLines
+    let earned = false;
+    for (let i = 0; i < lines && !earned; i++)
+      if (state.mysteryLines >= MY.minLines && (Math.random() < MY.chancePerLine || state.mysteryLines >= MY.maxLines)) earned = true;
+    if (earned) {
+      state.mysteryLines = 0;
       state.mysteryCount++; mysteryGranted = true;
-      // ordinary mystery pieces first; then the golden Frame Bubble
-      const isFrame = state.mysterySinceFrame >= framesBefore();
+      // each reward has a chance of being the golden Frame Bubble; the starBy-th in a row always is
+      const isFrame = state.mysterySinceFrame + 1 >= MY.starBy || Math.random() < MY.starChance;
       if (isFrame) state.mysterySinceFrame = 0; else state.mysterySinceFrame++;
       mysteryGranted = isFrame ? 'frame' : true;
       if (state.tray.some(Boolean)) state.tray[slot] = makeMystery(isFrame); else state.mysteryPending = isFrame ? 'frame' : true;
@@ -2143,13 +2151,13 @@ const UI = (() => {
     // meter: progress to the next mystery piece, and which frame you're on
     let pct, lt, rt;
     if (CONFIG.mystery.enabled) {
+      // rewards are random now, so the bar just shows the frame and points multiplier,
+      // and lights up when a mystery piece or Frame Bubble is waiting in the tray
       const fb = state.tray.some(p => p && p.mystery && p.frame) || state.mysteryPending === 'frame';
       const ready = fb || state.tray.some(p => p && p.mystery) || state.mysteryPending;
-      const tgt = mysteryTarget(), got = Math.min(state.mysteryLines, tgt);
-      const nextIsFrame = state.mysterySinceFrame >= framesBefore();
-      pct = ready ? 100 : (got / tgt) * 100;
-      lt = fb ? '★ Frame Bubble ready!' : ready ? '✦ Mystery piece ready!' : (nextIsFrame ? '★ Frame Bubble  ' : '✦ Mystery  ') + got + ' / ' + tgt;
-      rt = 'Frame ' + (state.boardClears + 1) + (frameMult() > 1 ? '  ×' + frameMult() : '');
+      pct = ready ? 100 : 0;
+      lt = fb ? '★ Frame Bubble ready!' : ready ? '✦ Mystery piece ready!' : 'Frame ' + (state.boardClears + 1);
+      rt = 'Points ×' + frameMult();
       meterEl.classList.toggle('ready', ready);
     } else {
       const wfOn = FX.waterfall && !FX.waterfall.skinChanged;
