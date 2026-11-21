@@ -34,7 +34,7 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .meter{width:calc(100% - 24px)}
 .best{display:flex;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:13px;font-weight:600;white-space:nowrap;transition:opacity .25s}
 .best span{overflow:hidden;text-overflow:ellipsis}
-.best svg{width:14px;height:14px;flex:none;color:var(--accent)}
+.best svg{width:15px;height:15px;flex:none;color:#ffd23f;filter:drop-shadow(0 0 4px rgba(255,184,28,.6))}
 .subline{position:relative;height:18px;margin-top:2px}
 .subline .combo{position:absolute;left:50%;top:0;transform:translateX(-50%);white-space:nowrap}
 .subline:has(.combo.on) .best{opacity:0}
@@ -158,7 +158,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       </button>
     </div>
     <div class="scorewrap"><div class="score" id="score">0</div><div class="subline"><div class="best" title="Best score">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 17.5L3.5 8.5l5 4 3.5-6 3.5 6 5-4-1 9z" fill="rgba(255,210,63,.25)"/><path d="M5 20.5h14"/><circle cx="3.5" cy="7" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="4.6" r="1.8" fill="currentColor" stroke="none"/><circle cx="20.5" cy="7" r="1.6" fill="currentColor" stroke="none"/></svg>
       <span id="best">0</span>
     </div><div class="combo" id="combo">Combo ×2</div></div></div>
     <div class="actions">
