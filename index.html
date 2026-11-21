@@ -32,9 +32,12 @@ header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align
 /* on wide screens keep the header and meter in one centred column with the game */
 header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .meter{width:calc(100% - 24px)}
-.best{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:clamp(12px,3.6vw,16px);font-weight:600;min-width:0;overflow:hidden;white-space:nowrap}
+.best{display:flex;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:13px;font-weight:600;white-space:nowrap;transition:opacity .25s}
 .best span{overflow:hidden;text-overflow:ellipsis}
-.best svg{width:18px;height:18px;flex:none;color:var(--accent)}
+.best svg{width:14px;height:14px;flex:none;color:var(--accent)}
+.subline{position:relative;height:18px;margin-top:2px}
+.subline .combo{position:absolute;left:50%;top:0;transform:translateX(-50%);white-space:nowrap}
+.subline:has(.combo.on) .best{opacity:0}
 .scorewrap{text-align:center}
 .score{font-size:clamp(28px,8.4vw,54px);font-weight:700;line-height:1;letter-spacing:.5px;
   text-shadow:0 0 22px rgba(255,45,138,.35),0 0 4px rgba(0,229,212,.25);display:inline-block;transition:transform .14s ease-out}
@@ -42,6 +45,7 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .combo{height:18px;font-size:14px;font-weight:600;color:#ffd23f;opacity:0;transition:opacity .25s;letter-spacing:.3px}
 .combo.on{opacity:1}
 .actions{display:flex;justify-content:flex-end;gap:8px}
+.actions.left{justify-content:flex-start}
 .iconbtn{min-width:44px;height:44px;border-radius:15px;border:0;background:rgba(255,255,255,.07);color:var(--ink);
   display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;font:600 14px inherit;font-family:inherit;padding:0 11px;
   transition:background .2s, min-width .2s}
@@ -50,11 +54,23 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .iconbtn .lbl{display:none;white-space:nowrap}
 .iconbtn.armed{background:rgba(255,45,138,.28)}
 .iconbtn.armed .lbl{display:inline}
-.iconbtn.undo{flex-direction:column;gap:0;padding:0 9px;line-height:1}
+.iconbtn.undo{flex-direction:column;gap:0;padding:0 6px;line-height:1;position:relative}
+.iconbtn.undo .count{position:absolute;top:3px;right:4px;font-size:10px;font-weight:700;color:var(--muted)}
+.iconbtn.undo .count:empty{display:none}
 .iconbtn.undo svg{width:20px;height:20px}
 .iconbtn.undo .cost{font-size:11px;font-weight:600;color:#ff8fb8;margin-top:1px}
 .iconbtn.undo .cost:empty{display:none}
 .iconbtn:disabled{opacity:.3}
+.iconbtn.repo{position:relative;opacity:.38}
+.iconbtn.repo.ready{opacity:1;color:#ffd23f;box-shadow:0 0 0 1.5px rgba(255,210,63,.7),0 0 14px rgba(255,184,28,.45)}
+.iconbtn.repo.active{background:#ffd23f;color:#2a1600;box-shadow:0 0 18px rgba(255,184,28,.7)}
+.iconbtn.repo .charge{position:absolute;top:5px;right:5px;width:9px;height:9px;border-radius:50%;background:#ffd23f;box-shadow:0 0 8px #ffb81c;display:none}
+.iconbtn.repo.ready .charge{display:block}
+.iconbtn.repo.active .charge{display:none}
+.iconbtn.repo.pulse{animation:repoPulse 1.1s ease-in-out infinite}
+.iconbtn.repo.flash{animation:repoPulse .5s ease-in-out 3}
+@keyframes repoPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.14);box-shadow:0 0 0 2px rgba(255,210,63,.9),0 0 22px rgba(255,184,28,.8)}}
+@media (max-width:380px){.actions{gap:4px}.iconbtn{min-width:40px;height:40px;padding:0 8px}}
 #stage{position:relative;flex:1;min-height:0}
 .meter{position:relative;height:24px;margin:6px 12px 0;border-radius:999px;background:rgba(255,255,255,.07);overflow:hidden;
   border:1px solid rgba(255,255,255,.06)}
@@ -122,16 +138,21 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 <canvas id="fx"></canvas>
 <div id="app">
   <header>
-    <div class="best" title="Best score">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z"/></svg>
-      <span id="best">0</span>
-    </div>
-    <div class="scorewrap"><div class="score" id="score">0</div><div class="combo" id="combo">Combo ×2</div></div>
-    <div class="actions">
+    <div class="actions left">
       <button class="iconbtn undo" id="undoBtn" aria-label="Undo last move" disabled>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
-        <span class="cost" id="undoCost"></span>
+        <span class="cost" id="undoCost"></span><span class="count" id="undoN"></span>
       </button>
+      <button class="iconbtn repo" id="repoBtn" aria-label="Reposition a placed piece">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/><path d="M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg>
+        <span class="charge" id="repoDot"></span>
+      </button>
+    </div>
+    <div class="scorewrap"><div class="score" id="score">0</div><div class="subline"><div class="best" title="Best score">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z"/></svg>
+      <span id="best">0</span>
+    </div><div class="combo" id="combo">Combo ×2</div></div></div>
+    <div class="actions">
       <button class="iconbtn" id="shareBtn" aria-label="Invite friends">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
       </button>
@@ -157,6 +178,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <button class="btn" id="goUndo">Undo last move</button>
         <button class="btn ghost" id="playAgain">Play again</button>
         <button class="btn invitebtn" id="goInvite">Challenge a friend</button>
+      </div>
+    </div>
+    <div class="overlay" id="rescue">
+      <div class="card">
+        <h2>No room for your pieces</h2>
+        <div class="sub">You've got a Reposition saved. Move one of your placed pieces to make space?</div>
+        <button class="btn" id="useRescue">Use Reposition</button>
+        <button class="btn ghost" id="endRescue">End game</button>
       </div>
     </div>
     <div class="overlay" id="invite">
@@ -276,6 +305,12 @@ const CONFIG = {
 
   // Undos are earned and banked (max 3): one free in each of your first 3 games, one free every
   // 5th game, one for every 10 frames cleared. Using one also costs a % of your score.
+  // Reposition: a mystery reward that lets you move one intact piece already on the board.
+  // rewardShare = chance an ordinary (non-Frame Bubble) reward is a Reposition charge instead of a
+  // mystery piece. The bank holds maxCharges per run (if full, you get a mystery piece instead).
+  // Saved across reloads, reset when a new run starts.
+  reposition: { rewardShare: 0.35, maxCharges: 1 },
+
   // Bonus piece: earned every N frames, saved up, used whenever you like with the button.
   // It's a mystery piece: reveals a shape built to take out 3-5 lines.
   bonusPiece: { everyFrames: 10, maxBanked: 3 },
@@ -972,6 +1007,8 @@ const state = {
   grid: new Array(N * N).fill(0),
   tray: [null, null, null],
   score: 0, combo: 0, sinceClear: 0, skin: 0, boardClears: 0, frameLines: 0, mysteryLines: 0, mysteryCount: 0, mysteryPending: false, mysterySinceFrame: 0, over: false,
+  // which placed piece each bubble belongs to: 0 empty, -1 fixed (part of it popped, or from an old save), >0 piece id
+  pid: new Array(N * N).fill(0), nextPid: 1, repo: 0, rescue: false,
 };
 let bestAtStart = Store.get('best', 0);
 let shownTarget = 0, shownScore = 0;
@@ -986,11 +1023,63 @@ const packPiece = p => p && (p.mystery ? { id: p.frame ? 'framebubble' : 'myster
 const unpackPiece = p => !p ? null : p.id === 'framebubble' ? makeMystery(true) : p.id === 'mystery' ? makeMystery() : SHAPE_BY_ID[p.id] ? { shape: SHAPE_BY_ID[p.id], color: p.color } : null;
 // rainbow colours for mystery bubbles, cell by cell
 const mysteryColour = (x, y) => ((x + y * 2) % 5 + 5) % 5;
+// bubbles with no piece id on record (old saves, test boards) are treated as fixed
+const fixedPids = grid => grid.map(v => (v ? -1 : 0));
+function validPids(p, grid) { return Array.isArray(p) && p.length === N * N && p.every((v, i) => (grid[i] ? v !== 0 : v === 0)); }
+
+/* Piece ids: after a placement, new cells get the piece's id; any piece that lost a bubble to a
+   clear becomes fixed (-1); cleared cells go back to empty. */
+function updatePids(pid, placedIdx, id, cleared) {
+  const p = pid.slice();
+  for (const i of placedIdx) p[i] = id;
+  const broken = new Set();
+  for (const c of cleared) { const i = Logic.idx(c.x, c.y); if (p[i] > 0) broken.add(p[i]); p[i] = 0; }
+  if (broken.size) for (let i = 0; i < p.length; i++) if (broken.has(p[i])) p[i] = -1;
+  return p;
+}
+/* Everything needed to lift one intact placed piece: its shape, colours, where it sits, and the
+   board as it would be without it (the board itself isn't touched until a move is committed). */
+function pieceById(id) {
+  const idxs = [];
+  for (let i = 0; i < N * N; i++) if (state.pid[i] === id) idxs.push(i);
+  if (!idxs.length || id <= 0) return null;
+  const xs = idxs.map(i => i % N), ys = idxs.map(i => Math.floor(i / N));
+  const gx = Math.min(...xs), gy = Math.min(...ys);
+  const cells = idxs.map(i => [i % N - gx, Math.floor(i / N) - gy]);
+  const values = {}; idxs.forEach((i, k) => { values[cells[k][0] + ',' + cells[k][1]] = state.grid[i]; });
+  const shape = { id: 'repo', cells, w: Math.max(...xs) - gx + 1, h: Math.max(...ys) - gy + 1, weight: 0 };
+  const base = state.grid.slice(), basePid = state.pid.slice();
+  for (const i of idxs) { base[i] = 0; basePid[i] = 0; }
+  return { id, gx, gy, idxs, shape, values, base, basePid, piece: { shape, values, color: state.grid[idxs[0]] - 1, repoId: id } };
+}
+const movableIds = () => [...new Set(state.pid.filter(v => v > 0))];
+/* Can this piece go anywhere other than where it is? */
+function pieceCanMove(P) {
+  for (let gy = 0; gy <= N - P.shape.h; gy++) for (let gx = 0; gx <= N - P.shape.w; gx++)
+    if ((gx !== P.gx || gy !== P.gy) && Logic.canPlace(P.base, P.shape, gx, gy)) return true;
+  return false;
+}
+const anyPieceCanMove = () => movableIds().some(id => { const P = pieceById(id); return P && pieceCanMove(P); });
+/* Before Game Over: is there a Reposition after which (and after any pops it causes) a waiting piece fits? */
+function rescueMove() {
+  if (state.repo < 1) return null;
+  const left = state.tray.filter(Boolean);
+  for (const id of movableIds()) {
+    const P = pieceById(id);
+    for (let gy = 0; gy <= N - P.shape.h; gy++) for (let gx = 0; gx <= N - P.shape.w; gx++) {
+      if ((gx === P.gx && gy === P.gy) || !Logic.canPlace(P.base, P.shape, gx, gy)) continue;
+      const r = Logic.apply(P.base, P.shape, gx, gy, 1);
+      if (left.some(q => q.mystery || Logic.anyFit(r.grid, q.shape))) return { id, gx, gy };
+    }
+  }
+  return null;
+}
 
 function serialise() {
   return { grid: state.grid, tray: state.tray.map(packPiece),
     score: state.score, combo: state.combo, sinceClear: state.sinceClear, skin: state.skin, boardClears: state.boardClears, frameLines: state.frameLines,
-    mysteryLines: state.mysteryLines, mysteryCount: state.mysteryCount, mysteryPending: state.mysteryPending, mysterySinceFrame: state.mysterySinceFrame };
+    mysteryLines: state.mysteryLines, mysteryCount: state.mysteryCount, mysteryPending: state.mysteryPending, mysterySinceFrame: state.mysterySinceFrame,
+    pid: state.pid, nextPid: state.nextPid, repo: state.repo };
 }
 function saveGame() { if (state.over) Store.set('game', null); else Store.set('game', serialise()); }
 function restoreGame() {
@@ -1001,6 +1090,10 @@ function restoreGame() {
   state.mysteryLines = g.mysteryLines | 0; state.mysteryCount = g.mysteryCount | 0; state.mysteryPending = g.mysteryPending || false; state.mysterySinceFrame = g.mysterySinceFrame | 0;
   state.score = g.score | 0; state.combo = g.combo | 0; state.sinceClear = g.sinceClear | 0;
   state.skin = g.skin | 0; state.boardClears = g.boardClears | 0; state.frameLines = g.frameLines | 0; state.over = false;
+  // older saves have no piece ids: their bubbles are fixed, new placements are tracked normally
+  state.pid = validPids(g.pid, state.grid) ? g.pid.slice() : fixedPids(state.grid);
+  state.nextPid = Math.max(g.nextPid | 0, 1, ...state.pid) + (validPids(g.pid, state.grid) ? 0 : 1);
+  state.repo = Math.max(0, Math.min(CONFIG.reposition.maxCharges, g.repo | 0));
   if (state.tray.every(p => !p)) refillTray(false);
   shownTarget = shownScore = state.score;
   return true;
@@ -1015,13 +1108,20 @@ function refillTray(animate = true) {
 }
 function isStuck() {
   const left = state.tray.filter(Boolean);
-  return left.length > 0 && !left.some(p => p.mystery || Logic.anyFit(state.grid, p.shape));
+  const stuck = left.length > 0 && !left.some(p => p.mystery || Logic.anyFit(state.grid, p.shape));
+  state.rescue = false;
+  if (!stuck) return false;
+  // a saved Reposition that clears a line or makes room keeps the game alive
+  if (rescueMove()) { state.rescue = true; return false; }
+  return true;
 }
 
 function newGame() {
   state.grid = new Array(N * N).fill(0);
   state.score = 0; state.combo = 0; state.sinceClear = 0; state.over = false; state.boardClears = 0; state.frameLines = 0;
   state.mysteryLines = 0; state.mysteryCount = 0; state.mysteryPending = false; state.mysterySinceFrame = 0;
+  state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false;
+  Input.cancelRepo();
   state.skin = 0;
   bestAtStart = Store.get('best', 0);
   shownTarget = shownScore = 0;
@@ -1071,6 +1171,8 @@ function undo() {
   state.mysteryLines = g.mysteryLines; state.mysteryCount = g.mysteryCount; state.mysteryPending = g.mysteryPending; state.mysterySinceFrame = g.mysterySinceFrame;
   state.combo = g.combo; state.sinceClear = g.sinceClear; state.skin = g.skin;
   state.boardClears = g.boardClears; state.frameLines = g.frameLines; state.over = false;
+  state.pid = g.pid.slice(); state.nextPid = g.nextPid; state.repo = g.repo;
+  Input.cancelRepo();
   state.score = Math.max(0, g.score - cost);
   undoSnap = null;
   FX.reset(); FX.trayIn = [0, 0, 0];
@@ -1082,17 +1184,23 @@ function undo() {
   return true;
 }
 
-/* Place piece from tray slot at grid gx,gy. Returns the result or null. */
-function move(slot, gx, gy) {
-  const piece = state.tray[slot];
-  if (!piece || !piece.shape || state.over || !Logic.canPlace(state.grid, piece.shape, gx, gy)) return null;
+/* Place piece from tray slot at grid gx,gy, or (with repo) move an intact placed piece there.
+   Both go through the same pop, scoring, combo, reward and save logic. Returns the result or null. */
+function move(slot, gx, gy, repo = null) {
+  const piece = repo ? repo.piece : state.tray[slot];
+  const base = repo ? repo.base : state.grid;
+  if (!piece || !piece.shape || state.over || !Logic.canPlace(base, piece.shape, gx, gy)) return null;
+  if (repo && (state.repo < 1 || (gx === repo.gx && gy === repo.gy))) return null;   // same spot: nothing spent
   undoSnap = JSON.parse(JSON.stringify(serialise()));
   const S = CONFIG.scoring;
-  const res = Logic.apply(state.grid, piece.shape, gx, gy, piece.mystery ? (x, y) => mysteryColour(gx + x, gy + y) + 1 : piece.color + 1);
+  const value = repo ? (x, y) => repo.values[x + ',' + y] : piece.mystery ? (x, y) => mysteryColour(gx + x, gy + y) + 1 : piece.color + 1;
+  const res = Logic.apply(base, piece.shape, gx, gy, value);
+  const placed = piece.shape.cells.map(([x, y]) => Logic.idx(gx + x, gy + y));
+  state.pid = updatePids(repo ? repo.basePid : state.pid, placed, repo ? repo.id : state.nextPid++, res.cleared);
   state.grid = res.grid;
-  state.tray[slot] = null;
+  if (repo) state.repo -= 1; else state.tray[slot] = null;
 
-  const placePts = piece.shape.cells.length * S.pointsPerCellPlaced;
+  const placePts = repo ? 0 : piece.shape.cells.length * S.pointsPerCellPlaced;
   const lines = res.rows.length + res.cols.length;
   let linePts = 0, comboMult = 1;
   if (lines > 0) {
@@ -1117,7 +1225,7 @@ function move(slot, gx, gy) {
   if (waterfall) {
     // the waterfall washes whatever is left off the board
     for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) { const v = state.grid[Logic.idx(gx, gy)]; if (v) washed.push({ gx, gy, v }); }
-    state.grid = new Array(N * N).fill(0);
+    state.grid = new Array(N * N).fill(0); state.pid = new Array(N * N).fill(0);
     state.boardClears++; state.frameLines = 0; state.mysterySinceFrame = 0;
   }
   // a frame clear can't be undone (its rewards are already banked)
@@ -1136,7 +1244,7 @@ function move(slot, gx, gy) {
   if (state.score > Store.get('best', 0)) Store.set('best', state.score);
 
   // fill the mystery meter (at most one mystery piece per move; extra lines carry over, capped); when it's full, a mystery piece drops into the tray
-  let mysteryGranted = false;
+  let mysteryGranted = false, grantSlot = -1;
   const MY = CONFIG.mystery;
   if (MY.enabled && lines > 0 && !piece.mystery) {
     state.mysteryLines += lines;
@@ -1151,11 +1259,18 @@ function move(slot, gx, gy) {
       const isFrame = state.mysterySinceFrame + 1 >= MY.starBy || Math.random() < MY.starChance;
       if (isFrame) state.mysterySinceFrame = 0; else state.mysterySinceFrame++;
       mysteryGranted = isFrame ? 'frame' : true;
-      if (state.tray.some(Boolean)) state.tray[slot] = makeMystery(isFrame); else state.mysteryPending = isFrame ? 'frame' : true;
+      const RP = CONFIG.reposition;
+      if (!isFrame && state.repo < RP.maxCharges && Math.random() < RP.rewardShare) {
+        state.repo += 1; mysteryGranted = 'repo';        // a Reposition charge, saved for later
+      } else {
+        const free = slot >= 0 ? slot : state.tray.findIndex(p => !p);
+        if (state.tray.some(Boolean) && free >= 0) { state.tray[free] = makeMystery(isFrame); grantSlot = free; }
+        else state.mysteryPending = isFrame ? 'frame' : true;
+      }
     }
   }
 
-  const result = { bonusEarned, undoEarned, multBefore, multAfter: frameMult(), skinName: null, frameBubble, mysteryGranted, mysteryPlaced: !!piece.mystery, slot, piece, gx, gy, placePts, linePts, lines, comboMult, combo: state.combo, bonus, waterfall, boardEmpty, ...res, grid: state.grid, washed, frameNo: state.boardClears };
+  const result = { repo: !!repo, grantSlot, bonusEarned, undoEarned, multBefore, multAfter: frameMult(), skinName: null, frameBubble, mysteryGranted, mysteryPlaced: !!piece.mystery, slot, piece, gx, gy, placePts, linePts, lines, comboMult, combo: state.combo, bonus, waterfall, boardEmpty, ...res, grid: state.grid, washed, frameNo: state.boardClears };
 
   if (state.tray.every(p => !p)) refillTray();
   state.over = isStuck();
@@ -1366,9 +1481,9 @@ const cellCentre = (gx, gy) => [L.ix + (gx + 0.5) * L.c, L.iy + (gy + 0.5) * L.c
 function slotCentre(i) { return [L.bx + L.slotW * (i + 0.5), L.ty + L.T / 2]; }
 
 const FX = {
-  pops: [], particles: [], texts: [], settle: new Map(), waterfall: null, trayIn: [0, 0, 0],
+  pops: [], particles: [], texts: [], settle: new Map(), waterfall: null, trayIn: [0, 0, 0], land: [], pendingRescue: 0,
   gameOverAt: 0, busyUntil: 0, pendingGameOver: 0, sheen: [],
-  reset() { if (typeof Celebrate !== 'undefined') Celebrate.cancel(); this.pops = []; this.particles = []; this.texts = []; this.settle.clear(); this.waterfall = null; this.gameOverAt = 0; this.pendingGameOver = 0; this.sheen = []; },
+  reset() { if (typeof Celebrate !== 'undefined') Celebrate.cancel(); this.pops = []; this.particles = []; this.texts = []; this.settle.clear(); this.waterfall = null; this.land = []; this.pendingRescue = 0; this.gameOverAt = 0; this.pendingGameOver = 0; this.sheen = []; },
 };
 
 function spawnSplash(x, y, colourHex, I = 1, dir = 0) {
@@ -1407,6 +1522,7 @@ function playResult(res, pointerGesture) {
   const T = CONFIG.timing;
   shownTarget += res.placePts;
   const placed = new Set(res.piece.shape.cells.map(([x, y]) => Logic.idx(res.gx + x, res.gy + y)));
+  FX.land.push({ t0: now, cells: res.piece.shape.cells.map(([x, y]) => cellCentre(res.gx + x, res.gy + y)) });
   for (const i of placed) FX.settle.set(i, { t0: now, amp: 0.24 });
   // nearby bubbles feel the splash and jiggle a little, a beat later
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
@@ -1462,10 +1578,16 @@ function playResult(res, pointerGesture) {
     if (res.combo >= 2) floatText('Combo ' + res.combo + ' ×' + Logic.comboMultiplier(res.combo), cx, cy - L.c * 0.62, L.c * 0.36, '#8ff0ff', 800, 100);
     if (CONFIG.haptics.lineClear) Haptics.pulse(CONFIG.haptics.lineClear);
   }
-  if (res.mysteryGranted) {
-    const [mx, my] = slotCentre(res.slot);
-    FX.trayIn[res.slot] = now + 350;
-    setTimeout(() => { spawnSparks(mx, my, 16); spawnSplash(mx, my, '#ffffff', 1.3, 0); }, 350);
+  if (res.mysteryGranted === 'repo') {
+    // a Reposition charge goes into the bank beside Undo
+    Sound.mysteryAppear(0.35);
+    setTimeout(() => { UI.toast('Reposition saved! Tap ⇄ to move a placed piece'); UI.flashRepo(); }, 300);
+  } else if (res.mysteryGranted) {
+    if (res.grantSlot >= 0) {
+      const [mx, my] = slotCentre(res.grantSlot);
+      FX.trayIn[res.grantSlot] = now + 350;
+      setTimeout(() => { spawnSparks(mx, my, 16); spawnSplash(mx, my, '#ffffff', 1.3, 0); }, 350);
+    }
     Sound.mysteryAppear(0.35);
     setTimeout(() => UI.toast(res.mysteryGranted === 'frame' ? '★ Frame Bubble! Drop it anywhere to clear the frame' : 'Mystery piece! Pick it up to reveal it'), 300);
   }
@@ -1489,6 +1611,7 @@ function playResult(res, pointerGesture) {
   }
   FX.busyUntil = Math.max(FX.busyUntil, endAt);
   if (state.over) FX.pendingGameOver = endAt + T.gameOverDelayMs;
+  else if (state.rescue) FX.pendingRescue = endAt + T.gameOverDelayMs;
   UI.update();
   UI.dismissHint();
 }
@@ -1538,6 +1661,7 @@ function updateFX(now, dt) {
   // when everything's done, make sure the score is exact
   if (!FX.pops.length && !FX.waterfall && !Celebrate.active() && now > FX.busyUntil) shownTarget = state.score;
   // game over
+  if (FX.pendingRescue && now >= FX.pendingRescue) { FX.pendingRescue = 0; if (state.rescue && !state.over) UI.showRescue(); }
   if (FX.pendingGameOver && now >= FX.pendingGameOver) {
     FX.pendingGameOver = 0; FX.gameOverAt = now; Sound.gameOver();
     setTimeout(() => UI.showGameOver(), settings.reduced ? 150 : 700);
@@ -1566,13 +1690,27 @@ function draw(now) {
   glowRows.forEach(y => { rr(ctx, L.ix + c * 0.02, L.iy + y * c + c * 0.02, c * N - c * 0.04, c * 0.96, c * 0.24); ctx.fillStyle = 'rgba(0,229,212,0.13)'; ctx.fill(); });
   glowCols.forEach(x => { rr(ctx, L.ix + x * c + c * 0.02, L.iy + c * 0.02, c * 0.96, c * N - c * 0.04, c * 0.24); ctx.fillStyle = 'rgba(0,229,212,0.13)'; ctx.fill(); });
 
+  // landing shadows: the shadow tightens and fades as a piece settles onto the glass
+  FX.land = FX.land.filter(l => now - l.t0 < 260);
+  for (const l of FX.land) {
+    const q = (now - l.t0) / 260, k = 1 - q;
+    for (const [lx, ly] of l.cells) drawSoftShadow(lx + c * 0.12 * k, ly + c * 0.2 * k, c * (0.42 + 0.12 * k), 0.4 * k);
+  }
+
   // grid bubbles
   const goT = FX.gameOverAt ? (now - FX.gameOverAt) : -1;
   const wobble = now / 1000;
+  const hidden = Input.hiddenId(), lifted = Input.liftedId(), repoOn = Input.repoMode();
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
     const v = state.grid[Logic.idx(gx, gy)];
     if (!v) continue;
     const [x, y] = cellCentre(gx, gy);
+    const pidHere = state.pid[Logic.idx(gx, gy)];
+    if (hidden && pidHere === hidden) {
+      // still occupied until the move is committed: show a faint ghost while it's lifted
+      if (lifted) { drawBubble(state.skin, v - 1, x, y, c * 0.9, 1, 1, 0.22, gx * 3 + gy * 5, now); }
+      continue;
+    }
     let s = 1, sx = 1, sy = 1;
     const st = FX.settle.get(Logic.idx(gx, gy));
     if (st !== undefined) {
@@ -1581,12 +1719,34 @@ function draw(now) {
       else if (!settings.reduced) { sx = 1 + k; sy = 1 - k * 0.9; }
     }
     if (glowRows.includes(gy) || glowCols.includes(gx)) s *= settings.reduced ? 1.1 : 1.16 + Math.sin(wobble * 8 + (gx + gy) * 0.6) * 0.04;
-    drawBubble(state.skin, v - 1, x, y, c * 0.96 * s, sx, sy, 1, gx * 3 + gy * 5, now);
+    // Reposition armed: fixed bubbles step back so the movable pieces stand out
+    drawBubble(state.skin, v - 1, x, y, c * 0.96 * s, sx, sy, repoOn && pidHere < 0 ? 0.35 : 1, gx * 3 + gy * 5, now);
     if (goT >= 0) {
       const delay = (gy * N + gx) * (settings.reduced ? 0 : 6);
       const a = Math.max(0, Math.min(1, (goT - delay) / 220)) * 0.6;
       if (a > 0) { rr(ctx, x - c * 0.45, y - c * 0.45, c * 0.9, c * 0.9, c * 0.22); ctx.fillStyle = `rgba(6,26,40,${a})`; ctx.fill(); }
     }
+  }
+
+  // Reposition armed: outline each movable piece (adjacent pieces of the same colour stay distinct)
+  if (repoOn && !lifted) {
+    const a = 0.55 + (settings.reduced ? 0 : Math.sin(now / 160) * 0.3);
+    ctx.save(); ctx.strokeStyle = `rgba(255,210,63,${a})`; ctx.lineWidth = Math.max(2, c * 0.07); ctx.lineCap = 'round';
+    ctx.shadowColor = 'rgba(255,184,28,0.9)'; ctx.shadowBlur = 10;
+    const inset = c * 0.04;
+    for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
+      const id = state.pid[Logic.idx(gx, gy)];
+      if (id <= 0 || id === hidden) continue;
+      const same = (X, Y) => X >= 0 && Y >= 0 && X < N && Y < N && state.pid[Logic.idx(X, Y)] === id;
+      const x0 = L.ix + gx * c + inset, y0 = L.iy + gy * c + inset, x1 = L.ix + (gx + 1) * c - inset, y1 = L.iy + (gy + 1) * c - inset;
+      ctx.beginPath();
+      if (!same(gx, gy - 1)) { ctx.moveTo(x0, y0); ctx.lineTo(x1, y0); }
+      if (!same(gx, gy + 1)) { ctx.moveTo(x0, y1); ctx.lineTo(x1, y1); }
+      if (!same(gx - 1, gy)) { ctx.moveTo(x0, y0); ctx.lineTo(x0, y1); }
+      if (!same(gx + 1, gy)) { ctx.moveTo(x1, y0); ctx.lineTo(x1, y1); }
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // line sheen when a clear starts
@@ -1642,7 +1802,7 @@ function draw(now) {
       for (const [x, y] of shape.cells) {
         const gx = pv.gx + x, gy = pv.gy + y, [px, py] = cellCentre(gx, gy);
         const inLine = glowRows.includes(gy) || glowCols.includes(gx);
-        drawBubble(state.skin, pv.piece.mystery ? mysteryColour(x, y) : pv.piece.color, px, py, c * (inLine ? (settings.reduced ? 1.0 : 1.04 + Math.sin(wobble * 8 + (gx + gy) * 0.6) * 0.04) : 0.92), 1, 1, inLine ? 0.75 : 0.4, x + y, now);
+        drawBubble(state.skin, pv.piece.values ? pv.piece.values[x + ',' + y] - 1 : pv.piece.mystery ? mysteryColour(x, y) : pv.piece.color, px, py, c * (inLine ? (settings.reduced ? 1.0 : 1.04 + Math.sin(wobble * 8 + (gx + gy) * 0.6) * 0.04) : 0.92), 1, 1, inLine ? 0.75 : 0.4, x + y, now);
       }
     } else {
       ctx.strokeStyle = 'rgba(255,150,130,0.7)'; ctx.lineWidth = Math.max(1.5, c * 0.05);
@@ -1724,7 +1884,12 @@ function draw(now) {
 
   // dragged piece on top
   const d = Input.dragDraw();
-  if (d) drawPiece(d.piece, d.x, d.y, d.size, d.alpha, d.sx, d.sy);
+  if (d) {
+    const k = d.lift || 0, sz = d.size, shp = d.piece.shape;
+    const ox = d.x - shp.w * sz / 2, oy = d.y - shp.h * sz / 2;
+    for (const [x, y] of shp.cells) drawSoftShadow(ox + (x + 0.5) * sz + c * 0.18 * k, oy + (y + 0.5) * sz + c * 0.32 * k, sz * (0.42 + 0.16 * k), 0.42 - 0.12 * k);
+    drawPiece(d.piece, d.x, d.y, d.size, d.alpha, d.sx, d.sy);
+  }
 }
 
 // tray size for a piece: as big as the slot allows, wide or tall pieces shrink to fit
@@ -1768,6 +1933,14 @@ function drawMysteryOrb(cx, cy, k, now, golden = false) {
   ctx.restore();
 }
 
+/* A soft shadow on the glass under a bubble: larger radius = softer and fainter. */
+function drawSoftShadow(x, y, r, a) {
+  if (a <= 0.01 || r <= 0) return;
+  const g = ctx.createRadialGradient(x, y, r * 0.15, x, y, r);
+  g.addColorStop(0, `rgba(0,0,8,${a})`); g.addColorStop(1, 'rgba(0,0,8,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+}
+
 function drawPiece(p, cx, cy, size, alpha, sx = 1, sy = 1) {
   const s = p.shape, now = performance.now();
   const ox = cx - s.w * size / 2, oy = cy - s.h * size / 2;
@@ -1792,7 +1965,7 @@ function drawPiece(p, cx, cy, size, alpha, sx = 1, sy = 1) {
     }
     ctx.restore();
   }
-  for (const [x, y] of s.cells) drawBubble(state.skin, p.mystery ? mysteryColour(x, y) : p.color, ox + (x + 0.5) * size, oy + (y + 0.5) * size, size * 0.96, sx, sy, alpha, x * 3 + y * 5 + p.color, now);
+  for (const [x, y] of s.cells) drawBubble(state.skin, p.values ? p.values[x + ',' + y] - 1 : p.mystery ? mysteryColour(x, y) : p.color, ox + (x + 0.5) * size, oy + (y + 0.5) * size, size * 0.96, sx, sy, alpha, x * 3 + y * 5 + p.color, now);
 }
 
 function drawWaterfall(now) {
@@ -2004,12 +2177,13 @@ const Input = (() => {
   let drag = null;      // {slot, piece, pid, type, x, y, t0, sx, sy, startSize}
   let ret = null;       // returning piece animation
   let pv = null;        // current placement preview
+  let repoMode = false; // Reposition armed: placed pieces can be picked up
 
   function pos(e) { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
   function liftFor(type, piece) { return type === 'mouse' ? 0 : piece.shape.h * L.c / 2 + L.c * CONFIG.touchLiftCells; }
 
   function pieceCentre(now) {
-    const tx = drag.x, ty = drag.y - liftFor(drag.type, drag.piece);
+    const tx = drag.x + (drag.grab ? drag.grab.dx : 0), ty = drag.y + (drag.grab ? drag.grab.dy : -liftFor(drag.type, drag.piece));
     const k = Math.min(1, (now - drag.t0) / 90);
     const e = easeOut(k);
     return { x: drag.sx + (tx - drag.sx) * e, y: drag.sy + (ty - drag.sy) * e, size: drag.startSize + (L.c - drag.startSize) * e };
@@ -2023,10 +2197,12 @@ const Input = (() => {
     if (gx < 0 && fx > -0.65) gx = 0; if (gy < 0 && fy > -0.65) gy = 0;
     if (gx + s.w > N && fx + s.w < N + 0.65) gx = N - s.w; if (gy + s.h > N && fy + s.h < N + 0.65) gy = N - s.h;
     const onBoard = x > L.bx - L.c * 0.5 && x < L.bx + L.B + L.c * 0.5 && y > L.by - L.c * 0.5 && y < L.by + L.B + L.c * 0.5;
-    const valid = onBoard && Logic.canPlace(state.grid, s, gx, gy);
+    // a lifted board piece is checked against the board without itself, so it can overlap its own cells
+    const base = drag.repo ? drag.repo.base : state.grid;
+    const valid = onBoard && Logic.canPlace(base, s, gx, gy);
     let rows = [], cols = [];
     if (valid) {
-      const g = state.grid.slice();
+      const g = base.slice();
       for (const [cx, cy] of s.cells) g[Logic.idx(gx + cx, gy + cy)] = 1;
       ({ rows, cols } = Logic.findLines(g));
     }
@@ -2039,6 +2215,28 @@ const Input = (() => {
     if (drag || state.over || UI.modalOpen()) return;
     if (FX.waterfall && performance.now() < FX.waterfall.t0 + FX.waterfall.dur * 0.8) return;
     const [x, y] = pos(e);
+    if (repoMode) {
+      // Reposition: pick up an intact placed piece from the board
+      const gx = Math.floor((x - L.ix) / L.c), gy = Math.floor((y - L.iy) / L.c);
+      if (gx >= 0 && gy >= 0 && gx < N && gy < N) {
+        const id = state.pid[Logic.idx(gx, gy)];
+        if (id > 0) {
+          const P = pieceById(id);
+          const sx = L.ix + (P.gx + P.shape.w / 2) * L.c, sy = L.iy + (P.gy + P.shape.h / 2) * L.c;
+          drag = { slot: -1, repo: P, piece: P.piece, pid: e.pointerId, type: e.pointerType || 'mouse', x, y, t0: performance.now(), sx, sy, startSize: L.c, vx: 0, vy: 0, lt: 0 };
+          // the mouse keeps hold of the piece where it was grabbed; a finger lifts it above itself as usual
+          drag.grab = drag.type === 'mouse' ? { dx: sx - x, dy: sy - y } : null;
+          ret = null;
+          try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+          Sound.pickup(); e.preventDefault();
+          return;
+        }
+        if (id < 0 && state.grid[Logic.idx(gx, gy)]) { UI.toast('That piece has popped bubbles, so it stays put'); return; }
+        return;
+      }
+      // touching the tray instead: put Reposition away and play normally
+      repoMode = false; UI.update(true);
+    }
     if (y < L.ty - L.c * 0.3 || y > L.ty + L.T + L.c * 0.5) return;
     const slot = Math.max(0, Math.min(2, Math.floor((x - L.bx) / L.slotW)));
     if (x < L.bx - L.c || x > L.bx + L.B + L.c) return;
@@ -2077,6 +2275,20 @@ const Input = (() => {
     const now = performance.now();
     compute(now);
     const d = drag; drag = null;
+    if (d.repo) {
+      const P = d.repo;
+      // a valid new spot spends the charge; back where it started or an illegal spot keeps it
+      if (pv && pv.valid && (pv.gx !== P.gx || pv.gy !== P.gy)) {
+        const res = move(-1, pv.gx, pv.gy, P);
+        pv = null;
+        if (res) { repoMode = false; playResult(res, true); UI.update(true); return; }
+      }
+      const c = pieceCentreFor(d, now);
+      if (pv && pv.onBoard && !pv.valid) Sound.invalid();
+      pv = null;
+      ret = { piece: d.piece, fx: c.x, fy: c.y, fs: c.size, tx: d.sx, ty: d.sy, ts: L.c, t0: now, slot: -1, repoId: P.id };
+      return;
+    }
     if (pv && pv.valid) {
       const res = move(d.slot, pv.gx, pv.gy);
       pv = null;
@@ -2090,7 +2302,12 @@ const Input = (() => {
     ret = { piece: d.piece, fx: c.x, fy: c.y, fs: c.size, tx, ty, ts: d.piece.mystery ? L.tc : trayCell(d.piece), t0: now, slot: d.slot };
   }
   function pieceCentreFor(d, now) { const save = drag; drag = d; const r = pieceCentre(now); drag = save; return r; }
-  function cancel(e) { if (drag && e.pointerId === drag.pid) { const d = drag; drag = null; pv = null; const [tx, ty] = slotCentre(d.slot); ret = { piece: d.piece, fx: tx, fy: ty, fs: trayCell(d.piece), tx, ty, ts: trayCell(d.piece), t0: 0, slot: d.slot }; } }
+  function cancel(e) {
+    if (!drag || e.pointerId !== drag.pid) return;
+    const d = drag; drag = null; pv = null;
+    if (d.repo) { ret = null; return; }   // the piece never left the board
+    const [tx, ty] = slotCentre(d.slot); ret = { piece: d.piece, fx: tx, fy: ty, fs: trayCell(d.piece), tx, ty, ts: trayCell(d.piece), t0: 0, slot: d.slot };
+  }
 
   cv.addEventListener('pointerdown', down);
   window.addEventListener('pointermove', moveEv, { passive: false });
@@ -2115,7 +2332,8 @@ const Input = (() => {
         const j = wobbleAmount({ t0: drag.t0, amp: 0.12 }, now) || 0;
         sx += j; sy -= j * 0.9;
       }
-      return { piece: drag.piece, x: c.x, y: c.y, size: c.size, alpha: pv && pv.onBoard && !pv.valid ? 0.6 : 1, sx, sy };
+      const lift = settings.reduced ? 1 : easeOut(Math.min(1, (now - drag.t0) / 160));
+      return { piece: drag.piece, x: c.x, y: c.y, size: c.size * (1 + 0.05 * lift), alpha: pv && pv.onBoard && !pv.valid ? 0.6 : 1, sx, sy, lift };
     },
     returning() {
       if (!ret) return null;
@@ -2126,6 +2344,19 @@ const Input = (() => {
     },
     isDragging: () => !!drag,
     dragPiece: () => (drag ? drag.piece : null),
+    dragLift: () => (drag ? drag.t0 : 0),
+    // Reposition controls
+    repoMode: () => repoMode,
+    hiddenId: () => (drag && drag.repo ? drag.repo.id : ret && ret.repoId ? ret.repoId : 0),
+    liftedId: () => (drag && drag.repo ? drag.repo.id : 0),
+    toggleRepo() {
+      if (drag) return false;
+      if (repoMode) { repoMode = false; return true; }
+      if (state.repo < 1 || state.over) return false;
+      if (!anyPieceCanMove()) { UI.toast('No piece can move right now. Saved for later'); return false; }
+      repoMode = true; UI.toast('Drag one of your placed pieces somewhere new'); return true;
+    },
+    cancelRepo() { repoMode = false; },
   };
 })();
 
@@ -2173,12 +2404,18 @@ const UI = (() => {
     bb.classList.toggle('on', bn > 0 && !state.over);
     const bt = bn > 1 ? '×' + bn : '';
     if ($('bonusN').textContent !== bt) $('bonusN').textContent = bt;
+    // Reposition bank: lit when a charge is ready, gold while armed, pulsing when it can rescue the run
+    const rb = $('repoBtn');
+    rb.classList.toggle('ready', state.repo > 0);
+    rb.classList.toggle('active', Input.repoMode());
+    rb.classList.toggle('pulse', state.rescue && state.repo > 0 && !Input.repoMode());
     // undo button shows what it costs right now
     const ub = $('undoBtn'), uc = undoSnap ? undoCost() : 0, tokens = undoTokens();
     const can = !!undoSnap && tokens > 0 && !(FX.waterfall && performance.now() < FX.waterfall.t0 + FX.waterfall.dur);
     if (ub.disabled === can) ub.disabled = !can;
-    const ut = tokens < 1 ? '0' : '×' + tokens + (undoSnap && uc ? ' -' + uc.toLocaleString() : '');
+    const ut = tokens >= 1 && undoSnap && uc ? '-' + uc.toLocaleString() : '', un = String(tokens);
     if ($('undoCost').textContent !== ut) $('undoCost').textContent = ut;
+    if ($('undoN').textContent !== un) $('undoN').textContent = un;
     if (state.combo >= 2) { comboEl.textContent = 'Combo ' + state.combo + '  ·  ×' + Logic.comboMultiplier(state.combo); comboEl.classList.add('on'); }
     else comboEl.classList.remove('on');
   }
@@ -2250,8 +2487,19 @@ const UI = (() => {
     $('inviteNote').textContent = done ? 'Copied! Paste it into a text or WhatsApp.' : 'Press and hold the message above to copy it.';
     Sound.pickup();
   });
+  // Reposition: the bank beside Undo
+  const rescueEl = $('rescue');
+  $('repoBtn').addEventListener('click', () => { Sound.unlock(); if (state.repo < 1 && !Input.repoMode()) UI.toast('Win a Reposition from a mystery reward'); else Input.toggleRepo(); update(true); });
+  $('useRescue').addEventListener('click', () => { rescueEl.classList.remove('show'); if (!Input.repoMode()) Input.toggleRepo(); update(true); });
+  $('endRescue').addEventListener('click', () => {
+    rescueEl.classList.remove('show'); Input.cancelRepo();
+    state.rescue = false; state.over = true; saveGame(); Sound.gameOver(); FX.gameOverAt = performance.now();
+    setTimeout(() => showGameOver(), 500);
+  });
   $('bonusBtn').addEventListener('click', () => { Sound.unlock(); if (!useBonusPiece()) toast('Place a piece first to make room in your tray'); });
-  return { update, placeHint, showHint, dismissHint, toast, showGameOver, hideGameOver, modalOpen: () => go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') };
+  return { update, placeHint, showHint, dismissHint, toast, showGameOver, hideGameOver, modalOpen: () => go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show'),
+    showRescue() { rescueEl.classList.add('show'); },
+    flashRepo() { const b = $('repoBtn'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 1600); } };
 })();
 
 /* =====================================================================
@@ -2262,6 +2510,7 @@ function setup(rowsSpec, trayIds) {
   state.grid = new Array(N * N).fill(0);
   rowsSpec.forEach((r, y) => { if (!r) return; [...r].forEach((ch, x) => { if (ch !== '.') state.grid[Logic.idx(x, y)] = (parseInt(ch, 10) || 1); }); });
   state.tray = trayIds.map((id, i) => id ? { shape: SHAPE_BY_ID[id], color: (i * 2) % 7 } : null);
+  state.pid = fixedPids(state.grid); state.rescue = false; undoSnap = null; Input.cancelRepo();
   FX.trayIn = [0, 0, 0];
   saveGame();
 }
@@ -2274,6 +2523,7 @@ const DEBUG = {
   'Nearly stuck': () => setup(['1.1.1.1.', '.1.1.1.1', '1.1.1.1.', '.1.1.1.1', '1.1.1.1.', '.1.1.1.1', '1.1.1.1.', '.1.1.1..'], ['sq3', 'sq3', '1']),
   'Mystery (3 lines)': () => { setup(['12.4..7.', '.3..56..', '..1...2.', '.....3..', '1234.671', '2345.712', '3456.123', '45671.34'], ['sq2', '1', '3h']); state.tray[0] = makeMystery(); saveGame(); },
   'Mystery (board clear)': () => { setup([, , , , , '1234.671', '2345.712', '3456.123'], ['sq2', '1', '3h']); state.tray[0] = makeMystery(); saveGame(); },
+  'Give Reposition': () => { state.repo = 1; saveGame(); UI.update(true); },
   'Bonus piece': () => { Store.set('bonusPieces', Math.min(3, Store.get('bonusPieces', 0) + 1)); UI.update(true); },
   'Frame Bubble': () => { state.tray[0] = makeMystery(true); saveGame(); },
   'Next skin': () => { state.skin = (state.skin + 1) % SKINS.length; UI.toast('Look: ' + skin().name); saveGame(); },
@@ -2284,7 +2534,10 @@ const DEBUG = {
   Object.entries(DEBUG).forEach(([k, f]) => { const b = document.createElement('button'); b.textContent = k; b.onclick = () => { f(); UI.update(true); }; el.appendChild(b); });
   window.addEventListener('hashchange', on); on();
 })();
-window.WBP = { undo: () => undo(), giveMystery: (i = 0, frame = false) => { state.tray[i] = makeMystery(frame); }, Celebrate, CONFIG, state, Logic, SHAPES, SKINS, move: (s, x, y) => { const r = move(s, x, y); if (r) playResult(r); return r; }, setup, newGame, layout: () => ({ ...L }), FX, Sound, settings, get shown() { return shownScore; } };
+window.WBP = { undo: () => undo(), Store, pieceById, rescueMove, isStuck, saveGame, Input,
+  // place a tracked piece straight onto the board (no scoring), for tests
+  placePiece(id, gx, gy, color = 0) { const s = SHAPE_BY_ID[id]; const r = Logic.apply(state.grid, s, gx, gy, color + 1);
+    state.pid = updatePids(state.pid, s.cells.map(([x, y]) => Logic.idx(gx + x, gy + y)), state.nextPid++, r.cleared); state.grid = r.grid; saveGame(); return state.nextPid - 1; }, giveMystery: (i = 0, frame = false) => { state.tray[i] = makeMystery(frame); }, Celebrate, CONFIG, state, Logic, SHAPES, SKINS, move: (s, x, y) => { const r = move(s, x, y); if (r) playResult(r); return r; }, setup, newGame, layout: () => ({ ...L }), FX, Sound, settings, get shown() { return shownScore; } };
 
 /* =====================================================================
    MAIN LOOP
@@ -2323,7 +2576,7 @@ if (window.visualViewport) { window.visualViewport.addEventListener('resize', re
 ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, () => Sound.unlock(), { passive: true }));
 layout();
 if (!restoreGame()) newGame();
-else { state.over = isStuck(); if (state.over) newGame(); }
+else { state.over = isStuck(); if (state.over) newGame(); else if (state.rescue) setTimeout(() => UI.showRescue(), 600); }
 UI.update(true);
 UI.showHint();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => spriteCache.clear());
