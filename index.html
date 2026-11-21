@@ -826,6 +826,46 @@ const SKINS = [
       gloss(ctx, -r * 0.32, -r * 0.38, r * 0.34, r * 0.24, -0.6, 0.95);
       gloss(ctx, r * 0.3, r * 0.42, r * 0.28, r * 0.12, -0.5, 0.3);
     } },
+  // A glass bubble holding a tiny galaxy: deep space, glowing nebula clouds in the bubble's colour,
+  // a bright core, a dusting of stars, and a glass rim. Stars twinkle (drawn live in drawBubble).
+  { name: 'Galaxy', galaxy: true, colours: ['#ff3d9e', '#20e3d2', '#a35bff', '#ffb02e', '#7cf03a', '#4d8dff'],
+    draw(ctx, s, c) {
+      const r = s * 0.45;
+      let seed = parseInt(c.slice(1), 16) || 7;
+      const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+      const sp = ctx.createRadialGradient(0, 0, 0, 0, 0, r);
+      sp.addColorStop(0, dark(c, 0.55)); sp.addColorStop(0.7, '#0a0620'); sp.addColorStop(1, '#03020a');
+      ctx.fillStyle = sp; ctx.fillRect(-r, -r, r * 2, r * 2);
+      // nebula: soft overlapping clouds swirling around the centre
+      ctx.globalCompositeOperation = 'lighter';
+      const comp = ['#ff3d9e', '#20e3d2', '#a35bff', '#4d8dff'];
+      for (let i = 0; i < 9; i++) {
+        const a = i * 0.9 + rnd() * 0.6, d = r * (0.12 + i * 0.065), x = Math.cos(a) * d, y = Math.sin(a) * d * 0.6;
+        const col = i % 3 === 2 ? comp[Math.floor(rnd() * comp.length)] : c, rr = r * (0.32 + rnd() * 0.22);
+        const g = ctx.createRadialGradient(x, y, 0, x, y, rr);
+        g.addColorStop(0, rgba(col, 0.42)); g.addColorStop(1, rgba(col, 0));
+        ctx.fillStyle = g; ctx.fillRect(-r, -r, r * 2, r * 2);
+      }
+      // bright core
+      const core = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.32);
+      core.addColorStop(0, 'rgba(255,255,255,0.95)'); core.addColorStop(0.25, rgba(light(c, 0.5), 0.7)); core.addColorStop(1, rgba(c, 0));
+      ctx.fillStyle = core; ctx.beginPath(); ctx.ellipse(0, 0, r * 0.32, r * 0.2, -0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      // star dust
+      for (let i = 0; i < 26; i++) {
+        const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * r * 0.95;
+        dot(ctx, Math.cos(a) * d, Math.sin(a) * d, r * (0.012 + rnd() * 0.022), 0.5 + rnd() * 0.5);
+      }
+      ctx.restore();
+      // glass: coloured rim light, big window gloss, specular
+      const rim = ctx.createRadialGradient(0, 0, r * 0.78, 0, 0, r);
+      rim.addColorStop(0, rgba(c, 0)); rim.addColorStop(0.85, rgba(light(c, 0.3), 0.35)); rim.addColorStop(1, rgba('#ffffff', 0.55));
+      ctx.fillStyle = rim; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      gloss(ctx, -r * 0.28, -r * 0.46, r * 0.46, r * 0.2, -0.35, 0.75);
+      dot(ctx, -r * 0.5, -r * 0.42, r * 0.07, 0.95);
+      gloss(ctx, r * 0.32, r * 0.5, r * 0.3, r * 0.1, -0.5, 0.25);
+    } },
 ];
 
 /* =====================================================================
@@ -1449,6 +1489,18 @@ function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, se
   drawBall(skinIdx, colour, cx, cy, size, sx, sy, alpha);
   const sk = SKINS[skinIdx % SKINS.length];
   if (sk.water && CONFIG.feel.water && !settings.reduced && size > 14) drawWater(cx, cy + (1 - sy) * size * 0.3, size, sx, sy, alpha, seed, now);
+  if (sk.galaxy && !settings.reduced && size > 14) {
+    const t = now / 1000, r = size * 0.4;
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy); ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 3; i++) {
+      const tw = Math.max(0, Math.sin(t * (1.3 + i * 0.4) + seed * 2.1 + i * 2.2));
+      if (tw < 0.05) continue;
+      const a = seed * 1.7 + i * 2.1, d = r * (0.25 + 0.2 * i), x = Math.cos(a) * d, y = Math.sin(a) * d, L = r * 0.16 * tw;
+      ctx.strokeStyle = `rgba(255,255,255,${0.85 * tw * alpha})`; ctx.lineWidth = Math.max(0.8, size * 0.014);
+      ctx.beginPath(); ctx.moveTo(x - L, y); ctx.lineTo(x + L, y); ctx.moveTo(x, y - L); ctx.lineTo(x, y + L); ctx.stroke();
+    }
+    ctx.restore();
+  }
   if (!sk.sheen) return;
   const sh = sheenSprite(), k = size / sh.size;
   ctx.save();
