@@ -711,11 +711,17 @@ const SHAPE_DEFS = [
   ['S1',['.##','##.'],0.9],['S2',['#.','##','.#'],0.9],['Z1',['##.','.##'],0.9],['Z2',['.#','##','#.'],0.9],
   ['C3a',['###','#..','#..'],0.7],['C3b',['###','..#','..#'],0.7],['C3c',['#..','#..','###'],0.7],['C3d',['..#','..#','###'],0.7],
   ['d2a',['#.','.#'],0.5],['d2b',['.#','#.'],0.5],
+  // specials: only dealt when there's room for them somewhere on the board
+  // triangles (1, 2, 3) in all four corners: two of them lock together into a solid 4 x 3 block
+  ['tri1',['#..','##.','###'],0.55,1],['tri2',['..#','.##','###'],0.55,1],['tri3',['###','##.','#..'],0.55,1],['tri4',['###','.##','..#'],0.55,1],
+  ['star',['..#..','#####','.###.','.#.#.'],0.25,1],
+  ['circ',['.##.','####','####','.##.'],0.25,1],
+  ['8h',['########'],0.1,1],['8v',['#','#','#','#','#','#','#','#'],0.1,1],
 ];
-const SHAPES = SHAPE_DEFS.map(([id, rows, weight]) => {
+const SHAPES = SHAPE_DEFS.map(([id, rows, weight, special]) => {
   const cells = [];
   rows.forEach((r, y) => [...r].forEach((ch, x) => { if (ch === '#') cells.push([x, y]); }));
-  return { id, cells, w: Math.max(...rows.map(r => r.length)), h: rows.length, weight };
+  return { id, cells, w: Math.max(...rows.map(r => r.length)), h: rows.length, weight, special: !!special };
 });
 const SHAPE_BY_ID = Object.fromEntries(SHAPES.map(s => [s.id, s]));
 const TOTAL_WEIGHT = SHAPES.reduce((a, s) => a + s.weight, 0);
@@ -824,6 +830,7 @@ const Logic = (() => {
     };
     const firstMoves = [];
     for (const s of SHAPES) {
+      if (s.special && s.weight < 0.3) continue;   // rare pieces (star, circle, full row) only turn up by chance
       let best = 0, leastLeft = 99, empties = false, snug = 0;
       for (let gy = 0; gy <= N - s.h; gy++) for (let gx = 0; gx <= N - s.w; gx++) {
         if (!canPlace(grid, s, gx, gy)) continue;
@@ -847,7 +854,7 @@ const Logic = (() => {
       // sample first moves that keep the board small, and see if any second piece then empties it
       const cand = firstMoves.map(m => ({ ...m, left: m.g.reduce((a, v) => a + (v ? 1 : 0), 0) }))
         .sort((p, q) => p.left - q.left || Math.random() - 0.5).slice(0, 40);
-      outer: for (const m of cand) for (const s2 of SHAPES) {
+      outer: for (const m of cand) for (const s2 of SHAPES) { if (s2.special && s2.weight < 0.3) continue;
         if (emptiesWith(m.g, s2)) { pairs.push([m.s, s2]); if (pairs.length >= 3) break outer; }
       }
     }
@@ -871,7 +878,7 @@ const Logic = (() => {
         if (st.empty) { next.push(st); continue; }
         const filled = count(st.g);
         for (const s of SHAPES) {
-          if (weightOf(s) <= 0) continue;
+          if (weightOf(s) <= 0 || (s.special && s.weight < 0.3)) continue;
           let best = null;
           for (let gy = 0; gy <= N - s.h; gy++) for (let gx = 0; gx <= N - s.w; gx++) {
             if (!canPlace(st.g, s, gx, gy)) continue;
@@ -902,7 +909,8 @@ const Logic = (() => {
   function pickWeighted(items, w) {
     const total = items.reduce((a, it) => a + w(it), 0);
     let r = Math.random() * total;
-    for (const it of items) { r -= w(it); if (r <= 0) return it; }
+    for (const it of items) { r -= w(it); if (r <= 0 && w(it) > 0) return it; }
+    for (let k = items.length - 1; k >= 0; k--) if (w(items[k]) > 0) return items[k];
     return items[items.length - 1];
   }
   function newTray(grid, colourCount, boardClears = 0) {
@@ -922,7 +930,8 @@ const Logic = (() => {
         lv.smallBias = lv.smallBias * (1 - q) + 0.5 * q; lv.bigBias = lv.bigBias * (1 - q) + 2.2 * q;
       }
     }
-    const weightOf = s => s.weight * (!lv ? 1 : s.cells.length <= 3 ? lv.smallBias : s.cells.length >= 6 ? lv.bigBias : 1);
+    const roomFor = new Set(SHAPES.filter(s => s.special && anyFit(grid, s)).map(s => s.id));
+    const weightOf = s => (s.special && !roomFor.has(s.id) ? 0 : s.weight) * (!lv ? 1 : s.cells.length <= 3 ? lv.smallBias : s.cells.length >= 6 ? lv.bigBias : 1);
     const help = lv ? helperShapes(grid, lv.clearChance > 0) : null;
     const PL = A && A.enabled && A.plan;
     const planOn = PL ? Math.max(0, Math.min(1, 1 - (boardClears - PL.planFull + 1) / Math.max(1, PL.planUntil - PL.planFull))) * PL.chance : 0;
