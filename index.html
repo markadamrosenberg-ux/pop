@@ -244,6 +244,20 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .card{width:min(88vw,360px);background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:24px 22px;text-align:center;
   box-shadow:0 12px 40px rgba(0,0,0,.35);transform:translateY(10px);transition:transform .35s}
 .overlay.show .card{transform:none}
+/* tap to play: one tap is what lets an iPhone start the sound (a drag doesn't count) */
+#tapStart{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+  background:radial-gradient(circle at 50% 40%,rgba(52,16,62,.96),rgba(6,6,14,.98));opacity:0;pointer-events:none;transition:opacity .3s}
+#tapStart.show{opacity:1;pointer-events:auto}
+#tapStart .tsball{width:150px;height:150px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 34% 28%,#fff 0,#ffd0e6 9%,#ff5aa8 34%,#d8186f 70%,#7a0a3d 100%);
+  box-shadow:0 0 50px rgba(255,45,138,.55),inset -10px -14px 30px rgba(80,0,40,.45);animation:tsWob 1.6s ease-in-out infinite}
+#tapStart .tsball span{font-size:56px;font-weight:700;color:#fff;text-shadow:0 3px 0 rgba(120,0,60,.5)}
+#tapStart .tsgo{font-size:26px;font-weight:700;color:#fff;animation:tsPulse 1.2s ease-in-out infinite}
+#tapStart .tssnd{font-size:14px;color:var(--muted)}
+#tapStart.pop .tsball{animation:tsBurst .3s ease-in forwards}
+@keyframes tsWob{0%,100%{transform:scale(1,1)}50%{transform:scale(1.06,.95)}}
+@keyframes tsPulse{0%,100%{opacity:.65;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+@keyframes tsBurst{to{transform:scale(1.6);opacity:0}}
 .card h2{margin:0 0 4px;font-size:24px;font-weight:700}
 .card .sub{color:var(--muted);font-size:15px;margin-bottom:16px}
 .card .big{font-size:52px;font-weight:700;line-height:1.05}
@@ -290,7 +304,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
         <span class="cost" id="undoCost"></span><span class="count" id="undoN"></span>
       </button>
-      <button class="iconbtn pinbtn" id="pinBtn" aria-label="Pin: pop one bubble">
+      <button class="iconbtn pinbtn" id="pinBtn" aria-label="Pin: pop up to 3 bubbles">
         <svg viewBox="0 0 32 32" aria-hidden="true"><defs><radialGradient id="pinG" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff6c8"/><stop offset=".4" stop-color="#ffd23f"/><stop offset="1" stop-color="#b77a00"/></radialGradient></defs>
           <path d="M16 20.5 L13.2 29.5 L16 30.5 L18.8 29.5 Z" fill="#cfd6e4" stroke="#7d8596" stroke-width=".8"/>
           <circle cx="16" cy="12" r="9" fill="url(#pinG)"/><ellipse cx="12.6" cy="8.6" rx="3" ry="1.7" fill="#fff" opacity=".85" transform="rotate(-30 12.6 8.6)"/></svg>
@@ -341,7 +355,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <div class="gostreak" id="goStreak"></div>
         <div class="goopt" id="goPinWrap">
           <button class="btn pinuse" id="goPin"><span class="pinicon"></span><span id="goPinTxt">Pop a bubble</span><span class="ccost">free</span></button>
-          <div class="cnote">Use your Pin to burst one bubble that's in the way, then keep playing.</div>
+          <div class="cnote">Use your Pin to burst up to 3 bubbles that are in the way, then keep playing.</div>
         </div>
         <div class="goopt" id="goCont">
           <button class="btn contbtn" id="goContinue"><span class="cbub"></span><span>Keep going</span><span class="ccost" id="goContCost">-285 pts</span></button>
@@ -362,7 +376,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
           <div class="ladder" id="mpLadder"></div>
           <div class="mprow"><span class="mpi st"></span><span class="mpk">Days in a row</span><span class="mpv" id="mpStreak">0</span></div>
           <div class="mpnext" id="mpNext"></div>
-          <div class="mprow"><span class="mpi pn"></span><span class="mpk">Pins saved</span><span class="mpv" id="mpPins">0</span></div>
+          <div class="mprow"><span class="mpi pn"></span><span class="mpk">Pops saved</span><span class="mpv" id="mpPins">0</span></div>
           <div class="mprow"><span class="mpi gm"></span><span class="mpk">Games played</span><span class="mpv" id="mpGames">0</span></div>
         </div>
         <div class="mpnote" id="mpNote"></div>
@@ -370,6 +384,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <button class="btn ghost" id="mpDone">Done</button>
       </div>
     </div>
+    <div id="tapStart"><div class="tsball"><span>Pop</span></div><div class="tsgo">Tap to play</div><div class="tssnd">🔊 Sound on</div></div>
     <div class="overlay" id="nameCard">
       <div class="card undocard">
         <div class="ubub ladbub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 17.5L3.5 8.5l5 4 3.5-6 3.5 6 5-4-1 9z"/><path d="M5 20.5h14"/></svg></div>
@@ -388,7 +403,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card undocard">
         <div class="ubub pinbub"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M16 20.5 L13.2 29.5 L16 30.5 L18.8 29.5 Z" fill="#cfd6e4" stroke="#7d8596" stroke-width=".8"/><circle cx="16" cy="12" r="9" fill="#fff3c4"/><ellipse cx="12.6" cy="8.6" rx="3" ry="1.7" fill="#fff" transform="rotate(-30 12.6 8.6)"/></svg></div>
         <h2>The Pin</h2>
-        <div class="ulead">Pop any bubble that's in your way. Perfect when you're stuck.</div>
+        <div class="ulead">Pop up to 3 bubbles that are in your way. Perfect when you're stuck.</div>
         <div class="pinhow" id="pinHave"></div>
         <div class="pinways">
           <div><span class="pw a"></span>Clear 3 frames</div>
@@ -569,9 +584,9 @@ const CONFIG = {
   // points and drops a Rescue Bubble (a mystery piece that pops lines) into the tray. Later: watch an ad.
   continueGame: { costPercent: 20, perGame: 1 },
 
-  // Pin: a saved reward that pops one bubble of your choice (a Triple Pin pops up to 3).
+  // Pin: a saved reward that pops up to `pops` bubbles of your choice. Pops you don't use stay saved.
   // Earned: some mystery rewards, every frame clear, streak days; one to try in your first game.
-  pin: { rewardShare: 0.12, maxPins: 3, maxTriples: 1, everyFrames: 3, starter: 1, swellMs: 380 },
+  pin: { pops: 3, rewardShare: 0.12, maxPins: 3, maxTriples: 1, everyFrames: 3, starter: 1, swellMs: 380 },
 
   // Days in a row: a day counts once you place a piece. One missed day a week is forgiven.
   // Milestones hand out Pins: a Pin every 5th day, a Triple Pin every 14th.
@@ -1590,8 +1605,10 @@ function isStuck() {
 }
 
 /* ---- Pins ---- */
-const pinCounts = () => ({ pins: Store.get('pins', 0), triples: Store.get('triplePins', 0) });
-const hasPin = () => { const c = pinCounts(); return c.pins + c.triples > 0; };
+// every Pin (and the older Triple Pin) is worth CONFIG.pin.pops pops; 'pinSpare' = pops left over from a Pin you put away
+const pinCounts = () => ({ pins: Store.get('pins', 0), triples: Store.get('triplePins', 0), spare: Store.get('pinSpare', 0) });
+const pinPops = (c = pinCounts()) => (c.pins + c.triples) * CONFIG.pin.pops + c.spare;
+const hasPin = () => pinPops() > 0;
 function grantPin(triple = false) {
   const P = CONFIG.pin;
   if (triple) { const n = Store.get('triplePins', 0); if (n >= P.maxTriples) return false; Store.set('triplePins', n + 1); return true; }
@@ -2216,7 +2233,7 @@ function playResult(res, pointerGesture) {
   }
   if (res.mysteryGranted === 'pin') {
     Sound.mysteryAppear(0.35);
-    setTimeout(() => { UI.toast('📍 Pin earned! Pop any bubble you like'); UI.flashPin(); }, 300);
+    setTimeout(() => { UI.toast('📍 Pin earned! Pop any 3 bubbles you like'); UI.flashPin(); }, 300);
   } else if (res.mysteryGranted === 'repo') {
     // a Reposition charge goes into the bank beside Undo
     Sound.mysteryAppear(0.35);
@@ -3060,8 +3077,8 @@ const Input = (() => {
     if (!pin) return;
     const p = pin; pin = null;
     if (refund && p.shots > 0) {
-      if (p.shots === p.total) grantPin(p.kind === 'triple');           // never used: give it back
-      else for (let k = 0; k < p.shots; k++) grantPin();               // part of a Triple Pin left: keep as Pins
+      if (p.shots === p.total && p.kind !== 'spare') grantPin(p.kind === 'triple');   // never used: give it back
+      else Store.set('pinSpare', Store.get('pinSpare', 0) + p.shots);                 // the pops you didn't use stay saved
     }
     // after popping, the run carries on only if something fits
     if (!state.over && isStuck()) { state.over = true; saveGame(); FX.pendingGameOver = performance.now() + CONFIG.pin.swellMs + 700; }
@@ -3238,11 +3255,13 @@ const Input = (() => {
       if (state.over || drag) return false;
       repoMode = false;
       const c = pinCounts();
-      if (c.pins > 0) { Store.set('pins', c.pins - 1); pin = { kind: 'pin', shots: 1, total: 1 }; }
-      else if (c.triples > 0) { Store.set('triplePins', c.triples - 1); pin = { kind: 'triple', shots: 3, total: 3 }; }
+      const P = CONFIG.pin.pops;
+      if (c.spare > 0) { Store.set('pinSpare', 0); pin = { kind: 'spare', shots: c.spare, total: c.spare }; }
+      else if (c.pins > 0) { Store.set('pins', c.pins - 1); pin = { kind: 'pin', shots: P, total: P }; }
+      else if (c.triples > 0) { Store.set('triplePins', c.triples - 1); pin = { kind: 'triple', shots: P, total: P }; }
       else { UI.pinInfo(0); return false; }
       Sound.pickup();
-      UI.toast(pin.total === 1 ? 'Tap any bubble to pop it' : 'Triple Pin! Tap up to 3 bubbles to pop them');
+      UI.toast(pin.shots === 1 ? 'Tap any bubble to pop it' : `Tap up to ${pin.shots} bubbles to pop them`);
       return true;
     },
     cancelPin() { endPin(); },
@@ -3304,7 +3323,7 @@ const UI = (() => {
     const bd = Net.player() ? Net.board() : null, rkt = bd && bd.me && bd.me.rank ? ' · #' + bd.me.rank : '';
     if ($('bestRank').textContent !== rkt) $('bestRank').textContent = rkt;
     // Pin: how many pops you've got saved
-    const pc = pinCounts(), pb = $('pinBtn'), pops = pc.pins + pc.triples * 3;
+    const pc = pinCounts(), pb = $('pinBtn'), pops = pinPops(pc);
     pb.classList.toggle('none', pops === 0 && !Input.pinMode());
     pb.classList.toggle('active', Input.pinMode());
     const pn = Input.pinMode() ? String(Input.pinShots()) : pops > 0 ? String(pops) : '';
@@ -3346,9 +3365,10 @@ const UI = (() => {
       $('goStreak').innerHTML = `<span class="sb"></span><span><b>${n} ${n === 1 ? 'day' : 'days'} in a row.</b> ${reward}</span>`;
     } else $('goStreak').innerHTML = '';
     // the game's over: no undo. A free Pin if you've got one; one paid "keep going" per game (later: watch an ad)
-    const c = pinCounts(), havePin = c.pins + c.triples > 0;
+    const c = pinCounts(), havePin = pinPops(c) > 0;
     $('goPinWrap').style.display = havePin ? '' : 'none';
-    $('goPinTxt').textContent = c.pins > 0 ? 'Pop a bubble' : 'Pop up to 3 bubbles';
+    const gp = c.spare > 0 ? c.spare : CONFIG.pin.pops;
+    $('goPinTxt').textContent = gp === 1 ? 'Pop a bubble' : `Pop up to ${gp} bubbles`;
     const can = canContinue(), cost = continueCost();
     $('goCont').style.display = can ? '' : 'none';
     $('goContCost').textContent = cost > 0 ? '-' + cost.toLocaleString() + ' pts' : 'free';
@@ -3420,7 +3440,7 @@ const UI = (() => {
     const toTriple = S.tripleEvery - (n % S.tripleEvery), toPin = S.pinEvery - (n % S.pinEvery);
     $('mpNext').textContent = n === 0 ? 'Play today to start a streak. Day 5 earns a Pin.' : toTriple <= toPin ? `${toTriple === 1 ? 'Tomorrow' : toTriple + ' more days'}: a Triple Pin` : `${toPin === 1 ? 'Tomorrow' : toPin + ' more days'}: a Pin`;
     const pc = pinCounts();
-    $('mpPins').textContent = pc.pins + (pc.triples ? ` + ${pc.triples} Triple` : '');
+    $('mpPins').textContent = pinPops(pc);
     $('mpGames').textContent = Store.get('games', 0).toLocaleString();
     renderLadder();
     Sound.pickup(); mp.classList.add('show');
@@ -3503,7 +3523,7 @@ const UI = (() => {
   $('pinBtn').addEventListener('click', () => {
     Sound.unlock();
     // the first time, explain what it does before arming it
-    const pc = pinCounts(), pops = pc.pins + pc.triples * 3;
+    const pc = pinCounts(), pops = pinPops(pc);
     if (pops > 0 && !Input.pinMode() && !Store.get('pinExplained', false)) { Store.set('pinExplained', true); pinInfoEl._arm = true; pinInfo(pops); $('pinInfoOk').textContent = "Let's pop!"; return; }
     $('pinInfoOk').textContent = 'Got it';
     Input.togglePin(); update(true);
@@ -3550,7 +3570,7 @@ const UI = (() => {
     setTimeout(() => showGameOver(), 500);
   });
   $('bonusBtn').addEventListener('click', () => { Sound.unlock(); if (!useBonusPiece()) toast('Place a piece first to make room in your tray'); });
-  return { update, placeHint, showHint, dismissHint, toast, showGameOver, hideGameOver, modalOpen: () => go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show') || askEl.classList.contains('show') || mp.classList.contains('show') || pinInfoEl.classList.contains('show') || nc.classList.contains('show'),
+  return { update, placeHint, showHint, dismissHint, toast, showGameOver, hideGameOver, modalOpen: () => document.getElementById('tapStart').classList.contains('show') || go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show') || askEl.classList.contains('show') || mp.classList.contains('show') || pinInfoEl.classList.contains('show') || nc.classList.contains('show'),
     showRescue() { rescueEl.classList.add('show'); },
     pinInfo: n => pinInfo(n),
     showNameCard: (f, r) => showNameCard(f, r),
@@ -3653,7 +3673,25 @@ else { state.over = isStuck(); if (state.over) newGame(); else if (state.rescue)
 // everyone gets one Pin to try, including players part-way through a saved game
 if (!Store.get('pinStarter', false)) { Store.set('pinStarter', true); grantPin(); UI.update(true); }
 // the ladder: ask for a name once, send anything waiting, keep your rank up to date
-setTimeout(() => { if (!Celebrate.active() && !UI.modalOpen()) UI.showNameCard(); }, 1200);
+// Tap to play: shown when the game opens (and after a long break) if the sound is on, so the first touch starts the audio
+const TapStart = (() => {
+  const el = document.getElementById('tapStart'); let after = null, hiddenAt = 0;
+  function show(then, force = false) {
+    after = then || null;
+    if (!(settings.sfx > 0) || (navigator.webdriver && !force)) { const f = after; after = null; if (f) setTimeout(f, 1200); return; }   // sound off, or an automated test
+    el.classList.remove('pop'); el.classList.add('show');
+  }
+  el.addEventListener('click', () => {
+    Sound.unlock(); try { Sound.pop(0, 1, 0); } catch (_) {}
+    el.classList.add('pop'); setTimeout(() => { el.classList.remove('show', 'pop'); const f = after; after = null; if (f) setTimeout(f, 500); }, 260);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    if (hiddenAt && Date.now() - hiddenAt > 60000 && !el.classList.contains('show')) show();
+  });
+  return { show };
+})();
+TapStart.show(() => { if (!Celebrate.active() && !UI.modalOpen()) UI.showNameCard(); });
 Net.flush(); Net.refresh();
 document.addEventListener('visibilitychange', () => { if (document.hidden) Net.flush(); else Net.refresh(); });
 setInterval(() => { if (!document.hidden) Net.refresh(); }, 90000);
