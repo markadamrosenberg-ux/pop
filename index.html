@@ -529,11 +529,11 @@ const CONFIG = {
     // Pop Party: some mystery rewards are "Pop N bubbles!" - tap that many bubbles off the board, right away.
     party: { enabled: true, share: 0.4, counts: [3, 5, 8, 10, 12, 15, 20], pointsEach: 25 } },
 
-  // Golden bubble: the only way to win a Frame Bubble. On a golden frame, once you've made afterMoves moves,
-  // one bubble in a nearly-full line turns gold. Clear a line through it within `moves` moves and you win
-  // the Frame Bubble; miss and it gets away. everyFrames: 1 = every frame (testing), 6 = every 6th frame.
-  // A frame that drags on (mystery.rescue) also gets a golden bubble.
-  golden: { enabled: true, everyFrames: 1, afterMoves: 6, moves: 3 },
+  // Golden bubble: the only way to win a Frame Bubble. Each frame has a `chance` of hiding one, turning up at a
+  // random move between minMoves and maxMoves, in a nearly-full line. Clear a line through it within `moves`
+  // moves and you win the Frame Bubble; miss and it gets away. A frame that drags on (mystery.rescue) also
+  // gets one. Never on the skins in noSkins (gold doesn't show up well on metal).
+  golden: { enabled: true, chance: 0.18, minMoves: 12, maxMoves: 35, moves: 3, noSkins: ['Liquid Metal', 'Gold Rush'] },
 
   celebrate: 'burst',   // frame clear: 'burst' = a barrage of water balloons popping, 'water' = the rising-water version
 
@@ -1631,6 +1631,11 @@ function dealGaps() {
     }
   }
 }
+// Does this frame hide a golden bubble, and on which move?
+function rollGolden() {
+  const G = CONFIG.golden;
+  state.goldenAt = Math.random() < G.chance ? G.minMoves + Math.floor(Math.random() * (G.maxMoves - G.minMoves + 1)) : 0;
+}
 // The golden bubble goes in the fullest unfinished line, so it can be won in a few moves
 function pickGolden() {
   if (state.grid.filter(Boolean).length < 6) return -1;
@@ -1707,7 +1712,7 @@ function serialise() {
   return { grid: state.grid, tray: state.tray.map(packPiece),
     score: state.score, combo: state.combo, sinceClear: state.sinceClear, skin: state.skin, boardClears: state.boardClears, frameLines: state.frameLines,
     mysteryLines: state.mysteryLines, mysteryCount: state.mysteryCount, mysteryPending: state.mysteryPending, mysterySinceFrame: state.mysterySinceFrame, rescueGiven: !!state.rescueGiven,
-    pid: state.pid, nextPid: state.nextPid, golden: state.golden || null, goldenDone: !!state.goldenDone, goldenDue: !!state.goldenDue, frameMoves: state.frameMoves | 0, gapQueue: state.gapQueue || [], puzzlePure: !!state.puzzlePure, frameStart: state.frameStart | 0, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted };
+    pid: state.pid, nextPid: state.nextPid, golden: state.golden || null, goldenDone: !!state.goldenDone, goldenDue: !!state.goldenDue, frameMoves: state.frameMoves | 0, goldenAt: state.goldenAt | 0, gapQueue: state.gapQueue || [], puzzlePure: !!state.puzzlePure, frameStart: state.frameStart | 0, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted };
 }
 function saveGame() { if (state.over) Store.set('game', null); else Store.set('game', serialise()); }
 function restoreGame() {
@@ -1721,7 +1726,7 @@ function restoreGame() {
   // older saves have no piece ids: their bubbles are fixed, new placements are tracked normally
   state.pid = validPids(g.pid, state.grid) ? g.pid.slice() : fixedPids(state.grid);
   state.nextPid = Math.max(g.nextPid | 0, 1, ...state.pid) + (validPids(g.pid, state.grid) ? 0 : 1);
-  state.continues = g.continues | 0; state.tainted = !!g.tainted; state.gapQueue = Array.isArray(g.gapQueue) ? g.gapQueue.slice() : []; state.puzzlePure = !!g.puzzlePure; state.golden = g.golden && state.grid[g.golden.i] ? { ...g.golden } : null; state.goldenDone = !!g.goldenDone; state.goldenDue = !!g.goldenDue; state.frameMoves = g.frameMoves | 0; state.frameStart = g.frameStart | 0;
+  state.continues = g.continues | 0; state.tainted = !!g.tainted; state.gapQueue = Array.isArray(g.gapQueue) ? g.gapQueue.slice() : []; state.puzzlePure = !!g.puzzlePure; state.golden = g.golden && state.grid[g.golden.i] ? { ...g.golden } : null; state.goldenDone = !!g.goldenDone; state.goldenDue = !!g.goldenDue; state.frameMoves = g.frameMoves | 0; state.goldenAt = g.goldenAt | 0; state.frameStart = g.frameStart | 0;
   state.repo = CONFIG.reposition.enabled ? Math.max(0, Math.min(CONFIG.reposition.maxCharges, g.repo | 0)) : 0;
   if (state.tray.every(p => !p)) refillTray(false);
   shownTarget = shownScore = state.score;
@@ -1809,7 +1814,7 @@ function newGame() {
   state.grid = new Array(N * N).fill(0);
   state.score = 0; state.combo = 0; state.sinceClear = 0; state.over = false; state.boardClears = 0; state.frameLines = 0;
   state.mysteryLines = 0; state.mysteryCount = 0; state.mysteryPending = false; state.mysterySinceFrame = 0; state.rescueGiven = false;
-  state.golden = null; state.goldenDone = false; state.goldenDue = false; state.frameMoves = 0;
+  state.golden = null; state.goldenDone = false; state.goldenDue = false; state.frameMoves = 0; rollGolden();
   state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false; state.continues = 0; state.tainted = false;
   Input.cancelRepo(); Input.cancelPin();
   state.skin = 0;
@@ -1964,7 +1969,7 @@ function move(slot, gx, gy, repo = null) {
   let golden = null;
   const G = CONFIG.golden;
   state.frameMoves = (state.frameMoves | 0) + 1;
-  if (waterfall) { state.golden = null; state.frameMoves = 0; state.goldenDone = false; state.goldenDue = false; }
+  if (waterfall) { state.golden = null; state.frameMoves = 0; state.goldenDone = false; state.goldenDue = false; rollGolden(); }
   else if (G.enabled) {
     if (state.golden) {
       if (res.cleared.some(q => Logic.idx(q.x, q.y) === state.golden.i)) {
@@ -1972,7 +1977,7 @@ function move(slot, gx, gy, repo = null) {
         if (free >= 0) state.tray[free] = makeMystery(true); else state.mysteryPending = 'frame';
         golden = { kind: 'won', i: state.golden.i, slot: free }; state.golden = null;
       } else if (!state.grid[state.golden.i] || --state.golden.left <= 0) { golden = { kind: 'lost', i: state.golden.i }; state.golden = null; }
-    } else if ((!state.goldenDone && state.boardClears % G.everyFrames === G.everyFrames - 1 && state.frameMoves >= G.afterMoves) || state.goldenDue) {
+    } else if (((!state.goldenDone && state.goldenAt && state.frameMoves >= state.goldenAt) || state.goldenDue) && !G.noSkins.includes(skin().name)) {
       const i = pickGolden();
       if (i >= 0) { state.golden = { i, left: G.moves }; state.goldenDone = true; state.goldenDue = false; golden = { kind: 'new', i }; }
     }
