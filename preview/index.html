@@ -4306,8 +4306,8 @@ const Input = (() => {
         UI.update(true);
         return;
       }
-      if (pin.kind === 'party') { UI.toast('Tap the bubbles on the board to pop them'); return; }
-      endPin(); // touching outside the board puts the Pin away
+      if (pin.kind === 'party') UI.toast('Pop party over');   // picking up a piece ends the party: play on
+      endPin(); // touching outside the board puts the Pin away (and a piece you touched picks up as normal)
     }
     if (repoMode) {
       // Reposition: pick up an intact placed piece from the board
@@ -4455,7 +4455,7 @@ const Input = (() => {
     pinShots: () => (pin ? pin.shots : 0),
     // Tap the Pin: get it ready (a Pin first, otherwise a Triple Pin). Tap again to put it away.
     togglePin() {
-      if (pin && pin.kind === 'party') return false;   // finish the party first
+      if (pin && pin.kind === 'party') UI.toast('Pop party over');
       if (pin) { endPin(); return false; }
       if (state.over || drag) return false;
       repoMode = false;
