@@ -4726,10 +4726,10 @@ const UI = (() => {
       note.textContent = 'Put your name on it and see where you rank.'; return;
     }
     const hasFriends = !!(fb && fb.friends > 0);
-    const tail = () => { const code = Store.get('friendCode', null);
-      return `<div class="fcode"><span>Your friend code <b>${code ? Net.fmtCode(code) : '…'}</b></span><a id="mpCopyCode">Copy</a></div>`
-        + '<button class="btn invitebtn" id="mpAddFriend">Add a friend</button>'
-        + `<div class="ladlinks"><a id="mpRename">Change name</a><span>${before ? 'Before the ladder: ' + before.toLocaleString() : ''}</span></div>`; };
+    // one button: sends your personal invite link; they tap it and tap "Add Mark R". The code is only a fallback.
+    const tail = () => '<button class="btn invitebtn" id="mpAddFriend">Add a friend</button>'
+        + `<div class="ladlinks"><a id="mpRename">Change name</a><a id="mpEnterCode">Got a friend code?</a></div>`
+        + (before ? `<div class="ladlinks"><span></span><span>Before the ladder: ${before.toLocaleString()}</span></div>` : '');
     const tab = ladTab || (hasFriends ? 'friends' : 'world');
     let html = `<div class="ladtabs"><button data-t="friends" class="${tab === 'friends' ? 'on' : ''}">Friends</button><button data-t="world" class="${tab === 'world' ? 'on' : ''}">World</button></div>`;
     const row = r => `<div class="ladrow${r.me ? ' me' : ''}${r.rank <= 3 ? ' top' + r.rank : ''}"><span class="r">${r.rank}</span><span>${esc(r.name)}${r.me ? ' (you)' : ''}</span><span class="v">${r.best.toLocaleString()}</span></div>`;
@@ -4758,9 +4758,22 @@ const UI = (() => {
       note.textContent = !b ? '' : b.me.rank === 1 ? "You're top of the ladder! Keep it that way." : b.me.rank ? `Beat ${b.top.find(r => r.rank === b.me.rank - 1) ? esc(b.top.find(r => r.rank === b.me.rank - 1).name) : 'the player above'} to move up.` : 'Finish a game to get on the ladder.';
     }
     $('mpRename').onclick = () => { mp.classList.remove('show'); showNameCard(true, true); };
-    $('mpAddFriend').onclick = () => { mp.classList.remove('show'); openFriendCard({ mode: 'enter' }); };
-    $('mpCopyCode').onclick = () => copyText(Net.fmtCode(Store.get('friendCode', '')), 'Your code is copied. Send it to a friend who already plays.');
+    $('mpAddFriend').onclick = () => sendFriendLink();
+    $('mpEnterCode').onclick = () => { mp.classList.remove('show'); openFriendCard({ mode: 'enter' }); };
     el.querySelectorAll('.ladtabs button').forEach(bt => bt.onclick = () => { ladTab = bt.dataset.t; Sound.pickup(); renderLadder(); });
+  }
+  // Add a friend = the phone's share menu with your personal link. One tap for them to accept.
+  async function sendFriendLink() {
+    Sound.pickup();
+    const code = await Net.myCode(), me = Net.player();
+    if (!code || !me) { toast("Couldn't get your invite link. Check your internet"); return; }
+    const url = CONFIG.shareUrl + '?f=' + Net.fmtCode(code);
+    const text = `Add me on ${CONFIG.title}! Tap the link to be on each other's Friends ladder 🫧`;
+    if (navigator.share) {
+      try { await navigator.share({ title: CONFIG.title, text, url }); toast('Sent! They just tap the link and Add ' + me.name); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    copyText(text + ' ' + url, 'Link copied. Paste it into a text or WhatsApp');
   }
   async function copyText(text, msg) {
     let done = false;
