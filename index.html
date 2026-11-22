@@ -4664,7 +4664,9 @@ const UI = (() => {
   function syncToggles() {
     $('vSfx').value = Math.round(settings.sfx * 100); $('vSfxV').textContent = Math.round(settings.sfx * 100);
     $('tVibe').classList.toggle('on', settings.vibe);
-    $('vibeNote').textContent = typeof navigator.vibrate === 'function' ? '' : (/iP(hone|ad|od)/.test(navigator.userAgent) ? 'Light tap on iPhone (iOS 18+)' : 'Not supported on this device');
+    // Apple blocked website vibration from iOS 26.5, so only show the setting where it actually works (Android).
+    $('vibeNote').textContent = '';
+    $('tVibe').closest('.row').style.display = typeof navigator.vibrate === 'function' ? '' : 'none';
   }
   const tog = (key, el) => $(el).addEventListener('click', () => { settings[key] = !settings[key]; Store.set(key, settings[key]); syncToggles(); });
   tog('vibe', 'tVibe');
