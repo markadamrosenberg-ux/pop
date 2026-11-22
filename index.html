@@ -695,6 +695,45 @@ function hsl(h, s2, l) {
   const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
   return [f(0) * 255, f(8) * 255, f(4) * 255];
 }
+/* Live sparkle on Diamonds: a beam of light sweeping across the facets, rainbow flashes darting
+   from facet to facet, and frequent bright star glints. */
+function drawDiamondFire(cx, cy, size, sx, sy, alpha, seed, now) {
+  const t = now / 1000, r = size * 0.44;
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy);
+  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+  ctx.globalCompositeOperation = 'lighter';
+  // sweeping beam
+  const ph = ((t * 0.38 + seed * 0.13) % 1.6) - 0.3, bx = (ph * 2 - 1) * r * 1.4;
+  if (ph > -0.2 && ph < 1.2) {
+    const g = ctx.createLinearGradient(bx - r * 0.22, -r, bx + r * 0.22, r);
+    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(0.5, `rgba(255,255,255,${0.2 * alpha})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(-r, -r, r * 2, r * 2);
+  }
+  // rainbow flashes hopping between facets
+  for (let i = 0; i < 4; i++) {
+    const cyc = t * (2.2 + i * 0.7) + seed * 1.9 + i * 1.3, step = Math.floor(cyc), f = cyc - step;
+    const k = Math.sin(f * Math.PI);
+    if (k < 0.15) continue;
+    const hh = Math.sin((step + i * 7 + seed) * 12.9898) * 43758.5453, u = hh - Math.floor(hh);
+    const a = u * Math.PI * 2, d = r * (0.3 + 0.55 * ((u * 7.3) % 1));
+    const col = hsl((u * 360 + t * 40) % 360, 1, 0.7);
+    const x = Math.cos(a) * d, y = Math.sin(a) * d, L = size * 0.16 * k;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, L);
+    g.addColorStop(0, `rgba(${col.map(Math.round).join(',')},${0.75 * k * alpha})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, L, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+  // frequent bright star glints, sometimes two at once
+  for (let i = 0; i < 2; i++) {
+    const q = (t * (0.9 + i * 0.35) + seed * 0.618 + i * 0.5) % 1;
+    if (q > 0.16) continue;
+    const k = Math.sin(q / 0.16 * Math.PI), a = seed * 2.4 + i * 2.6 + Math.floor(t * (0.9 + i * 0.35)) * 1.7;
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy);
+    starGlint(ctx, Math.cos(a) * size * 0.24, Math.sin(a) * size * 0.22, size * (0.3 + 0.08 * i) * k, alpha * k * 0.9);
+    ctx.restore();
+  }
+}
+
 /* A four-point star glint with a soft glow. */
 function starGlint(ctx, x, y, len, a) {
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -890,7 +929,7 @@ const SKINS = [
       starGlint(ctx, r * 0.36, r * 0.3, r * 0.16, 0.7);
     } },
   // Brilliant-cut diamonds: a flat table, two rings of facets, white fire and flashes of rainbow.
-  { name: 'Diamonds', sparkle: true, colours: ['#dff1ff', '#ff8fc8', '#6cc0ff', '#ffd95c', '#74eba6', '#bf94ff', '#ffb98a'],
+  { name: 'Diamonds', sparkle: true, diamond: true, colours: ['#bfe3ff', '#ff8fc8', '#6cc0ff', '#ffd95c', '#74eba6', '#bf94ff', '#ffb98a'],
     draw(ctx, s, c) {
       const r = s * 0.45, m = hexToRgb(c), T = 0.42, R1 = 0.74;
       const facet = (x, y) => {
@@ -1592,7 +1631,8 @@ function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, se
   drawBall(skinIdx, colour, cx, cy, size, sx, sy, alpha);
   const sk = SKINS[skinIdx % SKINS.length];
   if (sk.water && CONFIG.feel.water && !settings.reduced && size > 14) drawWater(cx, cy + (1 - sy) * size * 0.3, size, sx, sy, alpha, seed, now);
-  if (sk.sparkle && !settings.reduced && size > 14) {
+  if (sk.diamond && !settings.reduced && size > 14) drawDiamondFire(cx, cy, size, sx, sy, alpha, seed, now);
+  if (sk.sparkle && !sk.diamond && !settings.reduced && size > 14) {
     // every so often a bubble catches the light with a bright star glint
     const t = now / 1000, ph = (t * 0.45 + seed * 0.618) % 1;
     if (ph < 0.18) {
