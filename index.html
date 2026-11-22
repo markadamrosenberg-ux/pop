@@ -447,7 +447,7 @@ const CONFIG = {
   title: 'Pop',                      // game name, change freely
   // The ladder lives in Supabase. Paste the Project URL and the publishable (anon) key here.
   // These two are safe to have in the page; never put the secret / service key here.
-  online: { url: '', key: '' },
+  online: { url: 'https://ecbrhwrwxolnrprlbysf.supabase.co', key: 'sb_publishable_RkuxJ83M4tN40HsoEtK_3Q_YNXgUqSL' },
   shareUrl: 'https://markadamrosenberg-ux.github.io/pop/',   // public link friends are sent
   gridSize: 8,
   clearRows: true,
@@ -2639,7 +2639,8 @@ function easeOutBack(t) { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(
    Works in the background. If there's no internet the game carries on and catches up later.
    ===================================================================== */
 const Net = (() => {
-  const cfg = () => Store.get('devOnline', null) || CONFIG.online;
+  // ?noladder keeps automated tests off the real ladder
+  const cfg = () => /[?&]noladder/.test(location.search) ? null : (Store.get('devOnline', null) || CONFIG.online);
   const enabled = () => { const c = cfg(); return !!(c && c.url && c.key); };
   const player = () => Store.get('player', null);
   let busy = false, lastSend = 0;
