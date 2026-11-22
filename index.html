@@ -653,6 +653,62 @@ function gloss(ctx, x, y, rx, ry, rot, a) {
 }
 function dot(ctx, x, y, r, a) { ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
 
+/* Draws a sphere of radius r pixel by pixel: fn(x, y, z) gets the surface point (unit sphere, y down)
+   and returns [r, g, b, a]. Used by the 3D styles; the result is cached in the bubble sprite. */
+function renderSphere(ctx, r, fn, facets = false) {
+  const n = Math.max(8, Math.ceil(r * 2 * dpr)), cv = document.createElement('canvas');
+  cv.width = cv.height = n;
+  const x2 = cv.getContext('2d'), img = x2.createImageData(n, n), d = img.data, h = n / 2;
+  for (let py = 0; py < n; py++) for (let px = 0; px < n; px++) {
+    const x = (px + 0.5 - h) / h, y = (py + 0.5 - h) / h, q = x * x + y * y;
+    if (q > 1.02) continue;
+    const z = Math.sqrt(Math.max(0, 1 - q)), c = fn(x, y, z), o = (py * n + px) * 4;
+    const edge = Math.max(0, Math.min(1, (1 - Math.sqrt(q)) * h + 0.5));
+    d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = (c[3] ?? 255) * edge;
+  }
+  x2.putImageData(img, 0, 0);
+  ctx.drawImage(cv, -r, -r, r * 2, r * 2);
+}
+/* Wet, juicy shading for a coloured surface: soft light from the top left, a deep but warm shadow,
+   a sharp specular highlight and light bouncing up from below. */
+function shadeGlossy(col, x, y, z) {
+  const lx = -0.45, ly = -0.6, lz = 0.66, dif = Math.max(0, x * lx + y * ly + z * lz);
+  const rz = 2 * z * z - 1, spec = Math.pow(Math.max(0, 2 * (x * lx + y * ly + z * lz) * z - lz), 40);
+  const bounce = Math.max(0, y) * 0.25 * (1 - z), rim = Math.pow(1 - z, 2.2) * 0.5;
+  const k = 0.42 + dif * 0.72 + bounce - rim * 0.4;
+  return [Math.min(255, col[0] * k + 255 * spec), Math.min(255, col[1] * k + 255 * spec), Math.min(255, col[2] * k + 255 * spec), 255];
+}
+/* A studio seen in a mirror ball: bright sky and soft boxes above, a dark horizon, a warm floor. */
+function studioEnv(x, y, z) {
+  const ry = 2 * z * y, rx = 2 * z * x;          // reflection of the view ray (viewer looks along -z)
+  const sm = (a, b, v) => { const t = Math.max(0, Math.min(1, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
+  // sky (bright, fading down) -> soft dark horizon a little below centre -> warm floor
+  let e = 0.9 - 0.35 * sm(-0.9, 0.3, ry);
+  e -= 0.3 * sm(0.2, 0.42, ry) * (1 - sm(0.45, 0.8, ry));
+  e += 0.35 * sm(0.5, 0.95, ry);
+  e += 0.45 * sm(-0.2, -0.45, rx) * sm(-0.2, -0.5, ry);   // soft box top left
+  e += 0.2 * sm(0.4, 0.7, rx) * (1 - sm(0.1, 0.5, Math.abs(ry - 0.1)));   // side window
+  return Math.max(0.04, Math.min(1.3, e));
+}
+function hsl(h, s2, l) {
+  const k = n => (n + h / 30) % 12, a = s2 * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [f(0) * 255, f(8) * 255, f(4) * 255];
+}
+/* A four-point star glint with a soft glow. */
+function starGlint(ctx, x, y, len, a) {
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(x, y, 0, x, y, len * 0.5);
+  g.addColorStop(0, `rgba(255,255,255,${0.8 * a})`); g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, len * 0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = `rgba(255,255,255,${a})`;
+  for (const [dx, dy] of [[1, 0], [0, 1]]) {
+    ctx.beginPath(); ctx.moveTo(x - dx * len, y - dy * len); ctx.lineTo(x + dy * len * 0.07, y + dx * len * 0.07);
+    ctx.lineTo(x + dx * len, y + dy * len); ctx.lineTo(x - dy * len * 0.07, y - dx * len * 0.07); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+}
+
 const SKINS = [
   { name: 'Juicy Bubbles', water: true, colours: ['#ff2d8a', '#00e5d4', '#9b3dff', '#ffb81c', '#8bea1c'],
     draw(ctx, s, c) {
@@ -795,36 +851,83 @@ const SKINS = [
       gloss(ctx, -r * 0.35, -r * 0.42, r * 0.4, r * 0.24, -0.6, 0.9);
       gloss(ctx, r * 0.35, r * 0.45, r * 0.3, r * 0.14, -0.6, 0.35);
     } },
-  { name: 'Beach Balls', colours: ['#ff5c6c', '#ff9f2e', '#ffd23a', '#2fc77a', '#2fa8f0', '#5865f2', '#c255f0'],
+  // Real 3D beach balls: six curved panels meeting at a white cap, lit like a wet, glossy sphere.
+  { name: 'Beach Balls', colours: ['#ff3b5c', '#ff8a1f', '#ffd21f', '#18c96e', '#1ea0ff', '#4b5cff', '#b53dff'],
     draw(ctx, s, c, i, colours) {
-      const r = s * 0.43, ax = -r * 0.18, ay = -r * 0.22;
-      const c2 = colours[(i + 3) % colours.length];
-      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
-      const seg = 6;
-      for (let k = 0; k < seg; k++) {
-        const a0 = k / seg * Math.PI * 2 + 0.3, a1 = (k + 1) / seg * Math.PI * 2 + 0.3;
-        ctx.fillStyle = k % 3 === 0 ? c : k % 3 === 1 ? '#fbfaf5' : c2;
-        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(Math.cos(a0) * r * 2, Math.sin(a0) * r * 2); ctx.lineTo(Math.cos(a1) * r * 2, Math.sin(a1) * r * 2); ctx.closePath(); ctx.fill();
-      }
-      const sh = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.2, 0, 0, r * 1.05);
-      sh.addColorStop(0, 'rgba(255,255,255,0.1)'); sh.addColorStop(0.65, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,20,40,0.38)');
-      ctx.fillStyle = sh; ctx.fillRect(-r, -r, r * 2, r * 2); ctx.restore();
-      ctx.fillStyle = '#fbfaf5'; ctx.beginPath(); ctx.arc(ax, ay, r * 0.13, 0, Math.PI * 2); ctx.fill();
-      gloss(ctx, -r * 0.42, -r * 0.4, r * 0.32, r * 0.18, -0.7, 0.75);
+      const r = s * 0.45, c2 = hexToRgb(colours[(i + 3) % colours.length]), c3 = hexToRgb(colours[(i + 5) % colours.length]), c1 = hexToRgb(c), W = [250, 250, 244];
+      // the ball is tipped towards the viewer so the cap sits up and to the left
+      const tx = -0.42, ty = 0.95, cx = Math.cos(tx), sxn = Math.sin(tx), cy = Math.cos(ty), syn = Math.sin(ty);
+      renderSphere(ctx, r, (x, y, z) => {
+        // rotate the surface point into the ball's own frame
+        const y1 = y * cy - z * syn, z1 = y * syn + z * cy;
+        const x2 = x * cx + z1 * sxn, z2 = -x * sxn + z1 * cx;
+        const lat = Math.asin(Math.max(-1, Math.min(1, -y1)));
+        let col;
+        if (lat > 1.25 || lat < -1.25) col = W;
+        else {
+          const seg = Math.floor(((Math.atan2(z2, x2) + Math.PI) / (Math.PI * 2)) * 6) % 6;
+          col = seg % 2 === 1 ? W : seg === 0 ? c1 : seg === 2 ? c2 : c3;
+        }
+        // seam lines between panels
+        return shadeGlossy(col, x, y, z);
+      });
+      gloss(ctx, -r * 0.3, -r * 0.46, r * 0.5, r * 0.2, -0.35, 0.85);
+      dot(ctx, -r * 0.52, -r * 0.4, r * 0.07, 0.95);
     } },
-  { name: 'Pearls', sheen: true, colours: ['#ffb3cf', '#ffd09a', '#fff0a0', '#b4f0cf', '#a9dcff', '#c8c0ff', '#ecb8ff'],
+  // Polished precious metals with a mirror finish and real sparkle (twinkles drawn live).
+  { name: 'Gold Rush', sparkle: true, colours: ['#ffc83d', '#ff9d7e', '#e6ecf5', '#ff9f1c', '#c7e05a', '#8cb4ff', '#d39bff'],
     draw(ctx, s, c) {
-      const r = s * 0.42;
-      const g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.05, 0, 0, r);
-      g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, light(c, 0.35)); g.addColorStop(0.85, c); g.addColorStop(1, dark(c, 0.3));
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-      if (ctx.createConicGradient) {
-        const k = ctx.createConicGradient(1, 0, 0);
-        ['rgba(255,180,230,0.25)', 'rgba(180,255,240,0.25)', 'rgba(200,190,255,0.25)', 'rgba(255,240,180,0.25)', 'rgba(255,180,230,0.25)'].forEach((v, i, a) => k.addColorStop(i / (a.length - 1), v));
-        ctx.fillStyle = k; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-      }
-      gloss(ctx, -r * 0.32, -r * 0.38, r * 0.34, r * 0.24, -0.6, 0.95);
-      gloss(ctx, r * 0.3, r * 0.42, r * 0.28, r * 0.12, -0.5, 0.3);
+      const r = s * 0.45, m = hexToRgb(c);
+      renderSphere(ctx, r, (x, y, z) => {
+        const e = studioEnv(x, y, z), hi = Math.max(0, e - 1.0) * 3, edge = Math.pow(1 - z, 3) * 0.35;
+        const k = e * 1.05 - edge;
+        return [Math.min(255, m[0] * k + 255 * hi), Math.min(255, m[1] * k + 255 * hi), Math.min(255, m[2] * k + 255 * hi), 255];
+      });
+      // a fine bright rim and a few frozen glints
+      ctx.strokeStyle = rgba('#ffffff', 0.35); ctx.lineWidth = Math.max(0.8, s * 0.012);
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.97, Math.PI * 1.05, Math.PI * 1.65); ctx.stroke();
+      starGlint(ctx, -r * 0.42, -r * 0.36, r * 0.34, 1);
+      starGlint(ctx, r * 0.36, r * 0.3, r * 0.16, 0.7);
+    } },
+  // Brilliant-cut diamonds: a flat table, two rings of facets, white fire and flashes of rainbow.
+  { name: 'Diamonds', sparkle: true, colours: ['#dff1ff', '#ff8fc8', '#6cc0ff', '#ffd95c', '#74eba6', '#bf94ff', '#ffb98a'],
+    draw(ctx, s, c) {
+      const r = s * 0.45, m = hexToRgb(c), T = 0.42, R1 = 0.74;
+      const facet = (x, y) => {
+        const rho = Math.hypot(x, y), phi = Math.atan2(y, x);
+        if (rho < T) return { id: 0, ring: 0, pc: 0 };
+        const ring = rho < R1 ? 1 : 2, n = ring === 1 ? 8 : 16, off = ring === 1 ? Math.PI / 8 : 0;
+        const sec = ((Math.floor((phi - off) / (Math.PI * 2) * n) % n) + n) % n;
+        return { id: ring * 31 + sec, ring, sec, pc: (sec + 0.5) / n * Math.PI * 2 + off };
+      };
+      renderSphere(ctx, r, (x, y) => {
+        const f = facet(x, y);
+        const h = Math.sin(f.id * 12.9898 + 3.1) * 43758.5453, fr = h - Math.floor(h);
+        let b;
+        if (f.ring === 0) b = 0.55 + 0.35 * (-y * 0.6 - x * 0.3 + 0.5);         // table: soft gradient
+        else {
+          const lightDir = Math.cos(f.pc - (-2.3));                            // facing the top-left light
+          b = (f.sec % 2 ? 0.28 : 0.62) + 0.38 * Math.max(0, lightDir) + (fr - 0.5) * 0.35;
+          if (f.ring === 2) b *= 0.9;
+        }
+        b = Math.max(0.05, Math.min(1.25, b));
+        let out = [m[0] * (0.25 + 0.75 * b) + 60 * b, m[1] * (0.25 + 0.75 * b) + 60 * b, m[2] * (0.25 + 0.75 * b) + 60 * b];
+        if (f.ring && fr > 0.72) { const fire = hsl(fr * 900 % 360, 0.9, 0.62); out = out.map((v, j) => v * 0.45 + fire[j] * 0.65); }
+        if (b > 1) out = out.map(v => v + (b - 1) * 500);
+        return [Math.min(255, out[0]), Math.min(255, out[1]), Math.min(255, out[2]), 255];
+      });
+      // crisp facet edges: table octagon, crown ring and the lines between facets
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = Math.max(0.6, s * 0.012);
+      const poly = (rad, n, off) => { ctx.beginPath(); for (let k = 0; k <= n; k++) { const a = k / n * Math.PI * 2 + off; const X = Math.cos(a) * rad * r, Y = Math.sin(a) * rad * r; k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); } ctx.stroke(); };
+      poly(T, 8, Math.PI / 8); poly(R1, 16, 0);
+      ctx.beginPath();
+      for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + Math.PI / 8; ctx.moveTo(Math.cos(a) * T * r, Math.sin(a) * T * r); ctx.lineTo(Math.cos(a) * R1 * r, Math.sin(a) * R1 * r); }
+      for (let k = 0; k < 16; k++) { const a = k / 16 * Math.PI * 2; ctx.moveTo(Math.cos(a) * R1 * r, Math.sin(a) * R1 * r); ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+      ctx.stroke(); ctx.restore();
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = Math.max(0.8, s * 0.016); ctx.beginPath(); ctx.arc(0, 0, r * 0.985, 0, Math.PI * 2); ctx.stroke();
+      starGlint(ctx, -r * 0.28, -r * 0.3, r * 0.42, 1);
+      starGlint(ctx, r * 0.45, r * 0.18, r * 0.2, 0.8);
     } },
   // A glass bubble holding a tiny galaxy: deep space, glowing nebula clouds in the bubble's colour,
   // a bright core, a dusting of stars, and a glass rim. Stars twinkle (drawn live in drawBubble).
@@ -1489,6 +1592,16 @@ function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, se
   drawBall(skinIdx, colour, cx, cy, size, sx, sy, alpha);
   const sk = SKINS[skinIdx % SKINS.length];
   if (sk.water && CONFIG.feel.water && !settings.reduced && size > 14) drawWater(cx, cy + (1 - sy) * size * 0.3, size, sx, sy, alpha, seed, now);
+  if (sk.sparkle && !settings.reduced && size > 14) {
+    // every so often a bubble catches the light with a bright star glint
+    const t = now / 1000, ph = (t * 0.45 + seed * 0.618) % 1;
+    if (ph < 0.18) {
+      const k = Math.sin(ph / 0.18 * Math.PI), a = seed * 2.4;
+      ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy);
+      starGlint(ctx, Math.cos(a) * size * 0.2 - size * 0.05, Math.sin(a) * size * 0.18 - size * 0.08, size * 0.32 * k, alpha * k);
+      ctx.restore();
+    }
+  }
   if (sk.galaxy && !settings.reduced && size > 14) {
     const t = now / 1000, r = size * 0.4;
     ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy); ctx.globalCompositeOperation = 'lighter';
