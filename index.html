@@ -2516,7 +2516,45 @@ function pinPop(gx, gy) {
   FX.settle.delete(i);
   Sound.stretch(((gx - 3.5) / 3.5) * 0.6);
   saveGame();
+  if (!g.some(Boolean)) setTimeout(() => popClearedFrame(gx, gy), CONFIG.pin.swellMs + 120);
   return true;
+}
+// Popping the last bubble on the board clears the frame, just like a line clear that empties it.
+function popClearedFrame(gx, gy) {
+  if (state.over || state.grid.some(Boolean) || FX.waterfall) return;
+  if (typeof Input !== 'undefined' && Input.endPinNow) Input.endPinNow();
+  const S = CONFIG.scoring, F = CONFIG.frames;
+  const multBefore = frameMult();
+  const bonus = S.boardClearBonus * (state.boardClears + 1) + (F.enabled ? F.perfectBonus : 0);
+  state.boardClears++; state.frameLines = 0; state.mysterySinceFrame = 0; state.rescueGiven = false;
+  state.pid = new Array(N * N).fill(0);
+  layStarter();
+  const starterCells = state.grid.map((v, i) => v ? i : -1).filter(i => i >= 0);
+  undoSnap = null;
+  let pinEarned = false, bonusEarned = false, undoEarned = false;
+  if ((Store.get('framesTotal', 0) + 1) % CONFIG.pin.everyFrames === 0) pinEarned = grantPin();
+  if (state.boardClears % CONFIG.bonusPiece.everyFrames === 0) {
+    const n = Store.get('bonusPieces', 0);
+    if (n < CONFIG.bonusPiece.maxBanked) { Store.set('bonusPieces', n + 1); bonusEarned = true; }
+  }
+  const ft = Store.get('framesTotal', 0) + 1; Store.set('framesTotal', ft);
+  if (ft % CONFIG.undo.everyFrames === 0) undoEarned = grantUndo();
+  state.golden = null; state.frameMoves = 0; state.goldenDone = false; state.goldenDue = false; rollGolden();
+  state.score += bonus;
+  if (state.score > Store.get('best', 0)) Store.set('best', state.score);
+  if (!state.tainted) Backdrops.check(state.score);
+  if (!state.tainted && Net.player() && state.score > Store.get('ladderSent', 0) && state.score > Store.get('ladderPending', 0)) {
+    Store.set('ladderPending', state.score);
+    if (!Net._t) Net._t = setTimeout(() => { Net._t = 0; Net.flush(); }, 15000);
+  }
+  if (state.tray.every(p => !p)) refillTray();   // the pieces in hand carry on into the new frame
+  saveGame();
+  const res = { waterfall: true, frameBubble: false, boardEmpty: true, washed: [], gx, gy, bonus, frameNo: state.boardClears,
+    undoEarned, bonusEarned, pinEarned, multAfter: frameMult(), multBefore, starterCells };
+  Haptics.pulse(CONFIG.haptics.boardClear);
+  const endAt = startWaterfall(res, performance.now());
+  FX.busyUntil = Math.max(FX.busyUntil, endAt);
+  UI.update();
 }
 
 /* ---- Days in a row ---- */
@@ -3315,6 +3353,26 @@ function floatText(text, x, y, size, colour = '#ffffff', dur = 900, delay = 0) {
 }
 
 /* Kick off all effects for a placement result. */
+function startWaterfall(res, endAt) {
+    // haptic must fire inside the touch handler, so it fires on release
+    Haptics.pulse(CONFIG.haptics.boardClear);
+    const t0 = endAt + 20, red = settings.reduced;
+    // leftover bubbles pop in a chain from the centre outwards
+    const ox0 = res.frameBubble ? res.gx : 3.5, oy0 = res.frameBubble ? res.gy : 3.5;
+    const washed = res.washed.map(w => ({ ...w, d: Math.hypot(w.gx - ox0, w.gy - oy0) + Math.random() * 0.3 }))
+      .sort((a, b) => a.d - b.d);
+    const BUILD = red ? 0 : 300;
+    const stagger = washed.length ? Math.min(30, 720 / washed.length) : 0;
+    washed.forEach((w, k) => { w.k = k; w.at = BUILD + k * (red ? 8 : stagger); w.popped = false; });
+    const popEnd = BUILD + washed.length * (red ? 8 : stagger);
+    const C = red ? popEnd : Math.max(BUILD + 120, popEnd - 80);   // cascade starts as the chain finishes
+    const T = { build: BUILD, cascade: C, end: C + (red ? 1500 : Celebrate.duration) };
+    FX.waterfall = { t0, dur: T.end, T, bonus: res.bonus, paid: 0, started: false, skinChanged: false, oldSkin: state.skin,
+      washed, perfect: res.boardEmpty && !res.frameBubble, frameNo: res.frameNo, undoEarned: res.undoEarned, bonusEarned: res.bonusEarned, pinEarned: res.pinEarned, multAfter: res.multAfter, multBefore: res.multBefore };
+    endAt = t0 + T.end;
+    (res.starterCells || []).forEach((i, k) => { const at = t0 + T.end * 0.82 + k * 22; FX.appear.set(i, at); FX.settle.set(i, { t0: at, amp: CONFIG.feel.landAmp }); });
+  return endAt;
+}
 function playResult(res, pointerGesture) {
   const now = performance.now();
   const T = CONFIG.timing;
@@ -3416,25 +3474,7 @@ function playResult(res, pointerGesture) {
     Sound.mysteryAppear(0.35);
     setTimeout(() => UI.toast(res.mysteryGranted === 'frame' ? '★ Frame Bubble! Drop it anywhere to clear the frame' : 'Mystery piece! Pick it up to reveal it'), 300);
   }
-  if (res.waterfall) {
-    // haptic must fire inside the touch handler, so it fires on release
-    Haptics.pulse(CONFIG.haptics.boardClear);
-    const t0 = endAt + 20, red = settings.reduced;
-    // leftover bubbles pop in a chain from the centre outwards
-    const ox0 = res.frameBubble ? res.gx : 3.5, oy0 = res.frameBubble ? res.gy : 3.5;
-    const washed = res.washed.map(w => ({ ...w, d: Math.hypot(w.gx - ox0, w.gy - oy0) + Math.random() * 0.3 }))
-      .sort((a, b) => a.d - b.d);
-    const BUILD = red ? 0 : 300;
-    const stagger = washed.length ? Math.min(30, 720 / washed.length) : 0;
-    washed.forEach((w, k) => { w.k = k; w.at = BUILD + k * (red ? 8 : stagger); w.popped = false; });
-    const popEnd = BUILD + washed.length * (red ? 8 : stagger);
-    const C = red ? popEnd : Math.max(BUILD + 120, popEnd - 80);   // cascade starts as the chain finishes
-    const T = { build: BUILD, cascade: C, end: C + (red ? 1500 : Celebrate.duration) };
-    FX.waterfall = { t0, dur: T.end, T, bonus: res.bonus, paid: 0, started: false, skinChanged: false, oldSkin: state.skin,
-      washed, perfect: res.boardEmpty && !res.frameBubble, frameNo: res.frameNo, undoEarned: res.undoEarned, bonusEarned: res.bonusEarned, pinEarned: res.pinEarned, multAfter: res.multAfter, multBefore: res.multBefore };
-    endAt = t0 + T.end;
-    (res.starterCells || []).forEach((i, k) => { const at = t0 + T.end * 0.82 + k * 22; FX.appear.set(i, at); FX.settle.set(i, { t0: at, amp: CONFIG.feel.landAmp }); });
-  }
+  if (res.waterfall) endAt = startWaterfall(res, endAt);
   FX.busyUntil = Math.max(FX.busyUntil, endAt);
   if (res.streakNews && res.streakNews.count > 1) {
     const sn = res.streakNews, extra = sn.reward === 'triple' ? ' · Triple Pin earned!' : sn.reward === 'pin' ? ' · Pin earned!' : '';
@@ -4585,6 +4625,7 @@ const Input = (() => {
       UI.update(true);
     },
     partyMode: () => !!(pin && pin.kind === 'party'),
+    endPinNow: () => { if (pin) endPin(true); },
   };
 })();
 
