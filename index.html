@@ -158,7 +158,7 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .colourpop.show{transform:translate(-50%,-50%) scale(1) rotate(-2deg);opacity:1}
 .colourpop .cpa{font-size:15px;font-weight:700;letter-spacing:.12em;color:#fff;opacity:.85}
 .colourpop .cpb{font-size:40px;font-weight:800;line-height:1.05;color:var(--cp,#ff2d8a);text-shadow:0 0 18px var(--cp,#ff2d8a),0 2px 0 rgba(0,0,0,.4)}
-.colourpop .cpc{font-size:20px;font-weight:700;color:#ffd23f;margin-top:4px}
+.colourpop .cpc{font-size:17px;font-weight:700;color:#ffd23f;margin-top:4px;white-space:normal;max-width:300px;margin-left:auto;margin-right:auto}
 .streaktoast .sn{font-size:46px;font-weight:700;color:#7ff3ea;line-height:1;text-shadow:0 0 16px rgba(0,229,212,.7)}
 .streaktoast .sl{font-size:18px;font-weight:600;color:#fff;margin-top:4px}
 .streaktoast .sx{font-size:16px;color:#ffd23f;margin-top:4px}
@@ -522,12 +522,18 @@ const CONFIG = {
     // of producing a reward; one is guaranteed by maxLines. Each reward is a Frame Bubble with
     // starChance, and the starBy-th reward in a row is always one. Measured: about 1 mystery piece
     // and 0.5 Frame Bubbles per game; a Frame Bubble in about 4 games out of 10.
-    chancePerLine: 0.05, minLines: 10, maxLines: 30, starChance: 0.25, starBy: 4,
+    chancePerLine: 0.05, minLines: 10, maxLines: 30, starChance: 0, starBy: 999,   // no free Frame Bubbles: win them from the golden bubble
     // Stuck on a frame? Once you've cleared this many lines in it without emptying the board, your next
     // reward is a Frame Bubble: base + perFrame x frame, growing faster after lateFrom so games still end.
     rescue: { enabled: true, base: 8, perFrame: 1.5, lateFrom: 20, latePerFrame: 4 },
     // Pop Party: some mystery rewards are "Pop N bubbles!" - tap that many bubbles off the board, right away.
     party: { enabled: true, share: 0.4, counts: [3, 5, 8, 10, 12, 15, 20], pointsEach: 25 } },
+
+  // Golden bubble: the only way to win a Frame Bubble. On a golden frame, once you've made afterMoves moves,
+  // one bubble in a nearly-full line turns gold. Clear a line through it within `moves` moves and you win
+  // the Frame Bubble; miss and it gets away. everyFrames: 1 = every frame (testing), 6 = every 6th frame.
+  // A frame that drags on (mystery.rescue) also gets a golden bubble.
+  golden: { enabled: true, everyFrames: 1, afterMoves: 6, moves: 3 },
 
   celebrate: 'burst',   // frame clear: 'burst' = a barrage of water balloons popping, 'water' = the rising-water version
 
@@ -1625,6 +1631,18 @@ function dealGaps() {
     }
   }
 }
+// The golden bubble goes in the fullest unfinished line, so it can be won in a few moves
+function pickGolden() {
+  if (state.grid.filter(Boolean).length < 6) return -1;
+  let best = -1, bestN = 0;
+  for (let k = 0; k < N; k++) for (const row of [true, false]) {
+    const cells = [...Array(N).keys()].map(j => row ? Logic.idx(j, k) : Logic.idx(k, j)), n = cells.filter(i => state.grid[i]).length;
+    if (n >= N || n < 4 || n + Math.random() * 0.5 <= bestN) continue;
+    const filledCells = cells.filter(i => state.grid[i]);
+    bestN = n; best = filledCells[Math.floor(Math.random() * filledCells.length)];
+  }
+  return best;
+}
 const mysteryTarget = () => state.mysteryCount === 0 ? CONFIG.mystery.firstAfterLines : CONFIG.mystery.everyLines;
 const makeMystery = (frame = false) => ({ mystery: true, frame, shape: null, color: 0 });
 const frameMult = () => Math.min(CONFIG.scoring.frameMultMax, 1 + state.boardClears * CONFIG.scoring.frameMultStep);
@@ -1689,7 +1707,7 @@ function serialise() {
   return { grid: state.grid, tray: state.tray.map(packPiece),
     score: state.score, combo: state.combo, sinceClear: state.sinceClear, skin: state.skin, boardClears: state.boardClears, frameLines: state.frameLines,
     mysteryLines: state.mysteryLines, mysteryCount: state.mysteryCount, mysteryPending: state.mysteryPending, mysterySinceFrame: state.mysterySinceFrame, rescueGiven: !!state.rescueGiven,
-    pid: state.pid, nextPid: state.nextPid, gapQueue: state.gapQueue || [], puzzlePure: !!state.puzzlePure, frameStart: state.frameStart | 0, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted };
+    pid: state.pid, nextPid: state.nextPid, golden: state.golden || null, goldenDone: !!state.goldenDone, goldenDue: !!state.goldenDue, frameMoves: state.frameMoves | 0, gapQueue: state.gapQueue || [], puzzlePure: !!state.puzzlePure, frameStart: state.frameStart | 0, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted };
 }
 function saveGame() { if (state.over) Store.set('game', null); else Store.set('game', serialise()); }
 function restoreGame() {
@@ -1703,7 +1721,7 @@ function restoreGame() {
   // older saves have no piece ids: their bubbles are fixed, new placements are tracked normally
   state.pid = validPids(g.pid, state.grid) ? g.pid.slice() : fixedPids(state.grid);
   state.nextPid = Math.max(g.nextPid | 0, 1, ...state.pid) + (validPids(g.pid, state.grid) ? 0 : 1);
-  state.continues = g.continues | 0; state.tainted = !!g.tainted; state.gapQueue = Array.isArray(g.gapQueue) ? g.gapQueue.slice() : []; state.puzzlePure = !!g.puzzlePure; state.frameStart = g.frameStart | 0;
+  state.continues = g.continues | 0; state.tainted = !!g.tainted; state.gapQueue = Array.isArray(g.gapQueue) ? g.gapQueue.slice() : []; state.puzzlePure = !!g.puzzlePure; state.golden = g.golden && state.grid[g.golden.i] ? { ...g.golden } : null; state.goldenDone = !!g.goldenDone; state.goldenDue = !!g.goldenDue; state.frameMoves = g.frameMoves | 0; state.frameStart = g.frameStart | 0;
   state.repo = CONFIG.reposition.enabled ? Math.max(0, Math.min(CONFIG.reposition.maxCharges, g.repo | 0)) : 0;
   if (state.tray.every(p => !p)) refillTray(false);
   shownTarget = shownScore = state.score;
@@ -1744,6 +1762,7 @@ function pinPop(gx, gy) {
   const i = Logic.idx(gx, gy), v = state.grid[i];
   if (!v) return false;
   const g = state.grid.slice(); g[i] = 0; state.grid = g;
+  if (state.golden && state.golden.i === i) { state.golden = null; setTimeout(() => UI.toast('You popped the golden bubble. It only counts if a line clears it!'), 300); }
   // the piece it belonged to is now partly popped, so it's fixed
   const id = state.pid[i], pid = state.pid.slice();
   pid[i] = 0; if (id > 0) for (let k = 0; k < pid.length; k++) if (pid[k] === id) pid[k] = -1;
@@ -1790,6 +1809,7 @@ function newGame() {
   state.grid = new Array(N * N).fill(0);
   state.score = 0; state.combo = 0; state.sinceClear = 0; state.over = false; state.boardClears = 0; state.frameLines = 0;
   state.mysteryLines = 0; state.mysteryCount = 0; state.mysteryPending = false; state.mysterySinceFrame = 0; state.rescueGiven = false;
+  state.golden = null; state.goldenDone = false; state.goldenDue = false; state.frameMoves = 0;
   state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false; state.continues = 0; state.tainted = false;
   Input.cancelRepo(); Input.cancelPin();
   state.skin = 0;
@@ -1940,6 +1960,24 @@ function move(slot, gx, gy, repo = null) {
     if (ft % CONFIG.undo.everyFrames === 0) undoEarned = grantUndo();
   }
 
+  // golden bubble: claimed if a cleared line ran through it, otherwise one move closer to getting away
+  let golden = null;
+  const G = CONFIG.golden;
+  state.frameMoves = (state.frameMoves | 0) + 1;
+  if (waterfall) { state.golden = null; state.frameMoves = 0; state.goldenDone = false; state.goldenDue = false; }
+  else if (G.enabled) {
+    if (state.golden) {
+      if (res.cleared.some(q => Logic.idx(q.x, q.y) === state.golden.i)) {
+        const free = state.tray.findIndex(p => !p);
+        if (free >= 0) state.tray[free] = makeMystery(true); else state.mysteryPending = 'frame';
+        golden = { kind: 'won', i: state.golden.i, slot: free }; state.golden = null;
+      } else if (!state.grid[state.golden.i] || --state.golden.left <= 0) { golden = { kind: 'lost', i: state.golden.i }; state.golden = null; }
+    } else if ((!state.goldenDone && state.boardClears % G.everyFrames === G.everyFrames - 1 && state.frameMoves >= G.afterMoves) || state.goldenDue) {
+      const i = pickGolden();
+      if (i >= 0) { state.golden = { i, left: G.moves }; state.goldenDone = true; state.goldenDue = false; golden = { kind: 'new', i }; }
+    }
+  }
+
   state.score += placePts + linePts + bonus;
   if (!state.tainted && Net.player() && state.score > Store.get('ladderSent', 0) && state.score > Store.get('ladderPending', 0)) {
     Store.set('ladderPending', state.score);
@@ -1959,10 +1997,9 @@ function move(slot, gx, gy, repo = null) {
     const RS = MY.rescue, f = state.boardClears;
     const rescueAt = RS && RS.enabled ? RS.base + RS.perFrame * f + Math.max(0, f - RS.lateFrom) * RS.latePerFrame : Infinity;
     const rescue = !state.rescueGiven && state.frameLines >= rescueAt && !state.tray.some(p => p && p.mystery && p.frame);
-    if (rescue) earned = true;
+    if (rescue) { state.rescueGiven = true; state.goldenDue = true; }   // a frame that drags on gets a golden bubble
     if (earned) {
       state.mysteryLines = 0;
-      if (rescue) { state.rescueGiven = true; state.mysterySinceFrame = MY.starBy; }   // makes this one a Frame Bubble
       state.mysteryCount++; mysteryGranted = true;
       // each reward has a chance of being the golden Frame Bubble; the starBy-th in a row always is
       const isFrame = state.mysterySinceFrame + 1 >= MY.starBy || Math.random() < MY.starChance;
@@ -1986,7 +2023,7 @@ function move(slot, gx, gy, repo = null) {
   }
 
   const streakNews = touchStreak();
-  const result = { repo: !!repo, grantSlot, bonusEarned, undoEarned, pinEarned, streakNews, multBefore, multAfter: frameMult(), skinName: null, frameBubble, mysteryGranted, mysteryPlaced: !!piece.mystery, slot, piece, gx, gy, placePts, linePts, colourPts, colourMatches, starterCells, lines, comboMult, combo: state.combo, bonus, waterfall, boardEmpty, ...res, grid: state.grid, washed, frameNo: state.boardClears };
+  const result = { repo: !!repo, grantSlot, bonusEarned, undoEarned, pinEarned, streakNews, multBefore, multAfter: frameMult(), skinName: null, frameBubble, mysteryGranted, mysteryPlaced: !!piece.mystery, slot, piece, gx, gy, placePts, linePts, colourPts, colourMatches, starterCells, golden, lines, comboMult, combo: state.combo, bonus, waterfall, boardEmpty, ...res, grid: state.grid, washed, frameNo: state.boardClears };
 
   if (starterShapes) { const m = state.tray.filter(p => p && p.mystery); state.tray = [null, null, null]; m.forEach((p, i) => state.tray[i] = p); if (state.gapQueue.length) dealGaps(); }
   if (state.tray.every(p => !p)) refillTray();
@@ -2394,6 +2431,21 @@ function playResult(res, pointerGesture) {
       UI.colourPop(sk0.colours[(m.v - 1) % sk0.colours.length], res.colourMatches.length, res.colourPts);
     }
   }
+  if (res.golden) {
+    const gd = res.golden, [gx2, gy2] = cellCentre(gd.i % N, Math.floor(gd.i / N)), wait = Math.max(300, endAt - now);
+    if (gd.kind === 'new') setTimeout(() => {
+      UI.banner('#ffd23f', '✦ GOLDEN BUBBLE ✦', 'Clear its line!', `Clear it in ${CONFIG.golden.moves} moves to win a Frame Bubble`, 2600);
+      Sound.reveal(); Haptics.pulse([15, 30, 15]); spawnSparks(gx2, gy2, 24, '#ffd23f'); FX.settle.set(gd.i, { t0: performance.now(), amp: 0.5 });
+    }, wait);
+    else if (gd.kind === 'won') setTimeout(() => {
+      UI.banner('#ffd23f', 'YOU GOT IT!', '★ Frame Bubble ★', 'Drop it anywhere to clear the frame', 2400);
+      Sound.mysteryAppear(0); Sound.balloonBurst(8, 9, 0, true); Haptics.pulse([30, 40, 50]);
+      for (let k = 0; k < 3; k++) spawnSplash(gx2, gy2, '#ffd23f', 2.6, 0);
+      spawnSparks(gx2, gy2, 40, '#ffd23f'); BG.pulse('#ffb81c', 1);
+      if (gd.slot >= 0) { FX.trayIn[gd.slot] = performance.now() + 200; const [mx, my] = slotCentre(gd.slot); setTimeout(() => spawnSparks(mx, my, 20, '#ffd23f'), 250); }
+    }, Math.max(200, endAt - now - 300));
+    else setTimeout(() => { UI.toast('The golden bubble got away…'); Sound.invalid(); }, wait);
+  }
   if (res.mysteryGranted === 'party' && state.partyPops > 0) {
     const n = state.partyPops; state.partyPops = 0;
     setTimeout(() => { if (!state.over && !FX.waterfall) Input.startParty(n); }, Math.max(450, endAt - now + 80));
@@ -2565,6 +2617,22 @@ function draw(now) {
     if (pinOn && !settings.reduced) { const w = Math.sin(now / 45 + gx * 1.7 + gy * 2.3) * 0.035; sx += w; sy -= w; }
     if (glowRows.includes(gy) || glowCols.includes(gx)) s *= settings.reduced ? 1.1 : 1.16 + Math.sin(wobble * 8 + (gx + gy) * 0.6) * 0.04;
     // Reposition armed: fixed bubbles step back so the movable pieces stand out
+    if (state.golden && state.golden.i === Logic.idx(gx, gy)) {
+      // the golden bubble: a pulsing gold glow, the gold look, and the moves left on a badge
+      const gp = 0.5 + 0.5 * Math.sin(now / 180);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const gg = ctx.createRadialGradient(x, y, c * 0.2, x, y, c * (0.85 + 0.15 * gp));
+      gg.addColorStop(0, `rgba(255,210,63,${0.55 + 0.25 * gp})`); gg.addColorStop(1, 'rgba(255,184,28,0)');
+      ctx.fillStyle = gg; ctx.fillRect(x - c, y - c, c * 2, c * 2); ctx.restore();
+      const gi = SKINS.findIndex(k => /gold/i.test(k.name));
+      drawBubble(gi >= 0 ? gi : state.skin, 0, x, y, c * (0.98 + 0.05 * gp) * s, sx, sy, 1, 7, now);
+      const br = c * 0.2, bx = x + c * 0.32, by = y - c * 0.32;
+      ctx.fillStyle = '#ff2d8a'; ctx.beginPath(); ctx.arc(bx, by, br, 0, Math.PI * 2); ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke();
+      ctx.fillStyle = '#fff'; ctx.font = `700 ${br * 1.3}px Fredoka, ui-rounded, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(String(state.golden.left), bx, by + br * 0.05);
+      continue;
+    }
     drawBubble(state.skin, v - 1, x, y, c * 0.96 * s, sx, sy, repoOn && pidHere < 0 ? 0.35 : 1, gx * 3 + gy * 5, now);
     if (goT >= 0) {
       const delay = (gy * N + gx) * (settings.reduced ? 0 : 6);
