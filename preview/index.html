@@ -279,6 +279,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .seg{display:flex;gap:4px;background:rgba(255,255,255,.07);border-radius:12px;padding:3px}
 .seg button{border:0;background:transparent;color:var(--muted);font:600 13px inherit;font-family:inherit;padding:7px 9px;border-radius:9px;cursor:pointer}
 .seg button.on{background:var(--accent);color:#03201d}
+#bgSeg{flex-wrap:wrap;justify-content:flex-end;max-width:230px}
 .note{color:var(--muted);font-size:13px;margin-top:2px}
 
 .invitebtn{background:linear-gradient(180deg,#3ff0e0,#00b8aa)!important;color:#03201d!important;box-shadow:0 4px 0 #00877c!important;margin-top:10px}
@@ -2173,32 +2174,45 @@ const themeFor = sk => (CONFIG.themes !== false && sk && sk.theme) ? Object.assi
 const theme = () => {
   const t = themeFor(skin()), bd = Backdrops.current();
   // on a bright sky the board gets a darker glass panel so the bubbles still pop
-  return bd === 'sky' ? Object.assign({}, t, { boardFill: 'rgba(18,26,58,0.5)', border: '#ffffff', cellTop: 'rgba(255,255,255,0.08)', cellBot: 'rgba(255,255,255,0.13)', cellStroke: 'rgba(255,255,255,0.14)', ballShadow: t.ballShadow }) : t;
+  return ['sky', 'meadow', 'sunset', 'candy'].includes(bd) ? Object.assign({}, t, { boardFill: 'rgba(18,26,58,0.5)', border: '#ffffff', cellTop: 'rgba(255,255,255,0.08)', cellBot: 'rgba(255,255,255,0.13)', cellStroke: 'rgba(255,255,255,0.14)', ballShadow: t.ballShadow }) : t;
 };
-// Backgrounds you unlock with your best score. Night is the default.
+// Background scenes. By default the scene changes every frame (with the bubble look); the special ones
+// are unlocked with your best score and then join the rotation. You can also pin one in Settings.
 const Backdrops = (() => {
   const LIST = [
     { id: 'night', name: 'Night', need: 0 },
+    { id: 'meadow', name: 'Meadow', need: 0 },
+    { id: 'ocean', name: 'Under the Sea', need: 0 },
+    { id: 'sunset', name: 'Sunset', need: 0 },
+    { id: 'candy', name: 'Candy Land', need: 0 },
+    { id: 'space', name: 'Outer Space', need: 0 },
     { id: 'sky', name: 'Blue Sky', need: 100000 },
     { id: 'aurora', name: 'Aurora', need: 1000000 },
   ];
-  const unlocked = () => Store.get('backdrops', ['night']);
+  const unlocked = () => LIST.filter(b => !b.need).map(b => b.id).concat(Store.get('backdrops', []).filter(id => LIST.some(b => b.id === id && b.need)));
   const best = () => Math.max(Store.get('best', 0), Store.get('bestBefore', 0));
+  if (!Store.get('bgAuto', false)) { Store.set('bgAuto', true); Store.set('backdrop', 'auto'); }   // everyone starts on "changes every frame"
   return {
     LIST,
     unlocked,
     isOpen: id => unlocked().includes(id),
-    current: () => { const c = Store.get('backdrop', 'night'); return unlocked().includes(c) ? c : 'night'; },
-    choose(id) { if (unlocked().includes(id)) { Store.set('backdrop', id); boardBgKey = ''; } },
-    // call with any score: unlocks (and switches to) any background it has earned, with a big announcement
+    choice: () => Store.get('backdrop', 'auto'),
+    current() {
+      const c = Store.get('backdrop', 'auto'), open = unlocked();
+      if (c !== 'auto' && open.includes(c)) return c;
+      const order = LIST.map(b => b.id).filter(id => open.includes(id));
+      return order[(typeof state !== 'undefined' ? state.boardClears | 0 : 0) % order.length];
+    },
+    choose(id) { if (id === 'auto' || unlocked().includes(id)) { Store.set('backdrop', id); boardBgKey = ''; } },
+    // call with any score: unlocks any special background it has earned, with a big announcement
     check(score) {
-      const have = unlocked(), s0 = Math.max(score | 0, best());
+      const have = Store.get('backdrops', []), s0 = Math.max(score | 0, best());
       const fresh = LIST.filter(b => b.need && s0 >= b.need && !have.includes(b.id));
       if (!fresh.length) return;
       Store.set('backdrops', have.concat(fresh.map(b => b.id)));
-      const top = fresh[fresh.length - 1]; this.choose(top.id);
+      const top = fresh[fresh.length - 1];
       setTimeout(() => {
-        UI.banner(top.id === 'aurora' ? '#7cf0c8' : '#5ec8ff', '✦ NEW BACKGROUND UNLOCKED ✦', top.name + '!', `For reaching ${top.need.toLocaleString()} points. Change it in Settings.`, 3200);
+        UI.banner(top.id === 'aurora' ? '#7cf0c8' : '#5ec8ff', '✦ NEW BACKGROUND UNLOCKED ✦', top.name + '!', `For reaching ${top.need.toLocaleString()} points. It joins the scenes you see each frame.`, 3200);
         try { Sound.mysteryAppear(0); } catch (_) {}
         Haptics.pulse([20, 40, 20, 40, 60]); BG.pulse(top.id === 'aurora' ? '#7cf0c8' : '#5ec8ff', 1);
       }, 600);
@@ -2918,6 +2932,130 @@ const BG = (() => {
   const clouds = Array.from({ length: 9 }, (_, k) => ({ x: k / 9 + Math.random() * 0.08, y: 0.08 + ((k * 0.37) % 1) * 0.85, s: 0.6 + Math.random() * 0.8, v: 0.004 + Math.random() * 0.008, puffs: Array.from({ length: 6 }, () => [Math.random() * 1.6 - 0.8, Math.random() * 0.4 - 0.2, 0.35 + Math.random() * 0.4]) }));
   const stars = Array.from({ length: 120 }, () => ({ x: Math.random(), y: Math.random(), r: 0.4 + Math.random() * 1.3, ph: Math.random() * 6 }));
   let shoot = null;
+  // puffy cartoon clouds drifting across (shared by several scenes)
+  function drawClouds(t, top = '#ffffff', under = '#cfe3f5', speed = 1, alpha = 1) {
+    const still = settings.reduced ? 0 : 1;
+    for (const c of clouds) {
+      const span = W * 1.6, cs = Math.min(W, H) * 0.13 * c.s, far = c.s < 0.95;
+      const cx = (((c.x * span + t * c.v * W * 3.5 * speed * still) % span) + span) % span - W * 0.3, cy = c.y * H;
+      x.globalAlpha = (far ? 0.75 : 1) * alpha;
+      for (const [col, oy] of [[under, cs * 0.12], [top, 0]]) {
+        x.fillStyle = col; x.beginPath();
+        x.ellipse(cx, cy + cs * 0.25 + oy, cs * 1.25, cs * 0.32, 0, 0, Math.PI * 2);
+        x.moveTo(cx - cs * 0.1, cy + oy); x.arc(cx - cs * 0.55, cy + oy, cs * 0.45, 0, Math.PI * 2);
+        x.moveTo(cx + cs * 0.67, cy - cs * 0.22 + oy); x.arc(cx + cs * 0.05, cy - cs * 0.22 + oy, cs * 0.62, 0, Math.PI * 2);
+        x.moveTo(cx + cs * 1.12, cy + cs * 0.02 + oy); x.arc(cx + cs * 0.7, cy + cs * 0.02 + oy, cs * 0.42, 0, Math.PI * 2);
+        x.fill();
+      }
+      x.globalAlpha = 1;
+    }
+  }
+  const hills = (t, y0, amp, col, ph, sp = 0.1) => {
+    x.fillStyle = col; x.beginPath(); x.moveTo(0, H);
+    for (let k = 0; k <= 40; k++) { const u = k / 40; x.lineTo(u * W, H * y0 - Math.sin(u * 5 + ph + t * sp * (settings.reduced ? 0 : 1)) * H * amp - Math.sin(u * 11 + ph * 2) * H * amp * 0.3); }
+    x.lineTo(W, H); x.closePath(); x.fill();
+  };
+  function drawMeadow(t) {
+    const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#4fb3ff'); g.addColorStop(0.6, '#a8e2ff'); g.addColorStop(1, '#e8fbff');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    drawClouds(t, '#ffffff', '#d8ecfa', 0.8);
+    hills(t, 0.8, 0.03, '#8fd16a', 0.5, 0.05); hills(t, 0.86, 0.025, '#5fbf4a', 2, 0.08); hills(t, 0.93, 0.02, '#3fa63a', 4, 0.12);
+    // flowers that sway on the front hill
+    const fc = ['#ff5c8a', '#ffd23f', '#ffffff', '#b45cff'];
+    for (let k = 0; k < 18; k++) {
+      const fx = ((k * 0.137 + 0.05) % 1) * W, fy = H * (0.95 + (k % 3) * 0.015) + Math.sin(t * 1.5 + k) * 2;
+      x.fillStyle = fc[k % fc.length]; for (let j = 0; j < 5; j++) { const a = j * 1.2566 + t * 0.2; x.beginPath(); x.arc(fx + Math.cos(a) * 4, fy + Math.sin(a) * 4, 3, 0, Math.PI * 2); x.fill(); }
+      x.fillStyle = '#ffcc33'; x.beginPath(); x.arc(fx, fy, 2.5, 0, Math.PI * 2); x.fill();
+    }
+  }
+  const bubbles = Array.from({ length: 26 }, () => ({ x: Math.random(), y: Math.random(), r: 2 + Math.random() * 6, v: 0.03 + Math.random() * 0.06, ph: Math.random() * 6 }));
+  function drawOcean(t, dt) {
+    const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#1b8fd8'); g.addColorStop(0.5, '#0b5598'); g.addColorStop(1, '#04264f');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 6; k++) {   // light rays from the surface
+      const cx = W * (0.1 + k * 0.17) + Math.sin(t * 0.4 + k) * W * 0.05, w = W * 0.06;
+      const rg = x.createLinearGradient(0, 0, 0, H * 0.8); rg.addColorStop(0, 'rgba(180,235,255,0.18)'); rg.addColorStop(1, 'rgba(180,235,255,0)');
+      x.fillStyle = rg; x.beginPath(); x.moveTo(cx - w, 0); x.lineTo(cx + w, 0); x.lineTo(cx + w * 3, H * 0.8); x.lineTo(cx + w * 1.4, H * 0.8); x.closePath(); x.fill();
+    }
+    x.globalCompositeOperation = 'source-over';
+    for (let k = 0; k < 9; k++) {   // swaying seaweed
+      const bx = W * (k / 8) + 10, hgt = H * (0.12 + (k % 3) * 0.05);
+      x.strokeStyle = k % 2 ? '#2fae6a' : '#1f8f55'; x.lineWidth = 7; x.lineCap = 'round'; x.beginPath(); x.moveTo(bx, H);
+      for (let j = 1; j <= 6; j++) x.lineTo(bx + Math.sin(t * 1.3 + k + j * 0.6) * 10 * j / 6, H - hgt * j / 6);
+      x.stroke();
+    }
+    for (let k = 0; k < 3; k++) {   // little fish swimming past
+      const u = ((t * (0.04 + k * 0.015) + k * 0.37) % 1.3) - 0.15, fx = (k % 2 ? 1 - u : u) * W, fy = H * (0.25 + k * 0.22) + Math.sin(t * 2 + k) * 8, d = k % 2 ? -1 : 1, z = 10 + k * 3;
+      x.fillStyle = ['#ffb03b', '#ff6b8a', '#7cf0c8'][k]; x.beginPath(); x.ellipse(fx, fy, z, z * 0.55, 0, 0, Math.PI * 2); x.fill();
+      x.beginPath(); x.moveTo(fx - d * z * 0.8, fy); x.lineTo(fx - d * z * 1.5, fy - z * 0.5); x.lineTo(fx - d * z * 1.5, fy + z * 0.5); x.closePath(); x.fill();
+      x.fillStyle = '#fff'; x.beginPath(); x.arc(fx + d * z * 0.45, fy - z * 0.1, z * 0.18, 0, Math.PI * 2); x.fill();
+    }
+    for (const b of bubbles) {   // bubbles rising
+      if (!settings.reduced) b.y -= b.v * dt; if (b.y < -0.05) { b.y = 1.05; b.x = Math.random(); }
+      const bx = b.x * W + Math.sin(t * 2 + b.ph) * 6, by = b.y * H;
+      x.strokeStyle = 'rgba(220,245,255,0.55)'; x.lineWidth = 1.5; x.beginPath(); x.arc(bx, by, b.r, 0, Math.PI * 2); x.stroke();
+      x.fillStyle = 'rgba(255,255,255,0.6)'; x.beginPath(); x.arc(bx - b.r * 0.35, by - b.r * 0.35, b.r * 0.25, 0, Math.PI * 2); x.fill();
+    }
+  }
+  function drawSunset(t) {
+    const hz = H * 0.74, g = x.createLinearGradient(0, 0, 0, hz);
+    g.addColorStop(0, '#2c1660'); g.addColorStop(0.45, '#a3357d'); g.addColorStop(0.8, '#ff7a59'); g.addColorStop(1, '#ffc46b');
+    x.fillStyle = g; x.fillRect(0, 0, W, hz);
+    const sr = W * 0.22, sx = W * 0.5;
+    const sg = x.createRadialGradient(sx, hz, sr * 0.6, sx, hz, sr * 2.4); sg.addColorStop(0, 'rgba(255,220,120,0.6)'); sg.addColorStop(1, 'rgba(255,150,90,0)');
+    x.fillStyle = sg; x.fillRect(0, 0, W, hz);
+    x.save(); x.beginPath(); x.rect(0, 0, W, hz); x.clip();
+    const sd = x.createLinearGradient(0, hz - sr, 0, hz); sd.addColorStop(0, '#fff1a8'); sd.addColorStop(1, '#ff8a3d');
+    x.fillStyle = sd; x.beginPath(); x.arc(sx, hz, sr, 0, Math.PI * 2); x.fill(); x.restore();
+    drawClouds(t, '#ffb3c7', '#c25a8a', 0.6, 0.8);
+    const sea = x.createLinearGradient(0, hz, 0, H); sea.addColorStop(0, '#5b2f7a'); sea.addColorStop(1, '#1f1240');
+    x.fillStyle = sea; x.fillRect(0, hz, W, H - hz);
+    for (let k = 0; k < 14; k++) {   // the sun's shimmer on the water
+      const y = hz + 6 + k * (H - hz) / 15, w = sr * (1 - k / 16) * (0.7 + 0.3 * Math.sin(t * 2 + k * 1.3));
+      x.fillStyle = `rgba(255,200,120,${0.55 - k * 0.03})`; x.fillRect(sx - w / 2 + Math.sin(t + k) * 6, y, w, 3);
+    }
+  }
+  const sprinkles = Array.from({ length: 40 }, () => ({ x: Math.random(), y: Math.random(), v: 0.02 + Math.random() * 0.04, a: Math.random() * 6, c: ['#ff5c8a', '#ffd23f', '#4fb8ff', '#8fe03a', '#b45cff', '#ffffff'][Math.floor(Math.random() * 6)] }));
+  function drawCandy(t, dt) {
+    const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#ffc1e3'); g.addColorStop(0.6, '#d9c6ff'); g.addColorStop(1, '#bfe9ff');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    drawClouds(t, '#ffffff', '#ffd6ec', 0.7);
+    for (const p of sprinkles) {
+      if (!settings.reduced) { p.y += p.v * dt; p.a += dt; } if (p.y > 1.05) { p.y = -0.05; p.x = Math.random(); }
+      x.save(); x.translate(p.x * W, p.y * H); x.rotate(p.a); x.fillStyle = p.c; x.beginPath(); x.roundRect(-6, -2, 12, 4, 2); x.fill(); x.restore();
+    }
+    hills(t, 0.84, 0.03, '#ff9ccc', 1, 0.06); hills(t, 0.9, 0.025, '#9ff0cf', 3, 0.09); hills(t, 0.96, 0.015, '#fff1a1', 5, 0.12);
+    for (let k = 0; k < 4; k++) {   // lollipops planted on the hills
+      const lx = W * (0.12 + k * 0.26), ly = H * 0.86 - (k % 2) * 14, rr = 16;
+      x.strokeStyle = '#fff'; x.lineWidth = 4; x.beginPath(); x.moveTo(lx, ly); x.lineTo(lx, ly + 40); x.stroke();
+      x.fillStyle = ['#ff5c8a', '#4fb8ff', '#ffb03b', '#b45cff'][k]; x.beginPath(); x.arc(lx, ly, rr, 0, Math.PI * 2); x.fill();
+      x.strokeStyle = 'rgba(255,255,255,0.9)'; x.lineWidth = 3; x.beginPath();
+      for (let j = 0; j < 60; j++) { const a = j * 0.35 + t * (settings.reduced ? 0 : 1.2), d = j / 60 * rr; j ? x.lineTo(lx + Math.cos(a) * d, ly + Math.sin(a) * d) : x.moveTo(lx, ly); } x.stroke();
+    }
+  }
+  function drawSpace(t, dt) {
+    const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#05030f'); g.addColorStop(1, '#140a2e');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.globalCompositeOperation = 'lighter';
+    [['#7a3cff', 0.2, 0.3, 0.5], ['#ff3d9e', 0.85, 0.65, 0.45], ['#2fb6ff', 0.5, 0.95, 0.5]].forEach(([c, nx, ny, nr], k) => {
+      const ng = x.createRadialGradient(nx * W, ny * H, 0, nx * W, ny * H, nr * W); ng.addColorStop(0, rgba(c, 0.22 + 0.05 * Math.sin(t * 0.5 + k))); ng.addColorStop(1, rgba(c, 0));
+      x.fillStyle = ng; x.fillRect(0, 0, W, H);
+    });
+    x.globalCompositeOperation = 'source-over';
+    for (const st of stars) { const a = 0.35 + 0.65 * Math.abs(Math.sin(t * 1.3 + st.ph)); x.fillStyle = `rgba(255,255,255,${a})`; x.beginPath(); x.arc(st.x * W, st.y * H, st.r, 0, Math.PI * 2); x.fill(); }
+    // a big ringed planet in the corner
+    const px = W * 0.05, py = H * 0.9, pr = W * 0.26;
+    const pg = x.createRadialGradient(px + pr * 0.3, py - pr * 0.3, pr * 0.1, px, py, pr); pg.addColorStop(0, '#ffb36b'); pg.addColorStop(0.6, '#d9577a'); pg.addColorStop(1, '#3a1450');
+    x.fillStyle = pg; x.beginPath(); x.arc(px, py, pr, 0, Math.PI * 2); x.fill();
+    x.save(); x.translate(px, py); x.rotate(-0.35); x.strokeStyle = 'rgba(255,230,200,0.75)'; x.lineWidth = 6; x.beginPath(); x.ellipse(0, 0, pr * 1.6, pr * 0.35, 0, Math.PI * 1.05, Math.PI * 1.95 + 0.9); x.stroke(); x.restore();
+    if (!shoot && Math.random() < dt * 0.3 && !settings.reduced) shoot = { x: Math.random() * W * 0.6, y: Math.random() * H * 0.4, life: 0 };
+    if (shoot) {
+      shoot.life += dt; const p = shoot.life / 0.9, sx = shoot.x + p * W * 0.5, sy = shoot.y + p * H * 0.18;
+      x.strokeStyle = `rgba(255,255,255,${1 - p})`; x.lineWidth = 2; x.beginPath(); x.moveTo(sx - W * 0.1, sy - H * 0.035); x.lineTo(sx, sy); x.stroke();
+      if (p >= 1) shoot = null;
+    }
+  }
   function drawSky(t) {
     // cartoon sky: bright gradient, a smiling-bright sun with turning rays, puffy clouds drifting past, birds now and then
     const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2b8cff'); g.addColorStop(0.6, '#6cc3ff'); g.addColorStop(1, '#bfe9ff');
@@ -2981,7 +3119,8 @@ const BG = (() => {
     const t = now / 1000, M = Math.max(W, H);
     x.globalCompositeOperation = 'source-over';
     const bd = Backdrops.current();
-    if (bd === 'sky') { drawSky(t); pulse = Math.max(0, pulse - dt * 1.6); return; }
+    const SC = { sky: drawSky, meadow: drawMeadow, ocean: drawOcean, sunset: drawSunset, candy: drawCandy, space: drawSpace };
+    if (SC[bd]) { SC[bd](t, dt); pulse = Math.max(0, pulse - dt * 1.6); return; }
     if (bd === 'aurora') { drawAurora(t, dt); pulse = Math.max(0, pulse - dt * 1.6); return; }
     const th = theme(), r0 = stageEl.getBoundingClientRect();
     x.fillStyle = th.bgEdge; x.fillRect(0, 0, W, H);
@@ -4470,7 +4609,7 @@ const UI = (() => {
   });
   vol('sfx', 'vSfx');
   const bgSeg = $('bgSeg');
-  const syncBg = () => { bgSeg.innerHTML = Backdrops.LIST.map(b => Backdrops.isOpen(b.id) ? `<button data-v="${b.id}" class="${Backdrops.current() === b.id ? 'on' : ''}">${b.name}</button>` : `<button data-v="" disabled style="opacity:.55">🔒 ${b.need >= 1e6 ? b.need / 1e6 + 'M' : b.need / 1e3 + 'k'}</button>`).join(''); };
+  const syncBg = () => { const ch = Backdrops.choice(); bgSeg.innerHTML = `<button data-v="auto" class="${ch === 'auto' ? 'on' : ''}">Every frame</button>` + Backdrops.LIST.map(b => Backdrops.isOpen(b.id) ? `<button data-v="${b.id}" class="${ch === b.id ? 'on' : ''}">${b.name}</button>` : `<button data-v="" disabled style="opacity:.55">🔒 ${b.name} ${b.need >= 1e6 ? b.need / 1e6 + 'M' : b.need / 1e3 + 'k'}</button>`).join(''); };
   bgSeg.addEventListener('click', e => { const v = e.target.dataset && e.target.dataset.v; if (!v) return; Backdrops.choose(v); syncBg(); });
   $('settingsBtn').addEventListener('click', () => { syncToggles(); syncBg(); st.classList.add('show'); });
   $('closeSettings').addEventListener('click', () => st.classList.remove('show'));
