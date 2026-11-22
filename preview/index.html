@@ -2279,7 +2279,7 @@ const themeFor = sk => (CONFIG.themes !== false && sk && sk.theme) ? Object.assi
 // shadow and a fine light rim, so the bubbles stand right out whatever the scene behind them.
 const onScene = () => Backdrops.current() !== 'night';
 const withScene = t => onScene() ? Object.assign({}, t, {
-  boardFill: 'rgba(10,12,30,0.84)', border: 'rgba(255,255,255,0.85)', cellTop: 'rgba(255,255,255,0.06)', cellBot: 'rgba(255,255,255,0.1)', cellStroke: 'rgba(255,255,255,0.12)',
+  boardFill: 'rgba(10,12,30,0.4)', border: 'rgba(255,255,255,0.85)', cellTop: 'rgba(10,12,30,0.16)', cellBot: 'rgba(255,255,255,0.08)', cellStroke: 'rgba(255,255,255,0.22)',
   ballShadow: Math.max(t.ballShadow || 0, 0.55), ballRim: t.ballRim || 'rgba(255,255,255,0.45)',
 }) : t;
 const theme = () => withScene(themeFor(skin()));
