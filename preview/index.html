@@ -1654,7 +1654,14 @@ const Haptics = (() => {
     pulse(pattern) {
       if (!settings.vibe || !pattern || (Array.isArray(pattern) && !pattern.length)) return;
       if (canVibrate) { try { navigator.vibrate(pattern); return; } catch (e) {} }
-      try { lbl.click(); } catch (e) {}
+      // iPhone (iOS 18+): toggling a "switch" checkbox gives a haptic tap. The proven way: a fresh label with the
+      // switch inside it, put in the page, clicked, and taken away again, all during a touch.
+      try {
+        const l = document.createElement('label'), i = document.createElement('input');
+        l.setAttribute('aria-hidden', 'true'); l.style.display = 'none';
+        i.type = 'checkbox'; i.setAttribute('switch', ''); l.appendChild(i);
+        document.head.appendChild(l); l.click(); document.head.removeChild(l);
+      } catch (e) { try { lbl.click(); } catch (_) {} }
     },
   };
 })();
@@ -4661,6 +4668,7 @@ const UI = (() => {
   }
   const tog = (key, el) => $(el).addEventListener('click', () => { settings[key] = !settings[key]; Store.set(key, settings[key]); syncToggles(); });
   tog('vibe', 'tVibe');
+  $('tVibe').addEventListener('click', () => Haptics.pulse(30));   // switching it on gives a tap, so you can check it works
   const seg = $('assistSeg');
   const syncSeg = () => seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === CONFIG.assist.level));
   seg.addEventListener('click', e => { const v = e.target.dataset && e.target.dataset.v; if (!v) return; CONFIG.assist.level = v; Store.set('assistLevel', v); syncSeg(); });
