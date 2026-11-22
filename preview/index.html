@@ -2171,11 +2171,14 @@ const DEFAULT_THEME = {
   boardFill: 'rgba(255,255,255,0.025)', border: '#00e5d4', ink: 'rgba(255,255,255,0.55)', ballRim: null, ballShadow: 0,
 };
 const themeFor = sk => (CONFIG.themes !== false && sk && sk.theme) ? Object.assign({}, DEFAULT_THEME, sk.theme) : DEFAULT_THEME;
-const theme = () => {
-  const t = themeFor(skin()), bd = Backdrops.current();
-  // on a bright sky the board gets a darker glass panel so the bubbles still pop
-  return ['sky', 'meadow', 'sunset', 'candy'].includes(bd) ? Object.assign({}, t, { boardFill: 'rgba(18,26,58,0.5)', border: '#ffffff', cellTop: 'rgba(255,255,255,0.08)', cellBot: 'rgba(255,255,255,0.13)', cellStroke: 'rgba(255,255,255,0.14)', ballShadow: t.ballShadow }) : t;
-};
+// On any scene but Night, the board and tray sit on a dark glass panel and every bubble gets a soft
+// shadow and a fine light rim, so the bubbles stand right out whatever the scene behind them.
+const onScene = () => Backdrops.current() !== 'night';
+const withScene = t => onScene() ? Object.assign({}, t, {
+  boardFill: 'rgba(10,12,30,0.84)', border: 'rgba(255,255,255,0.85)', cellTop: 'rgba(255,255,255,0.06)', cellBot: 'rgba(255,255,255,0.1)', cellStroke: 'rgba(255,255,255,0.12)',
+  ballShadow: Math.max(t.ballShadow || 0, 0.55), ballRim: t.ballRim || 'rgba(255,255,255,0.45)',
+}) : t;
+const theme = () => withScene(themeFor(skin()));
 // Background scenes. By default the scene changes every frame (with the bubble look); the special ones
 // are unlocked with your best score and then join the rotation. You can also pin one in Settings.
 const Backdrops = (() => {
@@ -2727,7 +2730,7 @@ function layout() {
 }
 
 function sprite(skinIdx, colour) {
-  const key = skinIdx + '|' + colour + '|' + (CONFIG.themes !== false);
+  const key = skinIdx + '|' + colour + '|' + (CONFIG.themes !== false) + '|' + onScene();
   let s = spriteCache.get(key);
   if (s) return s;
   const size = Math.max(24, L.c);
@@ -2735,7 +2738,7 @@ function sprite(skinIdx, colour) {
   const c = document.createElement('canvas'); c.width = c.height = box;
   const x = c.getContext('2d');
   x.scale(dpr, dpr); x.translate(box / dpr / 2, box / dpr / 2);
-  const sk = SKINS[skinIdx % SKINS.length], th = themeFor(sk);
+  const sk = SKINS[skinIdx % SKINS.length], th = withScene(themeFor(sk));
   if (th.ballShadow) {   // soft shadow just below: the marble sits slightly above the board
     const g = x.createRadialGradient(0, size * 0.09, size * 0.2, 0, size * 0.09, size * 0.56);
     g.addColorStop(0, `rgba(10,4,24,${th.ballShadow})`); g.addColorStop(1, 'rgba(10,4,24,0)');
@@ -3120,7 +3123,13 @@ const BG = (() => {
     x.globalCompositeOperation = 'source-over';
     const bd = Backdrops.current();
     const SC = { sky: drawSky, meadow: drawMeadow, ocean: drawOcean, sunset: drawSunset, candy: drawCandy, space: drawSpace };
-    if (SC[bd]) { SC[bd](t, dt); pulse = Math.max(0, pulse - dt * 1.6); return; }
+    if (SC[bd]) {
+      SC[bd](t, dt); pulse = Math.max(0, pulse - dt * 1.6);
+      // darken behind the score and buttons so they always read
+      const hb = stageEl.getBoundingClientRect().top + L.by, hg = x.createLinearGradient(0, 0, 0, hb);
+      hg.addColorStop(0, 'rgba(8,10,28,0.72)'); hg.addColorStop(0.8, 'rgba(8,10,28,0.45)'); hg.addColorStop(1, 'rgba(8,10,28,0)');
+      x.fillStyle = hg; x.fillRect(0, 0, W, hb); return;
+    }
     if (bd === 'aurora') { drawAurora(t, dt); pulse = Math.max(0, pulse - dt * 1.6); return; }
     const th = theme(), r0 = stageEl.getBoundingClientRect();
     x.fillStyle = th.bgEdge; x.fillRect(0, 0, W, H);
@@ -3424,6 +3433,11 @@ function draw(now) {
   rr(ctx, L.bx + 0.75, L.by + 0.75, L.B - 1.5, L.B - 1.5, L.c * 0.32);
   const th = theme();
   ctx.fillStyle = th.boardFill; ctx.fill();
+  if (onScene()) {   // the same dark glass behind the waiting pieces
+    ctx.save(); rr(ctx, L.bx + 0.75, L.ty + L.T * 0.04, L.B - 1.5, L.T * 0.92, L.c * 0.32); ctx.fillStyle = th.boardFill; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1.5; ctx.stroke(); ctx.restore();
+    rr(ctx, L.bx + 0.75, L.by + 0.75, L.B - 1.5, L.B - 1.5, L.c * 0.32);
+  }
   let gk = 0;
   if (FX.waterfall && now >= FX.waterfall.t0) { const tt = now - FX.waterfall.t0; gk = Math.min(1, tt / 250) * Math.max(0, Math.min(1, (FX.waterfall.dur - tt) / 500)); }
   const bc = gk ? ['#00e5d4', '#ff2d8a', '#9b3dff', '#ffb81c'][Math.floor(now / 140) % 4] : th.border;
