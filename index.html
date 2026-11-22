@@ -308,6 +308,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .bggrid button b{font-size:26px;font-weight:400}
 .bggrid button.on{border-color:#2ee6d6;background:rgba(46,230,214,.15)}
 .bggrid button:disabled{opacity:.45}
+.diffbtns{display:flex;flex-direction:column;gap:8px}.diffbtns .btn{margin:0}
 .libsub{color:var(--muted);font-size:14px;margin:-4px 0 12px}
 .libbar{height:8px;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden;margin:8px 0 0}.libbar i{display:block;height:100%;background:linear-gradient(90deg,#2ee6d6,#ff2d8a)}
 .libgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
@@ -486,6 +487,13 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <button class="btn invbtn" id="sendInvite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>Share Pop</button>
         <div class="invsmall"><button class="btn ghost" id="copyInvite">Copy link</button><button class="btn ghost" id="closeInvite">Done</button></div>
         <div class="note" id="inviteNote" style="margin-top:8px;min-height:18px"></div>
+      </div>
+    </div>
+    <div class="overlay" id="diffAsk" style="z-index:8">
+      <div class="card">
+        <h2>How's it feeling?</h2>
+        <div class="libsub" id="diffSub">Frame 3 done</div>
+        <div class="diffbtns"><button class="btn ghost" data-d="-1">😌 Too easy</button><button class="btn" data-d="0">👌 Just right</button><button class="btn ghost" data-d="1">😰 Too hard</button></div>
       </div>
     </div>
     <div class="overlay" id="libPick" style="z-index:7">
@@ -2574,7 +2582,9 @@ function restoreGame() {
 }
 
 function refillTray(animate = true) {
-  state.tray = Logic.newTray(state.grid, skin().colours.length, state.boardClears);
+  // difficulty you've asked for: each step harder deals as if you were 2 frames further on (and vice versa)
+  const eff = Math.max(0, state.boardClears + Store.get('diffLevel', 0) * 2);
+  state.tray = Logic.newTray(state.grid, skin().colours.length, eff);
   if (state.mysteryPending) { state.tray[Math.floor(Math.random() * 3)] = makeMystery(state.mysteryPending === 'frame'); state.mysteryPending = false; }
   dealGaps();   // pieces owed from this frame's starter board
   const now = performance.now();
@@ -4189,7 +4199,7 @@ function updateFX(now, dt) {
         onSkin: () => { if (CONFIG.waterfall.changeSkin) { state.skin = (state.skin + 1) % SKINS.length; Library.see(state.skin); applyPalette(); saveGame(); wf.skinChanged = true; FX.trayIn = state.tray.map((_, i) => performance.now() + 250 + i * 90); } return skin(); },
       });
     }
-    if (t >= wf.dur) { shownTarget += wf.bonus - wf.paid; wf.paid = wf.bonus; FX.waterfall = null; }
+    if (t >= wf.dur) { shownTarget += wf.bonus - wf.paid; wf.paid = wf.bonus; FX.waterfall = null; if (state.boardClears % 3 === 0 && !state.over) setTimeout(() => UI.askDifficulty(), 500); }
   }
   // when everything's done, make sure the score is exact
   if (!FX.pops.length && !FX.waterfall && !Celebrate.active() && now > FX.busyUntil) shownTarget = state.score;
@@ -5385,6 +5395,20 @@ const UI = (() => {
   }
   function showHint() { if (!Store.get('hintSeen', false)) hint.classList.remove('hide'); }
   function dismissHint() { if (!Store.get('hintSeen', false)) { Store.set('hintSeen', true); } hint.classList.add('hide'); }
+  function askDifficulty() {
+    if (UI.modalOpen()) return;
+    $('diffSub').textContent = 'Frame ' + state.boardClears + ' cleared';
+    $('diffAsk').classList.add('show');
+  }
+  $('diffAsk').addEventListener('click', e => {
+    const bt = e.target.closest('button[data-d]'); if (!bt) return;
+    const d = +bt.dataset.d, lv = Store.get('diffLevel', 0);
+    // "too easy" means make it harder: deal as if further into the game
+    const next = Math.max(-3, Math.min(3, lv + (d === -1 ? 1 : d === 1 ? -1 : 0)));
+    Store.set('diffLevel', next);
+    $('diffAsk').classList.remove('show');
+    toast(d === -1 ? '💪 Turning it up a notch' : d === 1 ? '🤝 Easing off a little' : '👌 Keeping it as is');
+  });
   function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800); }
   function showGameOver() {
     const sc = $('goScore'), txt = state.score.toLocaleString(); sc.textContent = txt; sc.dataset.v = txt;
@@ -5779,7 +5803,7 @@ const UI = (() => {
     setTimeout(() => showGameOver(), 500);
   });
   $('bonusBtn').addEventListener('click', () => { Sound.unlock(); if (!useBonusPiece()) toast('Place a piece first to make room in your tray'); });
-  return { update, placeHint, showHint, dismissHint, toast, showGameOver, hideGameOver, modalOpen: () => document.getElementById('tapStart').classList.contains('show') || go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show') || askEl.classList.contains('show') || mp.classList.contains('show') || pinInfoEl.classList.contains('show') || nc.classList.contains('show') || fc.classList.contains('show'),
+  return { update, placeHint, showHint, dismissHint, toast, askDifficulty, showGameOver, hideGameOver, modalOpen: () => document.getElementById('tapStart').classList.contains('show') || go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show') || askEl.classList.contains('show') || mp.classList.contains('show') || pinInfoEl.classList.contains('show') || nc.classList.contains('show') || fc.classList.contains('show') || document.getElementById('diffAsk').classList.contains('show') || document.getElementById('libPick').classList.contains('show') || document.getElementById('bgPick').classList.contains('show'),
     showRescue() { rescueEl.classList.add('show'); },
     pinInfo: n => pinInfo(n),
     showNameCard: (f, r) => showNameCard(f, r),
