@@ -69,6 +69,23 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .iconbtn.undo .cost{font-size:11px;font-weight:600;color:#ff8fb8;margin-top:1px}
 .iconbtn.undo .cost:empty{display:none}
 .iconbtn:disabled{opacity:.3}
+.iconbtn.friends svg{width:34px;height:34px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
+.iconbtn.friends:active svg{transform:scale(.9)}
+.invcard{padding:26px 22px 20px}
+.overlay.show .invcard{animation:cardPop .45s cubic-bezier(.3,1.6,.5,1)}
+.invbubs{position:relative;height:70px;margin:-62px auto 6px;width:150px}
+.invbubs span{position:absolute;border-radius:50%;box-shadow:0 8px 16px rgba(0,0,0,.35),inset 0 -4px 8px rgba(0,0,0,.25);animation:ububFloat 2.6s ease-in-out infinite}
+.invbubs span::after{content:'';position:absolute;left:18%;top:14%;width:38%;height:22%;border-radius:50%;background:rgba(255,255,255,.8);transform:rotate(-30deg)}
+.invbubs .a{left:8px;top:14px;width:52px;height:52px;background:radial-gradient(circle at 35% 30%,#ffe0ee 0,#ff6fb2 30%,#ff2d8a 65%,#a8125f 100%)}
+.invbubs .b{left:50px;top:0;width:62px;height:62px;background:radial-gradient(circle at 35% 30%,#e0fffb 0,#5ff0e2 30%,#00c9b8 65%,#007a70 100%);animation-delay:-.8s}
+.invbubs .c{left:104px;top:20px;width:42px;height:42px;background:radial-gradient(circle at 35% 30%,#fff3c4 0,#ffd23f 35%,#ffb81c 70%,#a86a00 100%);animation-delay:-1.6s}
+.invcard h2{font-size:32px;margin-bottom:6px}
+.invlead{font-size:18px;color:var(--ink);opacity:.85;line-height:1.3;margin-bottom:12px}
+.invmsg{background:#2a8cff;color:#fff;font-size:15px;line-height:1.35;text-align:left;padding:10px 14px;border-radius:18px 18px 4px 18px;margin:0 0 16px auto;max-width:86%;box-shadow:0 4px 10px rgba(0,0,0,.25)}
+.invbtn{height:60px;font-size:22px;display:flex;align-items:center;justify-content:center;gap:10px}
+.invbtn svg{width:24px;height:24px}
+.invsmall{display:flex;gap:10px;margin-top:10px}
+.invsmall .btn{margin-top:0;height:48px;font-size:16px}
 #undoAsk{z-index:60}
 .undocard{padding:26px 22px 20px}
 .overlay.show .undocard{animation:cardPop .45s cubic-bezier(.3,1.6,.5,1)}
@@ -152,8 +169,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .seg button{border:0;background:transparent;color:var(--muted);font:600 13px inherit;font-family:inherit;padding:7px 9px;border-radius:9px;cursor:pointer}
 .seg button.on{background:var(--accent);color:#03201d}
 .note{color:var(--muted);font-size:13px;margin-top:2px}
-#inviteText{width:100%;height:96px;border-radius:14px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--ink);
-  font:500 15px inherit;font-family:inherit;padding:10px 12px;resize:none;margin-bottom:12px;user-select:text;-webkit-user-select:text}
+
 .invitebtn{background:linear-gradient(180deg,#3ff0e0,#00b8aa)!important;color:#03201d!important;box-shadow:0 4px 0 #00877c!important;margin-top:10px}
 .howto{color:var(--muted);font-size:14px;line-height:1.45;text-align:left;margin:12px 0 4px}
 .bonusbtn{position:absolute;left:50%;transform:translateX(-50%);display:none;height:40px;padding:0 18px;border-radius:999px;border:0;
@@ -187,8 +203,19 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <span id="best">0</span>
     </div><div class="combo" id="combo">Combo ×2</div></div></div>
     <div class="actions">
-      <button class="iconbtn" id="shareBtn" aria-label="Invite friends">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>
+      <button class="iconbtn friends" id="shareBtn" aria-label="Play with friends">
+        <svg viewBox="0 0 32 32" aria-hidden="true">
+          <defs>
+            <radialGradient id="fbA" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#ffe0ee"/><stop offset=".35" stop-color="#ff6fb2"/><stop offset=".75" stop-color="#ff2d8a"/><stop offset="1" stop-color="#a8125f"/></radialGradient>
+            <radialGradient id="fbB" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#e0fffb"/><stop offset=".35" stop-color="#5ff0e2"/><stop offset=".75" stop-color="#00c9b8"/><stop offset="1" stop-color="#007a70"/></radialGradient>
+          </defs>
+          <circle cx="12" cy="17" r="9" fill="url(#fbA)"/>
+          <circle cx="21.5" cy="13" r="7.5" fill="url(#fbB)"/>
+          <ellipse cx="9.2" cy="13.4" rx="2.6" ry="1.4" fill="#fff" opacity=".8" transform="rotate(-30 9.2 13.4)"/>
+          <ellipse cx="19.4" cy="10" rx="2.1" ry="1.1" fill="#fff" opacity=".8" transform="rotate(-30 19.4 10)"/>
+          <circle cx="25" cy="23.5" r="5" fill="#ffd23f"/>
+          <path d="M25 21v5M22.5 23.5h5" stroke="#5a3b00" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
       </button>
       <button class="iconbtn" id="settingsBtn" aria-label="Settings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
@@ -234,13 +261,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       </div>
     </div>
     <div class="overlay" id="invite">
-      <div class="card">
-        <h2>Invite friends</h2>
-        <div class="sub">Send a challenge. They'll get your score and a link to play.</div>
-        <textarea id="inviteText" readonly></textarea>
-        <button class="btn" id="copyInvite">Copy invite</button>
+      <div class="card invcard">
+        <div class="invbubs"><span class="a"></span><span class="b"></span><span class="c"></span></div>
+        <h2>Play with friends!</h2>
+        <div class="invlead" id="inviteLead">Challenge them to beat your best</div>
+        <div class="invmsg" id="inviteText"></div>
+        <button class="btn invbtn" id="sendInvite"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3M7 8l5-5 5 5"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>Share Pop</button>
+        <div class="invsmall"><button class="btn ghost" id="copyInvite">Copy link</button><button class="btn ghost" id="closeInvite">Done</button></div>
         <div class="note" id="inviteNote" style="margin-top:8px;min-height:18px"></div>
-        <button class="btn ghost" id="closeInvite">Done</button>
       </div>
     </div>
     <div class="overlay" id="settings">
@@ -2805,20 +2833,32 @@ const UI = (() => {
   function openInvite() {
     const best = Math.max(Store.get('best', 0), state.score);
     const msg = (best > 0 ? 'I scored ' + best.toLocaleString() + ' on ' + CONFIG.title + '. Can you beat me? ' : 'Come and play ' + CONFIG.title + ' with me! ') + '🫧 ' + CONFIG.shareUrl;
-    $('inviteText').value = msg; $('inviteNote').textContent = '';
+    $('inviteText').textContent = msg; $('inviteNote').textContent = '';
+    $('inviteLead').textContent = best > 0 ? 'Challenge them to beat your best' : 'Send Pop to anyone. They can play straight away';
     st.classList.remove('show'); go.classList.remove('show'); inv.classList.add('show');
   }
   $('shareBtn').addEventListener('click', openInvite);
   $('setInvite').addEventListener('click', openInvite);
   $('goInvite').addEventListener('click', openInvite);
   $('closeInvite').addEventListener('click', () => { inv.classList.remove('show'); if (state.over) go.classList.add('show'); });
-  $('copyInvite').addEventListener('click', async () => {
-    const text = $('inviteText').value;
+  async function copyInvite() {
+    const text = $('inviteText').textContent;
     let done = false;
     try { await navigator.clipboard.writeText(text); done = true; } catch (e) {}
-    if (!done) { try { const ta = $('inviteText'); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length); done = document.execCommand('copy'); } catch (e) {} }
-    $('inviteNote').textContent = done ? 'Copied! Paste it into a text or WhatsApp.' : 'Press and hold the message above to copy it.';
+    if (!done) { try { const r = document.createRange(); r.selectNodeContents($('inviteText')); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r); done = document.execCommand('copy'); } catch (e) {} }
+    $('inviteNote').textContent = done ? 'Copied! Paste it into a text, email or WhatsApp.' : 'Press and hold the message to copy it.';
     Sound.pickup();
+  }
+  $('copyInvite').addEventListener('click', copyInvite);
+  // the phone's own share menu: Messages, WhatsApp, email, AirDrop...
+  $('sendInvite').addEventListener('click', async () => {
+    Sound.pickup();
+    const text = $('inviteText').textContent;
+    if (navigator.share) {
+      try { await navigator.share({ title: CONFIG.title, text }); $('inviteNote').textContent = 'Sent! 🫧'; return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    copyInvite();
   });
   // Reposition: the bank beside Undo
   const rescueEl = $('rescue');
