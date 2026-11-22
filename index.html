@@ -1664,8 +1664,116 @@ function nlFill(ctx, r, c, lift = 0.55, dark = 0.4) {
   g.addColorStop(0, mix(c, '#ffffff', lift)); g.addColorStop(0.5, c); g.addColorStop(1, mix(c, '#14001e', dark));
   return g;
 }
+
+// ---- animation layers drawn on top of a bubble every frame (r = 0.45 * size, centred on the bubble)
+const twinkle = (t, seed, speed = 1) => Math.max(0, Math.sin(t * speed * 2.1 + seed * 2.7));
+// eyes close for a moment every few seconds (ex/ey/w/h as fractions of r)
+function animBlink(ex, ey, w, h) {
+  return (ctx, s, c, i, t, seed) => {
+    const r = s * 0.45, ph = (t * 0.27 + seed * 0.37) % 1;
+    if (ph > 0.035) return;
+    ctx.fillStyle = c;
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sx * ex * r, ey * r, w * r * 1.25, h * r * 1.2, 0, 0, Math.PI * 2); ctx.fill(); }
+    ctx.strokeStyle = '#2a1030'; ctx.lineWidth = r * 0.05; ctx.lineCap = 'round';
+    for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sx * ex * r - w * r, ey * r); ctx.lineTo(sx * ex * r + w * r, ey * r); ctx.stroke(); }
+  };
+}
+// a few star glints that flash in turn
+function animGlints(n) {
+  return (ctx, s, c, i, t, seed) => {
+    const r = s * 0.45;
+    for (let k = 0; k < n; k++) {
+      const ph = (t * 0.5 + seed * 0.61 + k * 0.5) % 1;
+      if (ph > 0.2) continue;
+      const a = seed * 2.3 + k * 2.4, q = Math.sin(ph / 0.2 * Math.PI);
+      starGlint(ctx, Math.cos(a) * r * 0.5, Math.sin(a) * r * 0.5, r * 0.55 * q, q);
+    }
+  };
+}
+// tiny sparkles of sugar that twinkle
+function animGlitter(n) {
+  return (ctx, s, c, i, t, seed) => {
+    const r = s * 0.45; ctx.fillStyle = '#fff';
+    for (let k = 0; k < n; k++) {
+      const a = seed * 1.3 + k * 1.9, d = r * (0.2 + (k * 0.37 % 0.7)), q = twinkle(t, seed + k * 1.7, 1.2 + k * 0.2);
+      if (q < 0.4) continue;
+      const x = Math.cos(a) * d, y = Math.sin(a) * d, L = r * 0.12 * q;
+      ctx.globalAlpha = q; ctx.beginPath(); ctx.moveTo(x - L, y); ctx.lineTo(x, y - L * 0.25); ctx.lineTo(x + L, y); ctx.lineTo(x, y + L * 0.25); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x, y - L); ctx.lineTo(x + L * 0.25, y); ctx.lineTo(x, y + L); ctx.lineTo(x - L * 0.25, y); ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+  };
+}
+// a drop of juice swells at the bottom of a drip, falls and splashes away
+function animJuice(ctx, s, c, i, t, seed) {
+  const r = s * 0.45, x0 = 0.1 * r, y0 = Math.sqrt(r * r - x0 * x0) - r * 0.06 + 0.42 * r * 0.6, ph = (t * 0.55 + seed * 0.37) % 1;
+  let y = y0, z = r * 0.06 + r * 0.06 * Math.min(1, ph / 0.6);
+  if (ph > 0.6) y += (ph - 0.6) / 0.4 * (ph - 0.6) / 0.4 * r * 0.9;
+  const a = ph > 0.85 ? (1 - ph) / 0.15 : 1;
+  ctx.globalAlpha = a; ctx.fillStyle = rgba(c, 0.95);
+  ctx.beginPath(); ctx.moveTo(x0, y - z * 1.8); ctx.quadraticCurveTo(x0 + z * 1.2, y + z * 0.2, x0, y + z); ctx.quadraticCurveTo(x0 - z * 1.2, y + z * 0.2, x0, y - z * 1.8); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.arc(x0 - z * 0.35, y - z * 0.1, z * 0.25, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  const g = (t * 0.5 + seed * 0.61) % 1;
+  if (g < 0.2) { const q = Math.sin(g / 0.2 * Math.PI); starGlint(ctx, -r * 0.35, -r * 0.3, r * 0.5 * q, q); }
+}
+// a moon orbiting the planet along its ring
+function animOrbit(ctx, s, c, i, t, seed) {
+  const r = s * 0.45, a = t * 1.4 + seed, tilt = -0.35;
+  const x = Math.cos(a) * r * 1.02, y = Math.sin(a) * r * 0.28;
+  ctx.save(); ctx.rotate(tilt);
+  if (Math.sin(a) < 0 && Math.hypot(x, y) < r * 0.72) { ctx.restore(); return; }   // behind the planet
+  const g = ctx.createRadialGradient(x, y, 0, x, y, r * 0.16);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.4, 'rgba(255,250,220,0.9)'); g.addColorStop(1, 'rgba(255,240,200,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 0.16, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+}
+// the disco ball turns: a band of light sweeps across the tiles, glints flash and colour specks fly off
+function animDisco(ctx, s, c, i, t, seed) {
+  const r = s * 0.45;
+  ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+  ctx.globalCompositeOperation = 'lighter';
+  const rows = 9, ph = (t * 0.9 + seed * 0.3) % 1;
+  for (let k = 0; k < rows; k++) {
+    const y = -r + (k + 0.5) * (2 * r / rows), w = Math.sqrt(Math.max(0, r * r - y * y)), n = Math.max(2, Math.round(w / (r * 0.11)));
+    for (let j = 0; j < n; j++) {
+      const u = (j + 0.5) / n, x = -w + u * 2 * w;
+      const band = Math.max(0, 1 - Math.abs(((u - ph + 1.5) % 1) - 0.5) * 6);   // the sweeping light
+      const flick = twinkle(t * 3, seed + k * 3.1 + j * 1.7, 1.5) > 0.97 ? 1 : 0;
+      const a = band * 0.55 + flick * 0.8;
+      if (a < 0.03) continue;
+      ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.fillRect(x - w / n + 1, y - r / rows + 1, 2 * w / n - 2, 2 * r / rows - 2);
+    }
+  }
+  ctx.restore();
+  for (let k = 0; k < 2; k++) {
+    const q = twinkle(t, seed + k * 2.2, 1.6);
+    if (q > 0.5) { const a = seed + k * 2.6; starGlint(ctx, Math.cos(a) * r * 0.45, Math.sin(a) * r * 0.45, r * 0.6 * (q - 0.5) * 2, (q - 0.5) * 2); }
+  }
+}
+// opal fire: patches of colour drift and flash under the surface
+function animOpal(ctx, s, c, i, t, seed) {
+  const r = s * 0.45, fl = ['#ff3d8b', '#38f2d0', '#ffe14a', '#7a8cff', '#7cf03a'];
+  ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r * 0.97, 0, Math.PI * 2); ctx.clip(); ctx.globalCompositeOperation = 'lighter';
+  for (let k = 0; k < 4; k++) {
+    const a = t * (0.5 + k * 0.15) + seed * 2 + k * 1.6, d = r * (0.25 + 0.15 * Math.sin(t * 0.7 + k)), x = Math.cos(a) * d, y = Math.sin(a) * d;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r * 0.35);
+    g.addColorStop(0, rgba(fl[(k + i) % fl.length], 0.35 * (0.6 + 0.4 * Math.sin(t * 2 + k + seed)))); g.addColorStop(1, rgba(fl[(k + i) % fl.length], 0));
+    ctx.fillStyle = g; ctx.fillRect(-r, -r, r * 2, r * 2);
+  }
+  ctx.restore();
+}
+// neon hums: the glow pulses and every so often flickers
+function animNeon(ctx, s, c, i, t, seed) {
+  const r = s * 0.45, flick = ((t * 0.6 + seed * 0.29) % 1) < 0.03 ? 0.2 : 1, p = (0.5 + 0.5 * Math.sin(t * 3 + seed)) * flick;
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createRadialGradient(0, 0, r * 0.45, 0, 0, r * 0.98);
+  g.addColorStop(0, rgba(c, 0)); g.addColorStop(0.5, rgba(c, 0.35 * p)); g.addColorStop(1, rgba(c, 0));
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+}
 const NEW_SKINS = [
   { name: 'Happy Jellies', colours: NEW_COLS,
+    squish: 1.8, anim: animBlink(0.3, -0.02, 0.1, 0.14, 1),
     // squishy jelly blobs with faces: smiles, winks, little "o"s and cheeky tongues
     draw(ctx, s, c, i) {
       const r = s * 0.45;
@@ -1689,6 +1797,7 @@ const NEW_SKINS = [
       if (mood === 3) { ctx.fillStyle = '#ff5c8a'; ctx.beginPath(); ctx.ellipse(r * 0.04, r * 0.4, r * 0.08, r * 0.09, 0, 0, Math.PI * 2); ctx.fill(); }
     } },
   { name: 'Donuts', colours: NEW_COLS,
+    spin: 0.5, anim: animGlints(2),
     // glazed ring donuts with a wobbly glaze edge, sprinkles and a hole you can see through
     draw(ctx, s, c, i) {
       const r = s * 0.45, hole = r * 0.3, rnd = seeded(77 + i * 31);
@@ -1709,6 +1818,7 @@ const NEW_SKINS = [
       ctx.beginPath(); ctx.arc(0, 0, r * 0.68, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke();
     } },
   { name: 'Lollipops', colours: NEW_COLS,
+    spin: 1.6,
     // candy swirls: a glossy spiral of colour and white
     draw(ctx, s, c, i) {
       const r = s * 0.45;
@@ -1724,6 +1834,7 @@ const NEW_SKINS = [
       ctx.restore(); nlGloss(ctx, r);
     } },
   { name: 'Citrus Slices', colours: NEW_COLS,
+    squish: 1.4, anim: animJuice,
     // a juicy fruit slice: rind, pith and glistening segments
     draw(ctx, s, c, i) {
       const r = s * 0.45;
@@ -1738,9 +1849,22 @@ const NEW_SKINS = [
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.beginPath(); ctx.ellipse(Math.cos((a0 + a1) / 2) * r * 0.5, Math.sin((a0 + a1) / 2) * r * 0.5, r * 0.04, r * 0.09, (a0 + a1) / 2, 0, Math.PI * 2); ctx.fill();
       }
+      // juice beading on the flesh
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      for (let k = 0; k < 7; k++) { const a = k * 2.3 + i, d = r * (0.25 + (k % 3) * 0.17); ctx.beginPath(); ctx.arc(Math.cos(a) * d, Math.sin(a) * d, r * (0.025 + (k % 2) * 0.015), 0, Math.PI * 2); ctx.fill(); }
+      // juice running off the bottom of the slice
+      const juice = rgba(c, 0.9);
+      [[-0.45, 0.28], [0.1, 0.42], [0.55, 0.22]].forEach(([u, len], k) => {
+        const x0 = u * r, y0 = Math.sqrt(Math.max(0, r * r - x0 * x0)) - r * 0.06, w = r * (0.09 + (k % 2) * 0.03), L = len * r;
+        ctx.fillStyle = juice; ctx.beginPath(); ctx.moveTo(x0 - w * 1.6, y0 - w * 0.4);
+        ctx.quadraticCurveTo(x0 - w, y0, x0 - w, y0 + L * 0.6); ctx.arc(x0, y0 + L * 0.6, w, Math.PI, 0, true);
+        ctx.quadraticCurveTo(x0 + w, y0, x0 + w * 1.6, y0 - w * 0.4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(x0 - w * 0.35, y0 + L * 0.35, w * 0.22, L * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+      });
       nlGloss(ctx, r, 0.7);
     } },
   { name: 'Gummy Drops', colours: NEW_COLS,
+    squish: 2.2, anim: animGlitter(6),
     // sugar-coated gummies: see-through colour, a glowing middle and a frost of sugar crystals
     draw(ctx, s, c, i) {
       const r = s * 0.45, rnd = seeded(500 + i * 17);
@@ -1755,6 +1879,7 @@ const NEW_SKINS = [
       nlGloss(ctx, r, 0.55);
     } },
   { name: 'Planets', colours: NEW_COLS,
+    anim: animOrbit,
     // little ringed planets with banded clouds
     draw(ctx, s, c, i) {
       const r = s * 0.45, pr = r * 0.72, tilt = -0.35;
@@ -1775,6 +1900,7 @@ const NEW_SKINS = [
       ctx.fillStyle = '#fff'; [[0.85, -0.75], [-0.85, 0.7], [0.7, 0.85]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x * r, y * r, r * 0.035, 0, Math.PI * 2); ctx.fill(); });
     } },
   { name: 'Macarons', colours: NEW_COLS,
+    squish: 1.6,
     // French macarons: two pastel shells, ruffled feet and a cream filling
     draw(ctx, s, c, i) {
       const r = s * 0.45, pc = mixH(c, '#ffffff', 0.35);
@@ -1791,6 +1917,7 @@ const NEW_SKINS = [
       ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.ellipse(-r * 0.35, -r * 0.35, r * 0.28, r * 0.07, -0.2, 0, Math.PI * 2); ctx.fill();
     } },
   { name: 'Kitties', colours: NEW_COLS,
+    squish: 1.5, anim: animBlink(0.82 * 0.36, 0.12 - 0.82 * 0.08 / 0.45 * 0.45, 0.82 * 0.15, 0.82 * 0.19, 1),
     // round kitty faces: pointy ears, big shiny eyes, a pink nose and whiskers
     draw(ctx, s, c, i) {
       const r = s * 0.45, hr = r * 0.82, y0 = r * 0.12;
@@ -1809,6 +1936,7 @@ const NEW_SKINS = [
       for (const sx of [-1, 1]) for (const dy of [-0.04, 0.06]) { ctx.beginPath(); ctx.moveTo(sx * hr * 0.3, y0 + hr * (0.2 + dy)); ctx.lineTo(sx * hr * 0.85, y0 + hr * (0.15 + dy * 2)); ctx.stroke(); }
     } },
   { name: 'Disco Balls', colours: NEW_COLS,
+    anim: animDisco,
     // mirror-tiled disco balls that throw little stars
     draw(ctx, s, c, i) {
       const r = s * 0.45, rnd = seeded(900 + i * 7);
@@ -1830,6 +1958,7 @@ const NEW_SKINS = [
       });
     } },
   { name: 'Opals', colours: NEW_COLS,
+    anim: animOpal,
     // precious opals: deep colour with flashes of every colour inside
     draw(ctx, s, c, i) {
       const r = s * 0.45, rnd = seeded(300 + i * 13);
@@ -1845,6 +1974,7 @@ const NEW_SKINS = [
       ctx.restore(); nlGloss(ctx, r, 0.8);
     } },
   { name: 'Neon Rings', colours: NEW_COLS,
+    anim: animNeon,
     // glowing arcade neon: a bright tube ring around a dark glass middle
     draw(ctx, s, c, i) {
       const r = s * 0.45;
@@ -1856,11 +1986,72 @@ const NEW_SKINS = [
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.ellipse(-r * 0.35, -r * 0.55, r * 0.3, r * 0.1, -0.5, 0, Math.PI * 2); ctx.fill();
     } },
+  { name: 'Sports Balls', fixedColours: true, squish: 2.6, spin: 0.7,
+    colours: ['#f07a22', '#f4f4f4', '#d4ef3a', '#c8102e', '#ffffff', '#3a4bd8', '#ffd23f'],
+    // a different ball for each colour: basketball, soccer, tennis, cricket, golf, bowling, volleyball
+    draw(ctx, s, c, i) {
+      const r = s * 0.45, k = i % 7;
+      const sphere = (light, mid, dark) => { const g = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.05, 0, 0, r * 1.05); g.addColorStop(0, light); g.addColorStop(0.5, mid); g.addColorStop(1, dark); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); };
+      const clip = () => { ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip(); };
+      const shine = (a = 0.7) => { ctx.fillStyle = `rgba(255,255,255,${a})`; ctx.beginPath(); ctx.ellipse(-r * 0.38, -r * 0.5, r * 0.22, r * 0.1, -0.6, 0, Math.PI * 2); ctx.fill(); };
+      const shade = () => { const g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.3, 0, 0, r * 1.02); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.35)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); };
+      ctx.lineCap = 'round';
+      if (k === 0) {        // basketball
+        sphere('#ffb070', '#f07a22', '#9a3e08'); clip();
+        ctx.strokeStyle = '#2b1205'; ctx.lineWidth = r * 0.06;
+        ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(0, r); ctx.moveTo(-r, 0); ctx.lineTo(r, 0); ctx.stroke();
+        ctx.beginPath(); ctx.arc(-r * 1.15, 0, r * 0.85, -0.9, 0.9); ctx.stroke(); ctx.beginPath(); ctx.arc(r * 1.15, 0, r * 0.85, Math.PI - 0.9, Math.PI + 0.9); ctx.stroke();
+        ctx.restore(); shine(0.45);
+      } else if (k === 1) { // soccer
+        sphere('#ffffff', '#f0f0f0', '#9aa0aa'); clip();
+        const pent = (x, y, z, rot) => { ctx.beginPath(); for (let j = 0; j < 5; j++) { const a = rot + j * Math.PI * 2 / 5 - Math.PI / 2; ctx.lineTo(x + Math.cos(a) * z, y + Math.sin(a) * z); } ctx.closePath(); ctx.fill(); };
+        ctx.fillStyle = '#1b1b22'; pent(0, 0, r * 0.3, 0);
+        ctx.strokeStyle = '#3a3a44'; ctx.lineWidth = r * 0.035;
+        for (let j = 0; j < 5; j++) { const a = j * Math.PI * 2 / 5 - Math.PI / 2; ctx.beginPath(); ctx.moveTo(Math.cos(a) * r * 0.3, Math.sin(a) * r * 0.3); ctx.lineTo(Math.cos(a) * r * 0.62, Math.sin(a) * r * 0.62); ctx.stroke();
+          pent(Math.cos(a + Math.PI / 5) * r * 0.92, Math.sin(a + Math.PI / 5) * r * 0.92, r * 0.26, a + Math.PI / 5 + Math.PI); }
+        ctx.restore(); shade(); shine(0.6);
+      } else if (k === 2) { // tennis
+        sphere('#f4ff8a', '#d4ef3a', '#7f9a10'); clip();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = r * 0.09;
+        ctx.beginPath(); ctx.arc(-r * 1.05, 0, r * 0.75, -1.1, 1.1); ctx.stroke(); ctx.beginPath(); ctx.arc(r * 1.05, 0, r * 0.75, Math.PI - 1.1, Math.PI + 1.1); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.12)'; for (let j = 0; j < 60; j++) { const a = j * 2.4, d = (j % 10) / 10 * r; ctx.fillRect(Math.cos(a) * d, Math.sin(a) * d, 1.2, 1.2); }   // fuzz
+        ctx.restore(); shine(0.35);
+      } else if (k === 3) { // cricket
+        sphere('#ff6a6a', '#c8102e', '#5a0010'); clip();
+        ctx.fillStyle = 'rgba(255,240,220,0.9)'; ctx.fillRect(-r * 0.08, -r, r * 0.16, r * 2);
+        ctx.strokeStyle = '#fff6e8'; ctx.lineWidth = r * 0.03;
+        for (let y = -r; y < r; y += r * 0.12) for (const sx of [-1, 1]) { ctx.beginPath(); ctx.moveTo(sx * r * 0.1, y); ctx.lineTo(sx * r * 0.18, y + r * 0.05); ctx.stroke(); }
+        ctx.restore(); shine(0.75);
+      } else if (k === 4) { // golf
+        sphere('#ffffff', '#f2f4f7', '#a8b0bc'); clip();
+        for (let y = -r; y <= r; y += r * 0.17) for (let x = -r; x <= r; x += r * 0.17) {
+          const xx = x + ((Math.round(y / (r * 0.17)) % 2) ? r * 0.085 : 0), d = Math.hypot(xx, y); if (d > r * 0.95) continue;
+          const g = ctx.createRadialGradient(xx - r * 0.02, y - r * 0.02, 0, xx, y, r * 0.065); g.addColorStop(0, 'rgba(110,120,140,0.6)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(xx, y, r * 0.065, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore(); shine(0.8);
+      } else if (k === 5) { // bowling
+        sphere('#8fa0ff', '#3a4bd8', '#0c1250'); clip();
+        ctx.globalCompositeOperation = 'lighter';
+        for (let j = 0; j < 6; j++) { ctx.strokeStyle = `rgba(190,120,255,${0.18 + j * 0.03})`; ctx.lineWidth = r * 0.08; ctx.beginPath(); ctx.arc(-r * 0.6 + j * r * 0.25, r * (j % 2 ? 0.4 : -0.2), r * 0.5, j, j + 2.2); ctx.stroke(); }
+        ctx.globalCompositeOperation = 'source-over'; ctx.restore();
+        ctx.fillStyle = '#05082a'; [[-0.12, -0.2], [0.18, -0.25], [0.04, 0.12]].forEach(([x, y], j) => { ctx.beginPath(); ctx.arc(x * r, y * r, r * (j === 2 ? 0.11 : 0.09), 0, Math.PI * 2); ctx.fill(); });
+        shine(0.9);
+      } else {              // volleyball
+        sphere('#ffffff', '#f6f6f2', '#b0b0a8'); clip();
+        const panel = (col, rot) => { ctx.save(); ctx.rotate(rot); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(r * 0.4, -r * 0.3, r * 0.6, -r * 0.9, r * 0.2, -r * 1.1); ctx.lineTo(r * 1.1, -r * 1.1); ctx.lineTo(r * 1.1, r * 0.2); ctx.bezierCurveTo(r * 0.7, r * 0.1, r * 0.3, r * 0.2, 0, 0); ctx.fill(); ctx.restore(); };
+        panel('#ffd23f', 0); panel('#2f6fe0', Math.PI * 2 / 3);
+        ctx.strokeStyle = 'rgba(60,60,70,0.5)'; ctx.lineWidth = r * 0.03;
+        for (let j = 0; j < 3; j++) { ctx.save(); ctx.rotate(j * Math.PI * 2 / 3); ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(r * 0.4, -r * 0.3, r * 0.6, -r * 0.9, r * 0.2, -r * 1.1); ctx.stroke(); ctx.restore(); }
+        ctx.restore(); shade(); shine(0.6);
+      }
+    },
+  },
 ];
 if (CONFIG.newLooks) SKINS.push(...NEW_SKINS);   // trying out the new looks
 SKINS.forEach(k => { k.baseColours = k.colours.slice(); });
 function applyPalette() {
-  const sk = skin(), f = state.boardClears, P = CONFIG.palettes !== false && f > 0 ? PALETTES[(f - 1) % PALETTES.length] : null;
+  const sk = skin(), f = state.boardClears, P = CONFIG.palettes !== false && f > 0 && !sk.fixedColours ? PALETTES[(f - 1) % PALETTES.length] : null;
   const cols = P ? P.slice(0, sk.baseColours.length) : sk.baseColours;
   if (sk.colours.join() === cols.join()) return;
   sk.colours = cols.slice(); spriteCache.clear(); boardBgKey = '';
@@ -2509,12 +2700,20 @@ function drawWater(cx, cy, size, sx, sy, alpha, seed, now) {
 }
 
 function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, seed = 0, now = performance.now()) {
-  if (!settings.reduced) {
-    const b = Math.sin(now / 1000 * 2.3 + seed * 1.7) * 0.016;
-    sx *= 1 + b; sy *= 1 - b;
-  }
-  drawBall(skinIdx, colour, cx, cy, size, sx, sy, alpha);
   const sk = SKINS[skinIdx % SKINS.length];
+  if (!settings.reduced) {
+    const q = sk.squish || 1, b = Math.sin(now / 1000 * 2.3 * (q > 1 ? 1.6 : 1) + seed * 1.7) * 0.016 * q;
+    sx *= 1 + b; sy *= 1 - b;
+    if (q > 1) cy -= Math.max(0, Math.sin(now / 1000 * 3.6 + seed * 1.7)) * size * 0.025;   // a little hop
+  }
+  if (sk.spin && !settings.reduced) {
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(now / 1000 * sk.spin + seed); ctx.translate(-cx, -cy);
+    drawBall(skinIdx, colour, cx, cy, size, sx, sy, alpha); ctx.restore();
+  } else drawBall(skinIdx, colour, cx, cy, size, sx, sy, alpha);
+  if (sk.anim && !settings.reduced && size > 14) {
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy); ctx.globalAlpha = alpha;
+    sk.anim(ctx, size, sk.colours[colour % sk.colours.length], colour, now / 1000, seed); ctx.restore();
+  }
   if (sk.water && CONFIG.feel.water && !settings.reduced && size > 14) drawWater(cx, cy + (1 - sy) * size * 0.3, size, sx, sy, alpha, seed, now);
   if (sk.diamond && !settings.reduced && size > 14) drawDiamondFire(cx, cy, size, sx, sy, alpha, seed, now);
   if (sk.sparkle && !sk.diamond && !settings.reduced && size > 14) {
