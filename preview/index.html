@@ -2705,7 +2705,7 @@ function newGame() {
   state.golden = null; state.goldenDone = false; state.goldenDue = false; state.frameMoves = 0; rollGolden();
   state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false; state.continues = 0; state.tainted = false;
   Input.cancelRepo(); Input.cancelPin();
-  state.skin = 0; state.bgOffset = Math.floor(Math.random() * 1000);
+  state.skin = 0; state.lockSkin = null; state.bgOffset = Math.floor(Math.random() * 1000);
   if (typeof Library !== 'undefined') Library.see(0);
   applyPalette();
   bestAtStart = Store.get('best', 0);
@@ -4196,7 +4196,7 @@ function updateFX(now, dt) {
       Celebrate.start({
         frameNo: wf.frameNo, bonus: wf.bonus, oldSkin: wf.oldSkin, perfect: wf.perfect, undoEarned: wf.undoEarned, bonusEarned: wf.bonusEarned, multAfter: wf.multAfter, multBefore: wf.multBefore,
         onPay: d => { shownTarget += d; wf.paid += d; },
-        onSkin: () => { if (CONFIG.waterfall.changeSkin) { state.skin = (state.skin + 1) % SKINS.length; Library.see(state.skin); applyPalette(); saveGame(); wf.skinChanged = true; FX.trayIn = state.tray.map((_, i) => performance.now() + 250 + i * 90); } return skin(); },
+        onSkin: () => { if (CONFIG.waterfall.changeSkin) { state.skin = state.lockSkin != null ? state.lockSkin : (state.skin + 1) % SKINS.length; Library.see(state.skin); applyPalette(); saveGame(); wf.skinChanged = true; FX.trayIn = state.tray.map((_, i) => performance.now() + 250 + i * 90); } return skin(); },
       });
     }
     if (t >= wf.dur) { shownTarget += wf.bonus - wf.paid; wf.paid = wf.bonus; FX.waterfall = null; if (state.boardClears % 3 === 0 && !state.over) setTimeout(() => UI.askDifficulty(), 500); }
@@ -5924,6 +5924,11 @@ window.addEventListener('pageshow', () => { refit(); setTimeout(() => { fitViewp
 ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, () => Sound.unlock(), { passive: true }));
 layout();
 if (!restoreGame()) newGame();
+// test link: ?look=faces starts a practice game on that look (doesn't count for the ladder)
+(() => { const q = new URLSearchParams(location.search).get('look'); if (!q) return;
+  const i = SKINS.findIndex(k => k.name.toLowerCase().replace(/\s+/g, '') === q.toLowerCase().replace(/\s+/g, '')); if (i < 0) return;
+  newGame(); state.skin = i; state.lockSkin = i; state.tainted = true; applyPalette(); state.tray = [null, null, null]; refillTray(false); saveGame();
+  history.replaceState(null, '', location.pathname); setTimeout(() => UI.toast('Practice game: ' + SKINS[i].name + ' (not on the ladder)'), 1500); })();
 // a game in progress has already passed every look up to the current one
 if (!Store.get('skinsSeen', []).length) { const k = Math.min(state.skin | 0, SKINS.length - 1); Store.set('skinsSeen', SKINS.slice(0, k + 1).map(q => q.name)); }
 else { state.over = isStuck(); if (state.over) newGame(); else if (state.rescue) setTimeout(() => UI.showRescue(), 600); }
