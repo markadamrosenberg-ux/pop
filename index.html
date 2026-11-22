@@ -72,6 +72,13 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .iconbtn.friends svg{width:34px;height:34px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
 .iconbtn.friends:active svg{transform:scale(.9)}
 .invcard{padding:26px 22px 20px}
+.gocont{margin:4px 0 4px}
+.contbtn{height:62px;font-size:22px;display:flex;align-items:center;justify-content:center;gap:10px;
+  background:linear-gradient(180deg,#ffe066,#ffb81c)!important;color:#4a2a00!important;box-shadow:0 4px 0 #b77a00,0 8px 22px rgba(255,184,28,.35)!important;animation:contGlow 1.6s ease-in-out infinite}
+@keyframes contGlow{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}
+.contbtn .cbub{width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0,#ff9ad0 25%,#a35bff 60%,#20e3d2 100%);box-shadow:0 0 10px rgba(255,255,255,.7)}
+.contbtn .ccost{font-size:18px;font-weight:700;background:rgba(74,42,0,.14);border-radius:10px;padding:2px 8px}
+.cnote{font-size:14px;color:var(--muted);margin:8px 0 6px;line-height:1.3}
 .overlay.show .invcard{animation:cardPop .45s cubic-bezier(.3,1.6,.5,1)}
 .invbubs{position:relative;height:70px;margin:-62px auto 6px;width:150px}
 .invbubs span{position:absolute;border-radius:50%;box-shadow:0 8px 16px rgba(0,0,0,.35),inset 0 -4px 8px rgba(0,0,0,.25);animation:ububFloat 2.6s ease-in-out infinite}
@@ -236,7 +243,10 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <div class="big" id="goScore">0</div>
         <div class="newbest" id="goNew"></div>
         <div class="bestline">Best <span id="goBest">0</span></div>
-        <button class="btn" id="goUndo">Undo last move</button>
+        <div class="gocont" id="goCont">
+          <button class="btn contbtn" id="goContinue"><span class="cbub"></span><span>Keep going</span><span class="ccost" id="goContCost">-285</span></button>
+          <div class="cnote">Get a Rescue Bubble that pops lines to make room. Once per game.</div>
+        </div>
         <button class="btn ghost" id="playAgain">Play again</button>
         <button class="btn invitebtn" id="goInvite">Challenge a friend</button>
       </div>
@@ -400,6 +410,10 @@ const CONFIG = {
   // Bonus piece: earned every N frames, saved up, used whenever you like with the button.
   // It's a mystery piece: reveals a shape built to take out 3-5 lines.
   bonusPiece: { everyFrames: 10, maxBanked: 3 },
+
+  // Once the game is over there's no undo. You can keep going once per game: it costs a share of your
+  // points and drops a Rescue Bubble (a mystery piece that pops lines) into the tray. Later: watch an ad.
+  continueGame: { costPercent: 20, perGame: 1 },
 
   undo: { costPercent: 10, maxBanked: 3, starterGames: 3, everyGames: 5, everyFrames: 10 },
 
@@ -1360,7 +1374,7 @@ function serialise() {
   return { grid: state.grid, tray: state.tray.map(packPiece),
     score: state.score, combo: state.combo, sinceClear: state.sinceClear, skin: state.skin, boardClears: state.boardClears, frameLines: state.frameLines,
     mysteryLines: state.mysteryLines, mysteryCount: state.mysteryCount, mysteryPending: state.mysteryPending, mysterySinceFrame: state.mysterySinceFrame,
-    pid: state.pid, nextPid: state.nextPid, repo: state.repo };
+    pid: state.pid, nextPid: state.nextPid, repo: state.repo, continues: state.continues | 0 };
 }
 function saveGame() { if (state.over) Store.set('game', null); else Store.set('game', serialise()); }
 function restoreGame() {
@@ -1374,6 +1388,7 @@ function restoreGame() {
   // older saves have no piece ids: their bubbles are fixed, new placements are tracked normally
   state.pid = validPids(g.pid, state.grid) ? g.pid.slice() : fixedPids(state.grid);
   state.nextPid = Math.max(g.nextPid | 0, 1, ...state.pid) + (validPids(g.pid, state.grid) ? 0 : 1);
+  state.continues = g.continues | 0;
   state.repo = CONFIG.reposition.enabled ? Math.max(0, Math.min(CONFIG.reposition.maxCharges, g.repo | 0)) : 0;
   if (state.tray.every(p => !p)) refillTray(false);
   shownTarget = shownScore = state.score;
@@ -1401,7 +1416,7 @@ function newGame() {
   state.grid = new Array(N * N).fill(0);
   state.score = 0; state.combo = 0; state.sinceClear = 0; state.over = false; state.boardClears = 0; state.frameLines = 0;
   state.mysteryLines = 0; state.mysteryCount = 0; state.mysteryPending = false; state.mysterySinceFrame = 0;
-  state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false;
+  state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false; state.continues = 0;
   Input.cancelRepo();
   state.skin = 0;
   bestAtStart = Store.get('best', 0);
@@ -1428,6 +1443,26 @@ function grantUndo(reason) {
   if (n >= U.maxBanked) return false;
   Store.set('undos', n + 1);
   if (reason) setTimeout(() => UI.toast(reason), 900);
+  return true;
+}
+/* Keep going after Out of room: pay a share of your score, get a Rescue Bubble. Once per game. */
+const continueCost = () => Math.round(state.score * CONFIG.continueGame.costPercent / 100);
+const canContinue = () => state.over && (state.continues | 0) < CONFIG.continueGame.perGame;
+function continueGame() {
+  if (!canContinue()) return false;
+  state.score = Math.max(0, state.score - continueCost());
+  shownTarget = state.score;
+  state.continues = (state.continues | 0) + 1;
+  state.over = false; state.rescue = false; FX.gameOverAt = 0; FX.pendingGameOver = 0; undoSnap = null;
+  let slot = state.tray.findIndex(p => !p);
+  if (slot < 0) slot = 0;
+  state.tray[slot] = makeMystery();
+  const now = performance.now(); FX.trayIn[slot] = now + 250;
+  const [mx, my] = slotCentre(slot);
+  setTimeout(() => { spawnSparks(mx, my, 24, '#ffd23f'); spawnSplash(mx, my, '#ffffff', 1.6, 0); }, 280);
+  Sound.mysteryAppear(0.15);
+  saveGame(); UI.update(true);
+  setTimeout(() => UI.toast('Rescue Bubble! Pick it up to pop some room'), 500);
   return true;
 }
 function useBonusPiece() {
@@ -2755,7 +2790,7 @@ const UI = (() => {
     rb.classList.toggle('pulse', state.rescue && state.repo > 0 && !Input.repoMode());
     // undo button shows what it costs right now
     const ub = $('undoBtn'), uc = undoSnap ? undoCost() : 0, tokens = undoTokens();
-    const can = !!undoSnap && tokens > 0 && !(FX.waterfall && performance.now() < FX.waterfall.t0 + FX.waterfall.dur);
+    const can = !!undoSnap && tokens > 0 && !state.over && !(FX.waterfall && performance.now() < FX.waterfall.t0 + FX.waterfall.dur);
     if (ub.disabled === can) ub.disabled = !can;
     const ut = tokens >= 1 && undoSnap && uc ? '-' + uc.toLocaleString() : '', un = String(tokens);
     if ($('undoCost').textContent !== ut) $('undoCost').textContent = ut;
@@ -2781,11 +2816,11 @@ const UI = (() => {
     const best = Store.get('best', 0);
     $('goBest').textContent = best.toLocaleString();
     $('goNew').textContent = state.score > 0 && state.score >= best && state.score > bestAtStart ? 'New best!' : '';
-    const gu = $('goUndo');
-    const canUndo = !!undoSnap && undoTokens() > 0;
-    gu.style.display = canUndo ? '' : 'none';
-    gu.textContent = 'Use an undo' + (undoCost() ? ' (-' + undoCost().toLocaleString() + ')' : '') + ' · ' + undoTokens() + ' left';
-    $('playAgain').className = canUndo ? 'btn ghost' : 'btn';
+    // the game's over: no undo. One paid "keep going" per game (later: watch an ad instead)
+    const can = canContinue(), cost = continueCost();
+    $('goCont').style.display = can ? '' : 'none';
+    $('goContCost').textContent = cost > 0 ? '-' + cost.toLocaleString() : 'free';
+    $('playAgain').className = can ? 'btn ghost' : 'btn';
     go.classList.add('show');
   }
   function hideGameOver() { go.classList.remove('show'); }
@@ -2812,7 +2847,7 @@ const UI = (() => {
   // The first time, explain what Undo does and what it costs before taking any points
   const askEl = $('undoAsk');
   function askUndo() {
-    if (!undoSnap || undoTokens() < 1) return;
+    if (!undoSnap || undoTokens() < 1 || state.over) return;
     if (Store.get('undoExplained', false)) { undo(); return; }
     const cost = undoCost(), left = undoTokens(), max = CONFIG.undo.maxBanked;
     const n = $('undoAskCost'), txt = cost > 0 ? '-' + cost.toLocaleString() : '0';
@@ -2827,7 +2862,7 @@ const UI = (() => {
   $('undoYes').addEventListener('click', () => { askEl.classList.remove('show'); Store.set('undoExplained', true); undo(); });
   $('undoNo').addEventListener('click', () => askEl.classList.remove('show'));
   $('undoBtn').addEventListener('click', () => { Sound.unlock(); if (!Input.isDragging()) askUndo(); });
-  $('goUndo').addEventListener('click', () => { Sound.unlock(); askUndo(); });
+  $('goContinue').addEventListener('click', () => { Sound.unlock(); go.classList.remove('show'); continueGame(); });
   // invite friends: a ready-to-send challenge message with your best score and the game link
   const inv = $('invite');
   function openInvite() {
@@ -2907,7 +2942,7 @@ const DEBUG = {
   Object.entries(DEBUG).forEach(([k, f]) => { const b = document.createElement('button'); b.textContent = k; b.onclick = () => { f(); UI.update(true); }; el.appendChild(b); });
   window.addEventListener('hashchange', on); on();
 })();
-window.WBP = { undo: () => undo(), Store, pieceById, rescueMove, isStuck, saveGame, Input,
+window.WBP = { undo: () => undo(), continueGame: () => continueGame(), Store, pieceById, rescueMove, isStuck, saveGame, Input,
   // place a tracked piece straight onto the board (no scoring), for tests
   placePiece(id, gx, gy, color = 0) { const s = SHAPE_BY_ID[id]; const r = Logic.apply(state.grid, s, gx, gy, color + 1);
     state.pid = updatePids(state.pid, s.cells.map(([x, y]) => Logic.idx(gx + x, gy + y)), state.nextPid++, r.cleared); state.grid = r.grid; saveGame(); return state.nextPid - 1; }, giveMystery: (i = 0, frame = false) => { state.tray[i] = makeMystery(frame); }, Celebrate, CONFIG, state, Logic, SHAPES, SKINS, move: (s, x, y) => { const r = move(s, x, y); if (r) playResult(r); return r; }, setup, newGame, layout: () => ({ ...L }), FX, Sound, settings, get shown() { return shownScore; } };
