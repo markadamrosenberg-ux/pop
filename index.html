@@ -4016,11 +4016,20 @@ function step(now, dt) {
 }
 
 // fit the app to the part of the screen you can actually see (Safari's bars come and go)
+// The on-screen keyboard (typing your name) and iPhone system pop-ups shrink the "visible" viewport and
+// sometimes never tell us they've gone, which left the game squashed into the top of the screen.
+// So: use the full window height, and only follow the visible viewport while you're actually typing.
+let fitKey = '';
 function fitViewport() {
-  const vv = window.visualViewport;
-  const h = vv ? vv.height : window.innerHeight, top = vv ? vv.offsetTop : 0;
+  const vv = window.visualViewport, typing = /^(INPUT|TEXTAREA)$/.test((document.activeElement || {}).tagName || '');
+  const h = typing && vv ? vv.height : Math.max(window.innerHeight, vv ? vv.height : 0);
+  const top = typing && vv ? vv.offsetTop : 0;
+  const key = Math.round(h) + '|' + Math.round(top);
+  if (key === fitKey) return false;
+  fitKey = key;
   const root = document.documentElement.style;
   root.setProperty('--appH', Math.round(h) + 'px'); root.setProperty('--appTop', Math.round(top) + 'px');
+  return true;
 }
 let fitTimer = 0;
 const refit = () => { fitViewport(); clearTimeout(fitTimer); fitTimer = setTimeout(() => { fitViewport(); layout(); }, 60); };
@@ -4028,6 +4037,10 @@ fitViewport();
 window.addEventListener('resize', refit);
 window.addEventListener('orientationchange', refit);
 if (window.visualViewport) { window.visualViewport.addEventListener('resize', refit); window.visualViewport.addEventListener('scroll', refit); }
+// back from the background, after typing, and a quiet check every second, in case a resize was missed
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { refit(); setTimeout(refit, 400); } });
+document.addEventListener('focusout', () => setTimeout(() => { window.scrollTo(0, 0); refit(); }, 120));
+setInterval(() => { if (fitViewport()) layout(); }, 1000);
 // start sound on any of the taps a phone accepts (iPhone ignores the first touch-down)
 ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, () => Sound.unlock(), { passive: true }));
 layout();
