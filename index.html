@@ -347,9 +347,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <div class="ulead">Pop any bubble that's in your way. Perfect when you're stuck.</div>
         <div class="pinhow" id="pinHave"></div>
         <div class="pinways">
-          <div><span class="pw a"></span>Clear a frame</div>
-          <div><span class="pw b"></span>Play 3 days in a row</div>
-          <div><span class="pw c"></span>Lucky mystery rewards</div>
+          <div><span class="pw a"></span>Clear 3 frames</div>
+          <div><span class="pw b"></span>Play 5 days in a row</div>
+          <div><span class="pw c"></span>A rare mystery reward</div>
         </div>
         <button class="btn ubtn" id="pinInfoOk">Got it</button>
       </div>
@@ -520,11 +520,11 @@ const CONFIG = {
 
   // Pin: a saved reward that pops one bubble of your choice (a Triple Pin pops up to 3).
   // Earned: some mystery rewards, every frame clear, streak days; one to try in your first game.
-  pin: { rewardShare: 0.3, maxPins: 5, maxTriples: 3, perFrame: 1, starter: 1, swellMs: 380 },
+  pin: { rewardShare: 0.12, maxPins: 3, maxTriples: 1, everyFrames: 3, starter: 1, swellMs: 380 },
 
   // Days in a row: a day counts once you place a piece. One missed day a week is forgiven.
-  // Milestones hand out Pins: a Pin every 3rd day, a Triple Pin every 7th.
-  streak: { pinEvery: 3, tripleEvery: 7 },
+  // Milestones hand out Pins: a Pin every 5th day, a Triple Pin every 14th.
+  streak: { pinEvery: 5, tripleEvery: 14 },
 
   undo: { costPercent: 10, maxBanked: 3, starterGames: 3, everyGames: 5, everyFrames: 10 },
 
@@ -1725,7 +1725,7 @@ function move(slot, gx, gy, repo = null) {
   // a frame clear can't be undone (its rewards are already banked)
   if (waterfall) undoSnap = null;
   let undoEarned = false, bonusEarned = false, pinEarned = false;
-  if (waterfall) for (let i = 0; i < CONFIG.pin.perFrame; i++) pinEarned = grantPin() || pinEarned;
+  if (waterfall && (Store.get('framesTotal', 0) + 1) % CONFIG.pin.everyFrames === 0) pinEarned = grantPin();
   if (waterfall && state.boardClears % CONFIG.bonusPiece.everyFrames === 0) {
     const n = Store.get('bonusPieces', 0);
     if (n < CONFIG.bonusPiece.maxBanked) { Store.set('bonusPieces', n + 1); bonusEarned = true; }
@@ -3267,7 +3267,7 @@ const UI = (() => {
     const si = streakInfo(), S = CONFIG.streak, n = si.count || 0;
     $('mpStreak').textContent = n + (si.best > n ? `  (best ${si.best})` : '');
     const toTriple = S.tripleEvery - (n % S.tripleEvery), toPin = S.pinEvery - (n % S.pinEvery);
-    $('mpNext').textContent = n === 0 ? 'Play today to start a streak. Day 3 earns a Pin.' : toTriple <= toPin ? `${toTriple === 1 ? 'Tomorrow' : toTriple + ' more days'}: a Triple Pin` : `${toPin === 1 ? 'Tomorrow' : toPin + ' more days'}: a Pin`;
+    $('mpNext').textContent = n === 0 ? 'Play today to start a streak. Day 5 earns a Pin.' : toTriple <= toPin ? `${toTriple === 1 ? 'Tomorrow' : toTriple + ' more days'}: a Triple Pin` : `${toPin === 1 ? 'Tomorrow' : toPin + ' more days'}: a Pin`;
     const pc = pinCounts();
     $('mpPins').textContent = pc.pins + (pc.triples ? ` + ${pc.triples} Triple` : '');
     $('mpGames').textContent = Store.get('games', 0).toLocaleString();
