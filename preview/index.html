@@ -1625,6 +1625,13 @@ const Sound = (() => {
       plip(t + 0.012, 950 * v, 0.04, 0.025, pan);
       noise(t + 0.03, { type: 'lowpass', f: 900, f2: 300, q: 0.4, peak: 0.02 * k, attack: 0.01, decay: 0.16, pan: -pan * 0.5 });
     },
+    // Faces: a firework's crackle and fizz
+    crackle() {
+      if (!ok()) return; const t = ac.currentTime;
+      if (t - (this._ck || 0) < 0.04) return; this._ck = t;
+      noise(t, { type: 'highpass', f: 2500, f2: 1800, q: 0.5, peak: 0.03, attack: 0.002, decay: 0.05, pan: R(-0.5, 0.5) });
+      for (let k = 0; k < 6; k++) noise(t + 0.08 + Math.random() * 0.35, { type: 'bandpass', f: R(3000, 6000), f2: R(2000, 4000), q: 2, peak: 0.012, attack: 0.001, decay: 0.025, pan: R(-0.7, 0.7) });
+    },
     // Faces: a tiny cartoon "eek!" for each panicking bubble
     scream(n = 1) {
       if (!ok()) return; const t = ac.currentTime;
@@ -3952,11 +3959,20 @@ function spawnSplash(x, y, colourHex, I = 1, dir = 0) {
 }
 
 /* Thick gooey blobs flung out from a Pin pop: big, slow, wobbly drops in the bubble's colour. */
-// Faces burst into a cartoon splat of blood that runs and fades
-function bloodBurst(x, y, I = 1, dir = 0) {
-  spawnSplash(x, y, '#d0001c', I * 1.5, dir); spawnGoo(x, y, '#b00018');
-  if (!settings.reduced) FX.stains.push({ x, y, t0: performance.now(), r: L.c * (0.45 + Math.random() * 0.2), seed: Math.random() * 10 });
-  if (FX.stains.length > 40) FX.stains.shift();
+// Faces burst into a little firework: a flash, then rings of coloured sparks and a crackle
+function fireworkBurst(x, y, I = 1) {
+  const P = FX.particles, c = L.c, pal = ['#ff2d8a', '#00e5d4', '#ffd23f', '#9b3dff', '#8bea1c', '#ff7a1c', '#4fb8ff'];
+  P.push({ k: 'glow', x, y, r: c * 1.3 * Math.sqrt(I), life: 0, max: 0.25, tint: '#ffffff' });
+  if (settings.reduced || P.length > 620) return;
+  const ring = (n, sp, col, delay) => {
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2 + Math.random() * 0.2, v = c * sp * (0.85 + Math.random() * 0.3);
+      P.push({ k: 'spark', x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: c * (0.05 + Math.random() * 0.04), life: 0, max: 0.8 + Math.random() * 0.5 - delay, tint: col, tw: Math.random() * 6 });
+    }
+  };
+  const c1 = pal[Math.floor(Math.random() * pal.length)], c2 = pal[Math.floor(Math.random() * pal.length)];
+  ring(Math.round(14 * Math.sqrt(I)), 5.5, c1, 0); ring(Math.round(9 * Math.sqrt(I)), 3, c2, 0.06); ring(6, 1.6, '#ffffff', 0.12);
+  try { Sound.crackle(); } catch (_) {}
 }
 function spawnGoo(x, y, colourHex) {
   if (settings.reduced) return;
@@ -4124,7 +4140,7 @@ function updateFX(now, dt) {
     if (!g.burst && now >= g.t0 + CONFIG.pin.swellMs) {
       g.burst = true;
       const [x, y] = cellCentre(g.gx, g.gy), sk = SKINS[g.skin % SKINS.length], col = sk.colours[g.colour % sk.colours.length];
-      if (SKINS[g.skin % SKINS.length].face) { bloodBurst(x, y, 2.2, 0); } else {
+      if (SKINS[g.skin % SKINS.length].face) { fireworkBurst(x, y, 2.2); } else {
       spawnSplash(x, y, col, 2.8, 0); spawnSplash(x, y, '#ffffff', 1.2, 0);
       spawnGoo(x, y, col);
       }
@@ -4139,7 +4155,7 @@ function updateFX(now, dt) {
       p.burst = true;
       const [x, y] = cellCentre(p.gx, p.gy);
       const sk = SKINS[p.skin % SKINS.length];
-      if (sk.face) bloodBurst(x, y, p.I || 1, p.dir || 0);
+      if (sk.face) fireworkBurst(x, y, p.I || 1);
       else spawnSplash(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);
       Sound.pop(p.rank, p.combo, ((p.gx - 3.5) / 3.5) * 0.65);
       shownTarget += p.share;
