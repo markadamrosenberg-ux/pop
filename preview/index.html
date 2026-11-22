@@ -1601,6 +1601,15 @@ const Sound = (() => {
       plip(t + 0.012, 950 * v, 0.04, 0.025, pan);
       noise(t + 0.03, { type: 'lowpass', f: 900, f2: 300, q: 0.4, peak: 0.02 * k, attack: 0.01, decay: 0.16, pan: -pan * 0.5 });
     },
+    // Faces: a tiny cartoon "eek!" for each panicking bubble
+    scream(n = 1) {
+      if (!ok()) return; const t = ac.currentTime;
+      for (let k = 0; k < n; k++) {
+        const v = R(0.9, 1.25), at = t + k * 0.06;
+        tone(at, { f: 900 * v, f2: 1700 * v, type: 'square', peak: 0.018, attack: 0.01, decay: 0.16, pan: R(-0.5, 0.5) });
+        tone(at + 0.12, { f: 1650 * v, f2: 1500 * v, type: 'triangle', peak: 0.03, attack: 0.005, decay: 0.12, pan: R(-0.5, 0.5) });
+      }
+    },
     // Combos and multi-line clears: a short rising water rush with a bubbly cascade on top.
     rush(delay = 0, level = 1) {
       if (!ok() || level < 1) return;
@@ -1931,6 +1940,15 @@ function animNeon(ctx, s, c, i, t, seed) {
   ctx.globalCompositeOperation = 'source-over';
 }
 const NEW_SKINS = [
+  { name: 'Faces', colours: NEW_COLS, squish: 1.6, face: true,
+    // round jelly faces: the eyes follow the piece you're dragging, they panic when their line is about to go, then burst
+    draw(ctx, s, c, i) {
+      const r = s * 0.45;
+      ctx.fillStyle = nlFill(ctx, r, c, 0.5, 0.38);
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      nlGloss(ctx, r, 0.75);
+    },
+  },
   { name: 'Happy Jellies', colours: NEW_COLS,
     squish: 1.8, anim: animBlink(0.3, -0.02, 0.1, 0.14, 1),
     // squishy jelly blobs with faces: smiles, winks, little "o"s and cheeky tongues
@@ -2983,6 +3001,52 @@ function drawWater(cx, cy, size, sx, sy, alpha, seed, now) {
   ctx.restore();
 }
 
+// Faces look: 0 = happy, ~0.5 = worried (their line is about to fill), 1 = terrified (about to burst)
+let faceMood = 0;
+function drawFace(cx, cy, size, sx, sy, alpha, seed, now) {
+  const r = size * 0.45, t = now / 1000, m = faceMood;
+  const shake = m > 0.8 && !settings.reduced ? r * 0.05 : 0;
+  ctx.save(); ctx.translate(cx + (shake ? Math.sin(t * 90 + seed) * shake : 0), cy + (shake ? Math.cos(t * 77 + seed) * shake : 0)); ctx.scale(sx, sy); ctx.globalAlpha = alpha;
+  // where to look: at the piece being dragged, otherwise glance about now and then
+  const dp = typeof Input !== 'undefined' && Input.dragPoint ? Input.dragPoint() : null;
+  let gx, gy;
+  if (dp) { gx = dp.x - cx; gy = dp.y - cy; }
+  else { const k = Math.floor(t * 0.4 + seed * 0.37); gx = Math.sin(k * 12.9898 + seed) * 10; gy = Math.cos(k * 78.233 + seed) * 6; }
+  const gl = Math.hypot(gx, gy) || 1, look = Math.min(1, gl / (r * 0.8));
+  const ox = gx / gl * look, oy = gy / gl * look;
+  const blink = m < 0.3 && ((t * 0.3 + seed * 0.618) % 1) < 0.04;
+  const ew = r * (0.19 + 0.08 * m), eh = blink ? r * 0.03 : ew * (1.15 + 0.15 * m), pr = r * (0.11 - 0.05 * m);
+  for (const sgn of [-1, 1]) {
+    const ex = sgn * r * 0.32 + ox * r * 0.05, ey = -r * 0.14 + oy * r * 0.04;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(ex, ey, ew, eh, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = r * 0.03; ctx.stroke();
+    if (!blink) {
+      ctx.fillStyle = '#1a1020'; ctx.beginPath(); ctx.arc(ex + ox * (ew - pr) * 0.85, ey + oy * (eh - pr) * 0.85, pr, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + ox * (ew - pr) * 0.85 - pr * 0.35, ey + oy * (eh - pr) * 0.85 - pr * 0.35, pr * 0.32, 0, Math.PI * 2); ctx.fill();
+    }
+    if (m > 0.3) {   // eyebrows shoot up
+      ctx.strokeStyle = '#1a1020'; ctx.lineWidth = r * 0.06; ctx.lineCap = 'round'; ctx.beginPath();
+      ctx.moveTo(ex - sgn * ew * 0.9, ey - eh - r * (0.08 + 0.1 * m)); ctx.lineTo(ex + sgn * ew * 0.6, ey - eh - r * (0.2 + 0.06 * m)); ctx.stroke();
+    }
+  }
+  ctx.lineCap = 'round';
+  if (m < 0.3) {
+    ctx.fillStyle = 'rgba(255,120,150,0.45)';
+    for (const sgn of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sgn * r * 0.55, r * 0.15, r * 0.13, r * 0.08, 0, 0, Math.PI * 2); ctx.fill(); }
+    ctx.strokeStyle = '#1a1020'; ctx.lineWidth = r * 0.07; ctx.beginPath(); ctx.arc(0, r * 0.12, r * 0.26, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
+  } else if (m < 0.8) {
+    ctx.strokeStyle = '#1a1020'; ctx.lineWidth = r * 0.06; ctx.beginPath();
+    for (let k = 0; k <= 8; k++) { const xx = -r * 0.22 + k / 8 * r * 0.44, yy = r * 0.36 + Math.sin(k * 1.6 + t * 12) * r * 0.035; k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(160,220,255,0.9)'; ctx.beginPath(); ctx.ellipse(r * 0.62, -r * 0.3, r * 0.07, r * 0.11, 0, 0, Math.PI * 2); ctx.fill();   // sweat drop
+  } else {
+    ctx.fillStyle = '#3a0010'; ctx.beginPath(); ctx.ellipse(0, r * 0.38, r * 0.2, r * 0.27, 0, 0, Math.PI * 2); ctx.fill();   // screaming
+    ctx.fillStyle = '#ff6b8a'; ctx.beginPath(); ctx.ellipse(0, r * 0.53, r * 0.12, r * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(160,220,255,0.9)';
+    for (const sgn of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sgn * r * 0.66, -r * 0.25 + ((t * 2 + seed) % 1) * r * 0.3, r * 0.07, r * 0.11, 0, 0, Math.PI * 2); ctx.fill(); }
+  }
+  ctx.restore();
+}
 function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, seed = 0, now = performance.now()) {
   const sk = SKINS[skinIdx % SKINS.length];
   if (!settings.reduced) {
@@ -2998,6 +3062,7 @@ function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, se
     ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy); ctx.globalAlpha = alpha;
     sk.anim(ctx, size, sk.colours[colour % sk.colours.length], colour, now / 1000, seed); ctx.restore();
   }
+  if (sk.face && size > 10) drawFace(cx, cy, size, sx, sy, alpha, seed, now);
   if (sk.water && CONFIG.feel.water && !settings.reduced && size > 14) drawWater(cx, cy + (1 - sy) * size * 0.3, size, sx, sy, alpha, seed, now);
   if (sk.diamond && !settings.reduced && size > 14) drawDiamondFire(cx, cy, size, sx, sy, alpha, seed, now);
   if (sk.sparkle && !sk.diamond && !settings.reduced && size > 14) {
@@ -3821,9 +3886,9 @@ const cellCentre = (gx, gy) => [L.ix + (gx + 0.5) * L.c, L.iy + (gy + 0.5) * L.c
 function slotCentre(i) { return [L.bx + L.slotW * (i + 0.5), L.ty + L.T / 2]; }
 
 const FX = {
-  goo: [], pops: [], particles: [], texts: [], settle: new Map(), waterfall: null, trayIn: [0, 0, 0], land: [], appear: new Map(), pendingRescue: 0,
+  goo: [], pops: [], particles: [], texts: [], stains: [], settle: new Map(), waterfall: null, trayIn: [0, 0, 0], land: [], appear: new Map(), pendingRescue: 0,
   gameOverAt: 0, busyUntil: 0, pendingGameOver: 0, sheen: [],
-  reset() { if (typeof Celebrate !== 'undefined') Celebrate.cancel(); this.goo = []; this.pops = []; this.particles = []; this.texts = []; this.settle.clear(); this.appear.clear(); this.waterfall = null; this.land = []; this.pendingRescue = 0; this.gameOverAt = 0; this.pendingGameOver = 0; this.sheen = []; },
+  reset() { if (typeof Celebrate !== 'undefined') Celebrate.cancel(); this.goo = []; this.pops = []; this.particles = []; this.stains = []; this.texts = []; this.settle.clear(); this.appear.clear(); this.waterfall = null; this.land = []; this.pendingRescue = 0; this.gameOverAt = 0; this.pendingGameOver = 0; this.sheen = []; },
 };
 
 function spawnSplash(x, y, colourHex, I = 1, dir = 0) {
@@ -3844,6 +3909,12 @@ function spawnSplash(x, y, colourHex, I = 1, dir = 0) {
 }
 
 /* Thick gooey blobs flung out from a Pin pop: big, slow, wobbly drops in the bubble's colour. */
+// Faces burst into a cartoon splat of blood that runs and fades
+function bloodBurst(x, y, I = 1, dir = 0) {
+  spawnSplash(x, y, '#d0001c', I * 1.5, dir); spawnGoo(x, y, '#b00018');
+  if (!settings.reduced) FX.stains.push({ x, y, t0: performance.now(), r: L.c * (0.45 + Math.random() * 0.2), seed: Math.random() * 10 });
+  if (FX.stains.length > 40) FX.stains.shift();
+}
 function spawnGoo(x, y, colourHex) {
   if (settings.reduced) return;
   const c = L.c, P = FX.particles;
@@ -3915,7 +3986,10 @@ function playResult(res, pointerGesture) {
     const stagger = settings.reduced ? 12 : T.popStaggerMs;
     // bigger clears and streaks make bigger splashes; ordinary play stays calm
     const intensity = Math.min(2.4, 1 + (res.lines - 1) * 0.4 + (res.combo - 1) * 0.2 + (res.mysteryPlaced ? 0.5 : 0));
-    const sq = (settings.reduced ? 30 : T.squashMs) / 1000;
+    // Faces: a moment of terror (and a scream) before they burst
+    const faceShock = SKINS[state.skin % SKINS.length].face && !settings.reduced ? 450 : 0;
+    if (faceShock) Sound.scream(Math.min(3, res.cleared.length));
+    const sq = (settings.reduced ? 30 : T.squashMs) / 1000 + faceShock / 1000;
     Sound.splat(sq, intensity, Math.max(-0.6, Math.min(0.6, (ox - 3.5) / 3.5 * 0.6)));
     const level = (res.lines - 1) + (res.combo - 1);
     if (level >= 1) Sound.rush(sq + 0.06, level);
@@ -3929,7 +4003,7 @@ function playResult(res, pointerGesture) {
       let d = Infinity;
       if (res.rows.includes(cell.y)) d = Math.min(d, ox < 3.5 ? cell.x : 7 - cell.x);
       if (res.cols.includes(cell.x)) d = Math.min(d, oy < 3.5 ? cell.y : 7 - cell.y);
-      const delay = Math.round(d) * stagger;
+      const delay = Math.round(d) * stagger + faceShock;
       maxDelay = Math.max(maxDelay, delay);
       const dir = res.rows.includes(cell.y) && !res.cols.includes(cell.x) ? Math.sign(cell.x - ox) : 0;
       FX.pops.push({ gx: cell.x, gy: cell.y, colour: cell.v - 1, skin: state.skin, t0: now + delay, burst: false, rank: Math.round(d), share, combo: res.combo, I: intensity, dir });
@@ -4007,8 +4081,10 @@ function updateFX(now, dt) {
     if (!g.burst && now >= g.t0 + CONFIG.pin.swellMs) {
       g.burst = true;
       const [x, y] = cellCentre(g.gx, g.gy), sk = SKINS[g.skin % SKINS.length], col = sk.colours[g.colour % sk.colours.length];
+      if (SKINS[g.skin % SKINS.length].face) { bloodBurst(x, y, 2.2, 0); } else {
       spawnSplash(x, y, col, 2.8, 0); spawnSplash(x, y, '#ffffff', 1.2, 0);
       spawnGoo(x, y, col);
+      }
       Sound.goo(((g.gx - 3.5) / 3.5) * 0.6); Haptics.pulse([18, 30, 12]);
       BG.pulse(col, 0.5);
     }
@@ -4020,7 +4096,8 @@ function updateFX(now, dt) {
       p.burst = true;
       const [x, y] = cellCentre(p.gx, p.gy);
       const sk = SKINS[p.skin % SKINS.length];
-      spawnSplash(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);
+      if (sk.face) bloodBurst(x, y, p.I || 1, p.dir || 0);
+      else spawnSplash(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);
       Sound.pop(p.rank, p.combo, ((p.gx - 3.5) / 3.5) * 0.65);
       shownTarget += p.share;
     }
@@ -4127,6 +4204,7 @@ function draw(now) {
     }
     if (pinOn && !settings.reduced) { const w = Math.sin(now / 45 + gx * 1.7 + gy * 2.3) * 0.035; sx += w; sy -= w; }
     if (glowRows.includes(gy) || glowCols.includes(gx)) s *= settings.reduced ? 1.1 : 1.16 + Math.sin(wobble * 8 + (gx + gy) * 0.6) * 0.04;
+    faceMood = glowRows.includes(gy) || glowCols.includes(gx) ? 0.55 : 0;
     // Reposition armed: fixed bubbles step back so the movable pieces stand out
     if (state.golden && state.golden.i === Logic.idx(gx, gy)) {
       // the golden bubble: a pulsing gold glow, the gold look, and the moves left on a badge
@@ -4203,11 +4281,24 @@ function draw(now) {
 
   // Pin: the chosen bubble swells and wobbles before it bursts
   for (const g of FX.goo) {
+    faceMood = 1;
     const [x, y] = cellCentre(g.gx, g.gy), q = Math.min(1, (now - g.t0) / CONFIG.pin.swellMs);
     const w = settings.reduced ? 0 : Math.sin(q * Math.PI * 7) * 0.12 * (1 - q * 0.3);
     drawBubble(g.skin, g.colour, x, y, c * 0.96 * (1 + q * 0.45), 1 + w, 1 - w, 1, g.gx * 3 + g.gy * 5, now);
   }
-  // popping bubbles (still visible until they burst)
+  // blood splats left by burst Faces: drip down and fade
+  for (const st of FX.stains) {
+    const a = 1 - (now - st.t0) / 1600; if (a <= 0) continue;
+    ctx.save(); ctx.globalAlpha = Math.min(0.85, a); ctx.fillStyle = '#9a0016'; ctx.beginPath();
+    for (let k = 0; k <= 28; k++) { const ang = k / 28 * Math.PI * 2, rr2 = st.r * (0.82 + 0.14 * Math.sin(ang * 3 + st.seed) + 0.08 * Math.sin(ang * 7 + st.seed * 2)); k ? ctx.lineTo(st.x + Math.cos(ang) * rr2, st.y + Math.sin(ang) * rr2) : ctx.moveTo(st.x + rr2, st.y); }
+    ctx.closePath(); ctx.fill();
+    const drip = Math.min(1, (now - st.t0) / 900) * st.r * 1.2;
+    for (const dx of [-0.35, 0.1, 0.4]) { ctx.beginPath(); ctx.roundRect(st.x + dx * st.r - st.r * 0.07, st.y, st.r * 0.14, st.r * 0.5 + drip * (0.6 + dx), st.r * 0.07); ctx.fill(); }
+    ctx.restore();
+  }
+  FX.stains = FX.stains.filter(st => now - st.t0 < 1600);
+  // popping bubbles (still visible until they burst): the Faces are terrified
+  faceMood = 1;
   for (const p of FX.pops) {
     const [x, y] = cellCentre(p.gx, p.gy);
     if (now < p.t0) { drawBubble(p.skin, p.colour, x, y, c * 0.96, 1, 1, 1, p.gx * 3 + p.gy * 5, now); continue; }
@@ -4215,6 +4306,7 @@ function draw(now) {
     if (settings.reduced) drawBall(p.skin, p.colour, x, y, c * 0.96, 1, 1, 1 - q);
     else drawBubble(p.skin, p.colour, x, y, c * 0.96 * (1 + q * 0.2), 1 + q * 0.06, 1 - q * 0.1, 1 - q * 0.35, p.gx * 3 + p.gy * 5, now);
   }
+  faceMood = 0;
 
   // mystery piece: show where it's built to go
   const dm = Input.dragPiece();
@@ -5099,6 +5191,7 @@ const Input = (() => {
     },
     isDragging: () => !!drag,
     dragPiece: () => (drag ? drag.piece : null),
+    dragPoint: () => (drag ? { x: drag.x, y: drag.y - (drag.grab ? 0 : liftFor(drag.type, drag.piece)) } : null),
     dragLift: () => (drag ? drag.t0 : 0),
     // Reposition controls
     repoMode: () => repoMode,
