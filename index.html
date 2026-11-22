@@ -70,6 +70,30 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .iconbtn.undo .cost:empty{display:none}
 .iconbtn:disabled{opacity:.3}
 #undoAsk{z-index:60}
+.undocard{padding:26px 22px 20px}
+.overlay.show .undocard{animation:cardPop .45s cubic-bezier(.3,1.6,.5,1)}
+@keyframes cardPop{0%{transform:scale(.7)}60%{transform:scale(1.05)}100%{transform:scale(1)}}
+.ubub{width:64px;height:64px;margin:-58px auto 10px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;
+  background:radial-gradient(circle at 35% 30%,#ffd0e6 0,#ff6fb2 28%,#ff2d8a 60%,#b5146a 100%);
+  box-shadow:0 8px 18px rgba(255,45,138,.45),inset 0 -4px 8px rgba(120,0,60,.35);animation:ububFloat 2.4s ease-in-out infinite}
+.ubub svg{width:32px;height:32px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+@keyframes ububFloat{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-5px) rotate(8deg)}}
+.undocard h2{font-size:32px;margin-bottom:6px}
+.ulead{font-size:18px;color:var(--ink);opacity:.85;margin-bottom:14px;line-height:1.3}
+.ucost{display:flex;align-items:baseline;justify-content:center;gap:8px;margin-bottom:12px}
+.unum{font-size:56px;font-weight:700;line-height:1;position:relative;color:transparent;-webkit-text-fill-color:transparent;
+  background:linear-gradient(180deg,#ffe0ee 0%,#ff7ab8 26%,#ff2d8a 50%,#b5146a 74%,#ff6fb2 92%,#ffc2df 100%);-webkit-background-clip:text;background-clip:text;
+  filter:drop-shadow(0 1px 0 #a8125f) drop-shadow(0 1px 0 #860d4b) drop-shadow(0 1px 0 #620937) drop-shadow(0 5px 7px rgba(0,0,0,.55))}
+.unum::after{content:attr(data-v);position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.95) 0%,rgba(255,255,255,.55) 24%,rgba(255,255,255,0) 42%);
+  -webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.uunit{font-size:20px;font-weight:600;color:#ff8cc4}
+.uleft{display:flex;align-items:center;justify-content:center;gap:10px;font-size:16px;color:var(--muted);margin-bottom:18px}
+.uleft .dots{display:flex;gap:5px}
+.uleft .dot{width:14px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff 0,#7ff3ea 30%,#00b8a8 100%);box-shadow:0 0 6px rgba(0,229,212,.6)}
+.uleft .dot.gone{background:rgba(255,255,255,.12);box-shadow:none}
+.uleft .dot.spend{animation:dotPulse 1s ease-in-out infinite}
+@keyframes dotPulse{0%,100%{opacity:1}50%{opacity:.35}}
+.ubtn{height:60px;font-size:22px}
 .iconbtn.repo{position:relative;opacity:.38}
 .iconbtn.repo[hidden]{display:none}
 .iconbtn.repo.ready{opacity:1;color:#ffd23f;box-shadow:0 0 0 1.5px rgba(255,210,63,.7),0 0 14px rgba(255,184,28,.45)}
@@ -191,11 +215,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       </div>
     </div>
     <div class="overlay" id="undoAsk">
-      <div class="card">
-        <h2>Undo your last move?</h2>
-        <div class="sub" id="undoAskTxt"></div>
-        <button class="btn" id="undoYes">Undo</button>
-        <button class="btn ghost" id="undoNo">Keep playing</button>
+      <div class="card undocard">
+        <div class="ubub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></div>
+        <h2>Take it back?</h2>
+        <div class="ulead">Your last piece pops back into your tray</div>
+        <div class="ucost"><span class="unum" id="undoAskCost" data-v="-141">-141</span><span class="uunit">points</span></div>
+        <div class="uleft"><span id="undoDots"></span><span id="undoLeftTxt"></span></div>
+        <button class="btn ubtn" id="undoYes">Undo it!</button>
+        <button class="btn ghost" id="undoNo">No, keep playing</button>
       </div>
     </div>
     <div class="overlay" id="rescue">
@@ -2759,9 +2786,14 @@ const UI = (() => {
   function askUndo() {
     if (!undoSnap || undoTokens() < 1) return;
     if (Store.get('undoExplained', false)) { undo(); return; }
-    const cost = undoCost(), left = undoTokens();
-    $('undoAskTxt').textContent = `This takes back the piece you just placed. It costs ${CONFIG.undo.costPercent}% of your score (${cost.toLocaleString()} ${cost === 1 ? 'point' : 'points'}) and uses 1 of your ${left} saved ${left === 1 ? 'undo' : 'undos'}.`;
-    $('undoYes').textContent = cost > 0 ? `Undo for ${cost.toLocaleString()} ${cost === 1 ? 'point' : 'points'}` : 'Undo';
+    const cost = undoCost(), left = undoTokens(), max = CONFIG.undo.maxBanked;
+    const n = $('undoAskCost'), txt = cost > 0 ? '-' + cost.toLocaleString() : '0';
+    n.textContent = txt; n.dataset.v = txt;
+    document.querySelector('#undoAsk .uunit').textContent = cost === 1 ? 'point' : 'points';
+    // the undo you'd spend pulses; the rest stay lit
+    $('undoDots').className = 'dots';
+    $('undoDots').innerHTML = Array.from({ length: max }, (_, i) => `<span class="dot${i >= left ? ' gone' : i === left - 1 ? ' spend' : ''}"></span>`).join('');
+    $('undoLeftTxt').textContent = left - 1 === 0 ? 'Your last undo' : `${left - 1} ${left - 1 === 1 ? 'undo' : 'undos'} left after this`;
     askEl.classList.add('show');
   }
   $('undoYes').addEventListener('click', () => { askEl.classList.remove('show'); Store.set('undoExplained', true); undo(); });
