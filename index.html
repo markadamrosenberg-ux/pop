@@ -152,6 +152,13 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .streaktoast{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(.6);opacity:0;pointer-events:none;z-index:30;text-align:center;
   padding:16px 24px;border-radius:24px;background:rgba(8,40,44,.88);border:1px solid rgba(0,229,212,.5);box-shadow:0 0 30px rgba(0,229,212,.35);transition:transform .35s cubic-bezier(.3,1.6,.5,1),opacity .3s}
 .streaktoast.show{transform:translate(-50%,-50%) scale(1);opacity:1}
+.colourpop{position:absolute;left:50%;top:34%;transform:translate(-50%,-50%) scale(.4) rotate(-6deg);opacity:0;pointer-events:none;z-index:31;text-align:center;
+  padding:14px 26px 16px;border-radius:26px;background:rgba(14,12,24,.9);border:2px solid var(--cp,#ff2d8a);box-shadow:0 0 36px var(--cp,#ff2d8a);
+  transition:transform .4s cubic-bezier(.3,1.7,.5,1),opacity .25s;white-space:nowrap}
+.colourpop.show{transform:translate(-50%,-50%) scale(1) rotate(-2deg);opacity:1}
+.colourpop .cpa{font-size:15px;font-weight:700;letter-spacing:.12em;color:#fff;opacity:.85}
+.colourpop .cpb{font-size:40px;font-weight:800;line-height:1.05;color:var(--cp,#ff2d8a);text-shadow:0 0 18px var(--cp,#ff2d8a),0 2px 0 rgba(0,0,0,.4)}
+.colourpop .cpc{font-size:20px;font-weight:700;color:#ffd23f;margin-top:4px}
 .streaktoast .sn{font-size:46px;font-weight:700;color:#7ff3ea;line-height:1;text-shadow:0 0 16px rgba(0,229,212,.7)}
 .streaktoast .sl{font-size:18px;font-weight:600;color:#fff;margin-top:4px}
 .streaktoast .sx{font-size:16px;color:#ffd23f;margin-top:4px}
@@ -229,7 +236,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .hint b{color:var(--accent);font-weight:600}
 .hint.hide{opacity:0}
 .toast{position:absolute;left:50%;top:8px;transform:translate(-50%,-6px);padding:8px 16px;border-radius:999px;background:rgba(16,17,28,.92);
-  border:1px solid var(--line);font-size:15px;font-weight:600;color:var(--accent);opacity:0;pointer-events:none;transition:opacity .35s,transform .35s;white-space:nowrap}
+  border:1px solid var(--line);font-size:15px;font-weight:600;color:var(--accent);opacity:0;pointer-events:none;transition:opacity .35s,transform .35s;width:max-content;max-width:90%;text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(4,5,10,.6);
   opacity:0;pointer-events:none;transition:opacity .35s;z-index:5}
@@ -344,6 +351,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <button class="btn invitebtn" id="goInvite">Challenge a friend</button>
       </div>
     </div>
+    <div class="colourpop" id="colourPop"><div class="cpa" id="cpA">YEAH! COLOUR MATCH</div><div class="cpb" id="cpB">Colour Pop! ×2</div><div class="cpc" id="cpC">+100 bonus</div></div>
     <div class="streaktoast" id="streakToast"><div class="sn" id="stN">2</div><div class="sl">days in a row!</div><div class="sx" id="stX"></div></div>
     <div class="overlay" id="mypop">
       <div class="card mpcard">
@@ -468,6 +476,10 @@ const CONFIG = {
     frameMultMax: 3,               // ...up to this cap, so scores stay readable
     poppedBubblePoints: 20,        // each bubble popped by the Frame Bubble chain reaction
   },
+
+  // Colour Pop: a cleared row or column whose 8 bubbles are all one colour scores double for that line
+  // (one extra line's points, put through the same multi-line, combo and frame multipliers).
+  colourPop: { enabled: false, showMs: 1600 },
 
   // Frames are levels: clear this many lines to fill the meter. Then the waterfall washes the
   // board clean, pays boardClearBonus, changes the bubble style and the next frame starts.
@@ -633,8 +645,13 @@ const Logic = (() => {
     const seen = new Set();
     for (const y of rows) for (let x = 0; x < N; x++) { const i = idx(x, y); if (!seen.has(i)) { seen.add(i); cleared.push({ x, y, v: g[i], inRow: true, inCol: cols.includes(x) }); } }
     for (const x of cols) for (let y = 0; y < N; y++) { const i = idx(x, y); if (!seen.has(i)) { seen.add(i); cleared.push({ x, y, v: g[i], inRow: false, inCol: true }); } }
+    // Colour Pop: which cleared lines are all one colour (by stored colour ID), checked before anything pops
+    const same = cells => cells.every(v => v && v === cells[0]) ? cells[0] : 0;
+    const matches = [];
+    for (const y of rows) { const v = same(Array.from({ length: N }, (_, x) => g[idx(x, y)])); if (v) matches.push({ row: y, v }); }
+    for (const x of cols) { const v = same(Array.from({ length: N }, (_, y) => g[idx(x, y)])); if (v) matches.push({ col: x, v }); }
     for (const i of seen) g[i] = 0;
-    return { grid: g, rows, cols, cleared };
+    return { grid: g, rows, cols, cleared, matches };
   }
   // Can every piece in the list be placed, in some order (clears included)?
   function solvable(grid, shapes, budget) {
@@ -1735,11 +1752,15 @@ function move(slot, gx, gy, repo = null) {
 
   const placePts = repo ? 0 : piece.shape.cells.length * S.pointsPerCellPlaced;
   const lines = res.rows.length + res.cols.length;
-  let linePts = 0, comboMult = 1;
+  let linePts = 0, comboMult = 1, colourPts = 0;
+  const colourMatches = CONFIG.colourPop.enabled ? res.matches : [];
   if (lines > 0) {
     state.combo += 1; state.sinceClear = 0;
     comboMult = Logic.comboMultiplier(state.combo);
-    linePts = Math.round(S.pointsPerLine * lines * Logic.lineMultiplier(lines) * comboMult * frameMult());
+    const lineValue = S.pointsPerLine * Logic.lineMultiplier(lines) * comboMult * frameMult();
+    linePts = Math.round(lineValue * (lines + colourMatches.length));   // each matching line counts twice
+    colourPts = linePts - Math.round(lineValue * lines);
+    if (colourMatches.length) Store.set('colourPops', Store.get('colourPops', 0) + colourMatches.length);
   } else {
     state.sinceClear += 1;
     if (state.sinceClear >= S.comboGraceMoves) state.combo = 0;
@@ -1811,7 +1832,7 @@ function move(slot, gx, gy, repo = null) {
   }
 
   const streakNews = touchStreak();
-  const result = { repo: !!repo, grantSlot, bonusEarned, undoEarned, pinEarned, streakNews, multBefore, multAfter: frameMult(), skinName: null, frameBubble, mysteryGranted, mysteryPlaced: !!piece.mystery, slot, piece, gx, gy, placePts, linePts, lines, comboMult, combo: state.combo, bonus, waterfall, boardEmpty, ...res, grid: state.grid, washed, frameNo: state.boardClears };
+  const result = { repo: !!repo, grantSlot, bonusEarned, undoEarned, pinEarned, streakNews, multBefore, multAfter: frameMult(), skinName: null, frameBubble, mysteryGranted, mysteryPlaced: !!piece.mystery, slot, piece, gx, gy, placePts, linePts, colourPts, colourMatches, lines, comboMult, combo: state.combo, bonus, waterfall, boardEmpty, ...res, grid: state.grid, washed, frameNo: state.boardClears };
 
   if (state.tray.every(p => !p)) refillTray();
   state.over = isStuck();
@@ -2174,8 +2195,10 @@ function playResult(res, pointerGesture) {
     });
     // after the pops, a ripple of light runs along each cleared line in the same direction
     const waveAt = maxDelay + (settings.reduced ? 30 : T.squashMs);
-    res.rows.forEach(y => FX.sheen.push({ row: y, t0: now, I: intensity, dir: ox < 3.5 ? 1 : -1, waveAt }));
-    res.cols.forEach(x => FX.sheen.push({ col: x, t0: now, I: intensity, dir: oy < 3.5 ? 1 : -1, waveAt }));
+    const tint = m => { const ck = sk0.colours[(m.v - 1) % sk0.colours.length]; return ck; };
+    const matchOf = (k, i) => (res.colourMatches || []).find(m => m[k] === i);
+    res.rows.forEach(y => { const m = matchOf('row', y); FX.sheen.push({ row: y, t0: now, I: intensity * (m ? 1.5 : 1), dir: ox < 3.5 ? 1 : -1, waveAt, tint: m && tint(m) }); });
+    res.cols.forEach(x => { const m = matchOf('col', x); FX.sheen.push({ col: x, t0: now, I: intensity * (m ? 1.5 : 1), dir: oy < 3.5 ? 1 : -1, waveAt, tint: m && tint(m) }); });
     endAt = now + maxDelay + T.squashMs + 40;
 
     // floating score text in the middle of the cleared lines
@@ -2186,6 +2209,10 @@ function playResult(res, pointerGesture) {
     if (res.lines >= 2) floatText(res.lines + ' lines  ×' + Logic.lineMultiplier(res.lines), cx, cy + L.c * 0.66, L.c * 0.42, '#ffd23f', 800, 80);
     if (res.combo >= 2) floatText('Combo ' + res.combo + ' ×' + Logic.comboMultiplier(res.combo), cx, cy - L.c * 0.62, L.c * 0.36, '#8ff0ff', 800, 100);
     if (CONFIG.haptics.lineClear) Haptics.pulse(CONFIG.haptics.lineClear);
+    if (res.colourMatches && res.colourMatches.length) {
+      const m = res.colourMatches[0];
+      UI.colourPop(sk0.colours[(m.v - 1) % sk0.colours.length], res.colourMatches.length, res.colourPts);
+    }
   }
   if (res.mysteryGranted === 'pin') {
     Sound.mysteryAppear(0.35);
@@ -2391,14 +2418,14 @@ function draw(now) {
     if (t < sh.waveAt) {
       const a = 0.12 * k * Math.min(1, t / 80), spread = c * 0.55;
       const g = row ? ctx.createLinearGradient(0, mid - spread, 0, mid + spread) : ctx.createLinearGradient(mid - spread, 0, mid + spread, 0);
-      g.addColorStop(0, 'rgba(0,229,212,0)'); g.addColorStop(0.5, `rgba(190,255,250,${a})`); g.addColorStop(1, 'rgba(0,229,212,0)');
+      g.addColorStop(0, 'rgba(0,229,212,0)'); g.addColorStop(0.5, sh.tint ? rgba(sh.tint, Math.min(1, a * 2.5)) : `rgba(190,255,250,${a})`); g.addColorStop(1, 'rgba(0,229,212,0)');
       ctx.fillStyle = g;
       if (row) ctx.fillRect(along0, mid - spread, len, spread * 2); else ctx.fillRect(mid - spread, along0, spread * 2, len);
     } else {
       const q = Math.min(1, (t - sh.waveAt) / WAVE), crest = sh.dir > 0 ? along0 + q * len : along0 + len - q * len;
       const a = 0.55 * k * (1 - q * 0.7), w = c * 1.6, spread = c * (0.5 + 0.2 * Math.sin(q * Math.PI));
       const gA = row ? ctx.createLinearGradient(crest - w, 0, crest + w, 0) : ctx.createLinearGradient(0, crest - w, 0, crest + w);
-      gA.addColorStop(0, 'rgba(0,229,212,0)'); gA.addColorStop(0.5, `rgba(220,255,252,${a})`); gA.addColorStop(1, 'rgba(0,229,212,0)');
+      gA.addColorStop(0, 'rgba(0,229,212,0)'); gA.addColorStop(0.5, sh.tint ? rgba(sh.tint, Math.min(1, a * 1.4)) : `rgba(220,255,252,${a})`); gA.addColorStop(1, 'rgba(0,229,212,0)');
       ctx.fillStyle = gA;
       ctx.save(); ctx.beginPath();
       if (row) ctx.ellipse(crest, mid, w, spread, 0, 0, Math.PI * 2); else ctx.ellipse(mid, crest, spread, w, 0, 0, Math.PI * 2);
@@ -2645,6 +2672,10 @@ const Net = (() => {
   const player = () => Store.get('player', null);
   let busy = false, lastSend = 0;
   async function rpc(fn, body) {
+    try { return await rpcOnce(fn, body); }
+    catch (e) { if (fn !== 'pop_register' && (e instanceof TypeError || e.name === 'AbortError')) { await new Promise(r => setTimeout(r, 1200)); return rpcOnce(fn, body); } throw e; }
+  }
+  async function rpcOnce(fn, body) {
     const c = cfg(), ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 9000);
     const headers = { 'Content-Type': 'application/json', apikey: c.key };
     if (!/^sb_/.test(c.key)) headers.Authorization = 'Bearer ' + c.key;   // older-style anon keys also go here
@@ -3442,15 +3473,20 @@ const UI = (() => {
     if (!/^[A-Za-zÀ-ÿ]$/.test(init)) return bad('Add the first letter of your surname');
     const name = first.charAt(0).toUpperCase() + first.slice(1) + ' ' + init.toUpperCase();
     const go = $('ncGo'); go.disabled = true; go.textContent = nc._renaming ? 'Saving…' : 'Joining…';
+    let got = name;
     try {
-      if (nc._renaming) await Net.rename(name); else await Net.register(name);
-      nc.classList.remove('show'); Sound.mysteryAppear(0);
-      toast(nc._renaming ? `You're now ${name}` : `You're on the ladder, ${name}!`);
-      update(true);
+      if (nc._renaming) got = (await Net.rename(name)).me.name; else got = (await Net.register(name)).name || name;
     } catch (e) {
       go.disabled = false; go.textContent = nc._renaming ? 'Save' : "Let's go";
-      bad(/bad_name/.test(e.message) ? "That name won't work. Try another" : /busy/.test(e.message) ? 'Lots of people joining. Try again in a minute' : "Couldn't connect. Check your internet and try again");
+      const why = e.name === 'AbortError' ? 'timed out' : String(e.message || e).slice(0, 60);
+      bad(/bad_name/.test(e.message) ? "That name won't work. Try another" : /busy/.test(e.message) ? 'Lots of people joining. Try again in a minute' : `Couldn't connect. Tap Let's go to try again (${why})`);
+      return;
     }
+    // joined: a hiccup in the effects below must never look like a failed join
+    nc.classList.remove('show');
+    try { Sound.mysteryAppear(0); } catch (_) {}
+    const taken = got !== name ? `${name} was taken, so you're ${got}. ` : '';
+    try { toast(taken ? taken + 'Change it on Your Pop any time' : nc._renaming ? `You're now ${got}` : `You're on the ladder, ${got}!`); update(true); } catch (_) {}
   });
   $('best').closest('.best').addEventListener('click', () => { Sound.unlock(); if (!Input.isDragging()) openMyPop(); });
   $('mpDone').addEventListener('click', () => mp.classList.remove('show'));
@@ -3521,6 +3557,15 @@ const UI = (() => {
     renderLadder: () => renderLadder(),
     flashPin() { const b = $('pinBtn'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 1600); },
     // the once-a-day moment: a big glowing "N days in a row!"
+    colourPop(colour, n, pts) {
+      const t = $('colourPop'); t.style.setProperty('--cp', colour);
+      $('cpA').textContent = n >= 2 ? `YEAH! ${n} COLOUR MATCHES` : 'YEAH! COLOUR MATCH';
+      $('cpB').textContent = 'Colour Pop! ×2'; $('cpC').textContent = `+${pts.toLocaleString()} bonus`;
+      t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
+      try { Sound.mysteryAppear(0.1); } catch (_) {}
+      if (CONFIG.haptics.lineClear) Haptics.pulse(CONFIG.haptics.lineClear);
+      clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), CONFIG.colourPop.showMs);
+    },
     streakToast(n, extra) {
       const t = $('streakToast'); $('stN').textContent = n; $('stX').textContent = extra.replace(/^ · /, '');
       t.classList.add('show'); Sound.mysteryAppear(0); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2200);
