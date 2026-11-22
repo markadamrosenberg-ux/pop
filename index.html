@@ -652,7 +652,7 @@ const CONFIG = {
 
   undo: { costPercent: 10, maxBanked: 3, starterGames: 3, everyGames: 5, everyFrames: 10 },
 
-  haptics: { boardClear: [22, 40, 30], lineClear: 0, place: 0 },
+  haptics: { boardClear: [22, 40, 30], lineClear: 18, place: 0 },   // iPhone: a light tap only, and only right as your finger lifts
   audio: { masterVolume: 0.75 },
   touchLiftCells: 1.5,             // how far above the finger a dragged piece floats
 };
@@ -4426,7 +4426,12 @@ const Input = (() => {
     if (pv && pv.valid) {
       const res = move(d.slot, pv.gx, pv.gy);
       pv = null;
-      if (res) playResult(res, true);
+      if (res) {
+        // iPhone only allows a tap of vibration during the touch itself, so fire it here, as the finger lifts
+        if (res.lines) Haptics.pulse(CONFIG.haptics.lineClear);
+        if (res.waterfall) { Haptics.pulse(CONFIG.haptics.boardClear); Haptics.pulse(CONFIG.haptics.boardClear); }
+        playResult(res, true);
+      }
       return;
     }
     const c = pieceCentreFor(d, now);
@@ -5073,7 +5078,9 @@ if (window.visualViewport) { window.visualViewport.addEventListener('resize', re
 // back from the background, after typing, and a quiet check every second, in case a resize was missed
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { refit(); setTimeout(refit, 400); } });
 document.addEventListener('focusout', () => setTimeout(() => { window.scrollTo(0, 0); refit(); }, 120));
-setInterval(() => { if (fitViewport()) layout(); }, 1000);
+// also catch the game being laid out at the wrong size (iPhone sometimes opens a home-screen app before it knows the screen size)
+setInterval(() => { const r = stageEl.getBoundingClientRect(); if (fitViewport() || Math.abs(r.width - L.W) > 2 || Math.abs(r.height - L.H) > 2) { layout(); BG.resize && BG.resize(); } }, 700);
+window.addEventListener('pageshow', () => { refit(); setTimeout(() => { fitViewport(); layout(); }, 300); });
 // start sound on any of the taps a phone accepts (iPhone ignores the first touch-down)
 ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, () => Sound.unlock(), { passive: true }));
 layout();
