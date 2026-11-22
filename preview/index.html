@@ -1210,49 +1210,76 @@ const SKINS = [
       dot(ctx, -r * 0.52, -r * 0.4, r * 0.07, 0.95);
     } },
   // Polished precious metals with a mirror finish and real sparkle (twinkles drawn live).
-  { name: 'Cupcakes', colours: ['#ff5fa2', '#ffb347', '#8fd3ff', '#b78cff', '#7be08a', '#ff7a6b', '#ffe066'],
-    // a frosted cupcake: pleated paper cup, a glossy swirl of icing in the bubble's colour, sprinkles and a cherry
+  { name: 'Cupcakes', colours: ['#ff3d9a', '#ff8a3d', '#4fb8ff', '#a45cff', '#3fd17a', '#ff5a5a', '#ffc93c'],
+    // a round cake ball: creamy sponge, glossy icing in the bubble's colour oozing down in drips,
+    // sprinkles, and a juicy cherry on top with a bead of moisture
     draw(ctx, s, c, i) {
-      const rnd = (k => () => (k = (k * 16807) % 2147483647) / 2147483647)(1234 + i * 977);
-      // paper cup
-      const cupTop = s * 0.06, cupBot = s * 0.44, wt = s * 0.38, wb = s * 0.28;
-      const paper = mix(c, '#ffffff', 0.62), paperDark = mix(c, '#5a2a3a', 0.25);
-      ctx.beginPath(); ctx.moveTo(-wt, cupTop); ctx.lineTo(wt, cupTop); ctx.lineTo(wb, cupBot - s * 0.03);
-      ctx.quadraticCurveTo(wb, cupBot, wb - s * 0.04, cupBot); ctx.lineTo(-wb + s * 0.04, cupBot); ctx.quadraticCurveTo(-wb, cupBot, -wb, cupBot - s * 0.03); ctx.closePath();
-      const pg = ctx.createLinearGradient(-wt, 0, wt, 0);
-      pg.addColorStop(0, paperDark); pg.addColorStop(0.3, paper); pg.addColorStop(0.55, '#ffffff'); pg.addColorStop(1, paperDark);
-      ctx.fillStyle = pg; ctx.fill();
-      ctx.save(); ctx.clip(); ctx.strokeStyle = 'rgba(120,50,70,0.22)'; ctx.lineWidth = s * 0.018;
-      for (let k = -5; k <= 5; k++) { const u = k / 5.5; ctx.beginPath(); ctx.moveTo(u * wt, cupTop); ctx.lineTo(u * wb, cupBot); ctx.stroke(); }
-      ctx.restore();
-      // icing: three stacked lobes, glossy
-      const ice = (cx, cy, rx, ry) => {
-        const g = ctx.createRadialGradient(cx - rx * 0.35, cy - ry * 0.6, ry * 0.1, cx, cy, rx * 1.1);
-        g.addColorStop(0, mix(c, '#ffffff', 0.7)); g.addColorStop(0.45, c); g.addColorStop(1, mix(c, '#3a0a24', 0.35));
-        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
-      };
-      ice(0, s * 0.06, s * 0.44, s * 0.14);
-      ice(-s * 0.02, -s * 0.08, s * 0.35, s * 0.14);
-      ice(s * 0.01, -s * 0.21, s * 0.23, s * 0.12);
-      // shine on the icing
-      ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineCap = 'round'; ctx.lineWidth = s * 0.03;
-      ctx.beginPath(); ctx.arc(-s * 0.1, -s * 0.06, s * 0.2, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke();
-      ctx.lineWidth = s * 0.022; ctx.beginPath(); ctx.arc(-s * 0.03, -s * 0.2, s * 0.12, Math.PI * 1.1, Math.PI * 1.5); ctx.stroke();
-      // sprinkles
-      const sp = ['#ffffff', '#ff3d7f', '#ffd23f', '#3fd0ff', '#7cf03a', '#b25cff'];
-      for (let k = 0; k < 11; k++) {
-        const a = rnd() * Math.PI * 2, rr = Math.sqrt(rnd()), px = Math.cos(a) * rr * s * 0.3, py = -s * 0.08 + Math.sin(a) * rr * s * 0.16;
-        ctx.save(); ctx.translate(px, py); ctx.rotate(rnd() * Math.PI);
-        ctx.fillStyle = sp[(k + i) % sp.length]; ctx.beginPath(); ctx.roundRect(-s * 0.035, -s * 0.011, s * 0.07, s * 0.022, s * 0.011); ctx.fill();
-        ctx.restore();
+      const r = s * 0.45, rnd = (k => () => (k = (k * 16807) % 2147483647) / 2147483647)(4321 + i * 613);
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+      // creamy sponge
+      const sg = ctx.createRadialGradient(-r * 0.3, -r * 0.1, r * 0.1, 0, 0, r * 1.05);
+      sg.addColorStop(0, '#fffdf6'); sg.addColorStop(0.55, '#fbf0dc'); sg.addColorStop(0.85, '#ecd3ac'); sg.addColorStop(1, '#cfa874');
+      ctx.fillStyle = sg; ctx.fillRect(-r, -r, r * 2, r * 2);
+      // icing with drips
+      const drips = [[-0.62, 0.32, 0.17], [-0.05, 0.62, 0.2], [0.55, 0.4, 0.17]].map(([x, d, w]) => [x + (rnd() - 0.5) * 0.08, d + (rnd() - 0.5) * 0.08, w]);
+      const base = -0.02;
+      ctx.beginPath(); ctx.moveTo(-r * 1.1, -r * 1.1); ctx.lineTo(r * 1.1, -r * 1.1); ctx.lineTo(r * 1.1, r * (base + 0.02));
+      for (let k = drips.length - 1; k >= 0; k--) {
+        const [x, d, w] = drips[k], X = x * r, W = w * r, D = d * r;
+        ctx.bezierCurveTo(X + W * 2.2, r * base, X + W * 1.1, r * base, X + W, r * base + W * 0.6);
+        ctx.lineTo(X + W, D - W * 0.3);
+        ctx.arc(X, D - W * 0.3, W, 0, Math.PI);
+        ctx.lineTo(X - W, r * base + W * 0.6);
+        ctx.bezierCurveTo(X - W * 1.1, r * base, X - W * 2.2, r * base, (k ? drips[k - 1][0] * r + drips[k - 1][2] * r * 2.6 : -r * 1.1), r * (base + 0.04));
       }
-      // cherry with a stem
-      ctx.strokeStyle = '#4c7a2a'; ctx.lineWidth = s * 0.022;
-      ctx.beginPath(); ctx.moveTo(s * 0.03, -s * 0.36); ctx.quadraticCurveTo(s * 0.06, -s * 0.47, s * 0.15, -s * 0.5); ctx.stroke();
-      const cg = ctx.createRadialGradient(-s * 0.005, -s * 0.36, s * 0.01, s * 0.02, -s * 0.33, s * 0.1);
-      cg.addColorStop(0, '#ff8aa0'); cg.addColorStop(0.4, '#e3123f'); cg.addColorStop(1, '#7a0018');
-      ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(s * 0.02, -s * 0.32, s * 0.085, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.ellipse(-s * 0.01, -s * 0.35, s * 0.022, s * 0.014, -0.6, 0, Math.PI * 2); ctx.fill();
+      ctx.lineTo(-r * 1.1, -r * 1.1); ctx.closePath();
+      const ig = ctx.createRadialGradient(-r * 0.35, -r * 0.55, r * 0.05, 0, -r * 0.1, r * 1.2);
+      ig.addColorStop(0, mix(c, '#ffffff', 0.45)); ig.addColorStop(0.45, c); ig.addColorStop(1, mix(c, '#2a0016', 0.35));
+      ctx.shadowColor = 'rgba(90,30,20,0.35)'; ctx.shadowBlur = r * 0.1; ctx.shadowOffsetY = r * 0.05;
+      ctx.fillStyle = ig; ctx.fill(); ctx.shadowColor = 'transparent';
+      // shine down each drip
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      for (const [x, d, w] of drips) { ctx.beginPath(); ctx.ellipse((x - w * 0.35) * r, (d - w * 0.9) * r, w * 0.18 * r, w * 0.75 * r, 0, 0, Math.PI * 2); ctx.fill(); }
+      // a drop that has fallen off the middle drip
+      const md = drips[1], dx = md[0] * r, dy = Math.min(r * 0.8, (md[1] + 0.2) * r);
+      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(dx, dy - r * 0.14); ctx.bezierCurveTo(dx + r * 0.1, dy - r * 0.02, dx + r * 0.08, dy + r * 0.07, dx, dy + r * 0.07);
+      ctx.bezierCurveTo(dx - r * 0.08, dy + r * 0.07, dx - r * 0.1, dy - r * 0.02, dx, dy - r * 0.14); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.ellipse(dx - r * 0.025, dy - r * 0.01, r * 0.018, r * 0.03, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      // big gloss on the icing
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath(); ctx.ellipse(-r * 0.42, -r * 0.62, r * 0.24, r * 0.1, -0.45, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(-r * 0.66, -r * 0.36, r * 0.08, r * 0.05, -0.8, 0, Math.PI * 2); ctx.fill();
+      // sprinkles: glossy little pills
+      const sp = ['#4fb8ff', '#8fe03a', '#ffe14a', '#ffffff', '#b45cff', '#ff7a3d'];
+      const spots = [[-0.42, -0.3, 0.4], [-0.2, -0.1, 0.3], [0.38, -0.5, 0.45], [0.55, -0.22, 0.5], [0.18, -0.15, -0.35]];
+      spots.forEach(([x, y, a], k) => {
+        ctx.save(); ctx.translate(x * r, y * r); ctx.rotate(a + (rnd() - 0.5) * 0.4);
+        const L = r * 0.2, T = r * 0.075;
+        ctx.fillStyle = sp[(k + i) % sp.length]; ctx.beginPath(); ctx.roundRect(-L / 2, -T / 2, L, T, T / 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.roundRect(-L / 2 + T * 0.4, -T / 2 + T * 0.15, L - T * 0.8, T * 0.3, T * 0.15); ctx.fill();
+        ctx.restore();
+      });
+      // cherry, stem and a bead of juice
+      ctx.strokeStyle = '#7cbf3a'; ctx.lineCap = 'round'; ctx.lineWidth = r * 0.07;
+      ctx.beginPath(); ctx.moveTo(r * 0.02, -r * 0.6); ctx.quadraticCurveTo(r * 0.06, -r * 0.82, r * 0.25, -r * 0.86); ctx.stroke();
+      const cr = r * 0.19, cx0 = 0, cy0 = -r * 0.5;
+      const cg = ctx.createRadialGradient(cx0 - cr * 0.35, cy0 - cr * 0.4, cr * 0.1, cx0, cy0, cr);
+      cg.addColorStop(0, '#ff6b5e'); cg.addColorStop(0.5, '#e01b1b'); cg.addColorStop(1, '#8a0010');
+      ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(cx0, cy0, cr, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.beginPath(); ctx.ellipse(cx0 - cr * 0.35, cy0 - cr * 0.35, cr * 0.22, cr * 0.15, -0.6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(cx0 - cr * 0.02, cy0 - cr * 0.5, cr * 0.08, 0, Math.PI * 2); ctx.fill();
+      // juice bead running down the right side of the cherry
+      const bx = cx0 + cr * 0.75, by = cy0 + cr * 0.55;
+      const bg = ctx.createRadialGradient(bx - cr * 0.05, by - cr * 0.05, 0, bx, by, cr * 0.22);
+      bg.addColorStop(0, 'rgba(255,220,220,0.95)'); bg.addColorStop(1, 'rgba(230,30,40,0.85)');
+      ctx.fillStyle = bg; ctx.beginPath(); ctx.moveTo(bx, by - cr * 0.3); ctx.quadraticCurveTo(bx + cr * 0.22, by + cr * 0.05, bx, by + cr * 0.18);
+      ctx.quadraticCurveTo(bx - cr * 0.22, by + cr * 0.05, bx, by - cr * 0.3); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(bx - cr * 0.05, by - cr * 0.02, cr * 0.05, 0, Math.PI * 2); ctx.fill();
+      // rim light so it reads as a juicy ball
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = r * 0.04;
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.97, Math.PI * 1.05, Math.PI * 1.45); ctx.stroke();
     },
   },
   { name: 'Gold Rush', sparkle: true, colours: ['#ffc83d', '#ff9d7e', '#e6ecf5', '#ff9f1c', '#c7e05a', '#8cb4ff', '#d39bff'],
