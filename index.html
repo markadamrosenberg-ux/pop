@@ -476,7 +476,8 @@ const CONFIG = {
   clearRows: true,
   clearColumns: true,
 
-  themes: true,   // false = every skin uses the default backdrop (for comparing)
+  themes: true,
+  palettes: true,   // a new colour palette every frame (false = each skin keeps its own colours)   // false = every skin uses the default backdrop (for comparing)
 
   scoring: {
     pointsPerCellPlaced: 2,        // every cell of a placed piece
@@ -1209,6 +1210,51 @@ const SKINS = [
       dot(ctx, -r * 0.52, -r * 0.4, r * 0.07, 0.95);
     } },
   // Polished precious metals with a mirror finish and real sparkle (twinkles drawn live).
+  { name: 'Cupcakes', colours: ['#ff5fa2', '#ffb347', '#8fd3ff', '#b78cff', '#7be08a', '#ff7a6b', '#ffe066'],
+    // a frosted cupcake: pleated paper cup, a glossy swirl of icing in the bubble's colour, sprinkles and a cherry
+    draw(ctx, s, c, i) {
+      const rnd = (k => () => (k = (k * 16807) % 2147483647) / 2147483647)(1234 + i * 977);
+      // paper cup
+      const cupTop = s * 0.06, cupBot = s * 0.44, wt = s * 0.38, wb = s * 0.28;
+      const paper = mix(c, '#ffffff', 0.62), paperDark = mix(c, '#5a2a3a', 0.25);
+      ctx.beginPath(); ctx.moveTo(-wt, cupTop); ctx.lineTo(wt, cupTop); ctx.lineTo(wb, cupBot - s * 0.03);
+      ctx.quadraticCurveTo(wb, cupBot, wb - s * 0.04, cupBot); ctx.lineTo(-wb + s * 0.04, cupBot); ctx.quadraticCurveTo(-wb, cupBot, -wb, cupBot - s * 0.03); ctx.closePath();
+      const pg = ctx.createLinearGradient(-wt, 0, wt, 0);
+      pg.addColorStop(0, paperDark); pg.addColorStop(0.3, paper); pg.addColorStop(0.55, '#ffffff'); pg.addColorStop(1, paperDark);
+      ctx.fillStyle = pg; ctx.fill();
+      ctx.save(); ctx.clip(); ctx.strokeStyle = 'rgba(120,50,70,0.22)'; ctx.lineWidth = s * 0.018;
+      for (let k = -5; k <= 5; k++) { const u = k / 5.5; ctx.beginPath(); ctx.moveTo(u * wt, cupTop); ctx.lineTo(u * wb, cupBot); ctx.stroke(); }
+      ctx.restore();
+      // icing: three stacked lobes, glossy
+      const ice = (cx, cy, rx, ry) => {
+        const g = ctx.createRadialGradient(cx - rx * 0.35, cy - ry * 0.6, ry * 0.1, cx, cy, rx * 1.1);
+        g.addColorStop(0, mix(c, '#ffffff', 0.7)); g.addColorStop(0.45, c); g.addColorStop(1, mix(c, '#3a0a24', 0.35));
+        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+      };
+      ice(0, s * 0.06, s * 0.44, s * 0.14);
+      ice(-s * 0.02, -s * 0.08, s * 0.35, s * 0.14);
+      ice(s * 0.01, -s * 0.21, s * 0.23, s * 0.12);
+      // shine on the icing
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineCap = 'round'; ctx.lineWidth = s * 0.03;
+      ctx.beginPath(); ctx.arc(-s * 0.1, -s * 0.06, s * 0.2, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke();
+      ctx.lineWidth = s * 0.022; ctx.beginPath(); ctx.arc(-s * 0.03, -s * 0.2, s * 0.12, Math.PI * 1.1, Math.PI * 1.5); ctx.stroke();
+      // sprinkles
+      const sp = ['#ffffff', '#ff3d7f', '#ffd23f', '#3fd0ff', '#7cf03a', '#b25cff'];
+      for (let k = 0; k < 11; k++) {
+        const a = rnd() * Math.PI * 2, rr = Math.sqrt(rnd()), px = Math.cos(a) * rr * s * 0.3, py = -s * 0.08 + Math.sin(a) * rr * s * 0.16;
+        ctx.save(); ctx.translate(px, py); ctx.rotate(rnd() * Math.PI);
+        ctx.fillStyle = sp[(k + i) % sp.length]; ctx.beginPath(); ctx.roundRect(-s * 0.035, -s * 0.011, s * 0.07, s * 0.022, s * 0.011); ctx.fill();
+        ctx.restore();
+      }
+      // cherry with a stem
+      ctx.strokeStyle = '#4c7a2a'; ctx.lineWidth = s * 0.022;
+      ctx.beginPath(); ctx.moveTo(s * 0.03, -s * 0.36); ctx.quadraticCurveTo(s * 0.06, -s * 0.47, s * 0.15, -s * 0.5); ctx.stroke();
+      const cg = ctx.createRadialGradient(-s * 0.005, -s * 0.36, s * 0.01, s * 0.02, -s * 0.33, s * 0.1);
+      cg.addColorStop(0, '#ff8aa0'); cg.addColorStop(0.4, '#e3123f'); cg.addColorStop(1, '#7a0018');
+      ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(s * 0.02, -s * 0.32, s * 0.085, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.ellipse(-s * 0.01, -s * 0.35, s * 0.022, s * 0.014, -0.6, 0, Math.PI * 2); ctx.fill();
+    },
+  },
   { name: 'Gold Rush', sparkle: true, colours: ['#ffc83d', '#ff9d7e', '#e6ecf5', '#ff9f1c', '#c7e05a', '#8cb4ff', '#d39bff'],
     draw(ctx, s, c) {
       const r = s * 0.45, m = hexToRgb(c);
@@ -1563,6 +1609,24 @@ let bestAtStart = Store.get('best', 0);
 let shownTarget = 0, shownScore = 0;
 
 const skin = () => SKINS[state.skin % SKINS.length];
+// A new colour palette every frame, on top of the skin's design (frame 1 keeps the skin's own colours).
+const PALETTES = [
+  ['#ff4d4d', '#ff9f1c', '#ffd23f', '#ff6fa8', '#ffb4a2', '#e8613c', '#c2416b'],   // sunset
+  ['#1fb6ff', '#00e0c6', '#3d5afe', '#7ae7ff', '#5ec8a0', '#9d8cff', '#0091ad'],   // ocean
+  ['#ff7eb6', '#ffd166', '#9bf6ff', '#a0c4ff', '#caffbf', '#d0a8ff', '#ffadad'],   // candy
+  ['#39ff14', '#ff073a', '#00f0ff', '#fffb00', '#ff00e6', '#ff7b00', '#7a00ff'],   // neon
+  ['#2fbf71', '#b5e550', '#f2c14e', '#f78154', '#4d9078', '#ff9f6b', '#8bc34a'],   // garden
+  ['#d6336c', '#7048e8', '#f783ac', '#ae3ec9', '#ff922b', '#5f3dc4', '#e64980'],   // berry
+  ['#ff6b35', '#00c49a', '#ffd23f', '#ee4266', '#3bceac', '#a855f7', '#f8961e'],   // tropical
+  ['#a2d2ff', '#ffc8dd', '#cdb4db', '#bde0fe', '#b9fbc0', '#fde4a8', '#c8b6ff'],   // ice cream
+];
+SKINS.forEach(k => { k.baseColours = k.colours.slice(); });
+function applyPalette() {
+  const sk = skin(), f = state.boardClears, P = CONFIG.palettes !== false && f > 0 ? PALETTES[(f - 1) % PALETTES.length] : null;
+  const cols = P ? P.slice(0, sk.baseColours.length) : sk.baseColours;
+  if (sk.colours.join() === cols.join()) return;
+  sk.colours = cols.slice(); spriteCache.clear(); boardBgKey = '';
+}
 // Visual theme for a skin: its own preset over the default look. CONFIG.themes = false shows the default everywhere.
 const DEFAULT_THEME = {
   bgEdge: '#07080d', glow: null, glowAlpha: 0, blobs: null, pool: 0.82,
@@ -1723,6 +1787,7 @@ function restoreGame() {
   state.mysteryLines = g.mysteryLines | 0; state.mysteryCount = g.mysteryCount | 0; state.mysteryPending = g.mysteryPending || false; state.mysterySinceFrame = g.mysterySinceFrame | 0; state.rescueGiven = !!g.rescueGiven;
   state.score = g.score | 0; state.combo = g.combo | 0; state.sinceClear = g.sinceClear | 0;
   state.skin = g.skin | 0; state.boardClears = g.boardClears | 0; state.frameLines = g.frameLines | 0; state.over = false;
+  applyPalette();
   // older saves have no piece ids: their bubbles are fixed, new placements are tracked normally
   state.pid = validPids(g.pid, state.grid) ? g.pid.slice() : fixedPids(state.grid);
   state.nextPid = Math.max(g.nextPid | 0, 1, ...state.pid) + (validPids(g.pid, state.grid) ? 0 : 1);
@@ -1818,6 +1883,7 @@ function newGame() {
   state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false; state.continues = 0; state.tainted = false;
   Input.cancelRepo(); Input.cancelPin();
   state.skin = 0;
+  applyPalette();
   bestAtStart = Store.get('best', 0);
   shownTarget = shownScore = 0;
   undoSnap = null;
@@ -2549,7 +2615,7 @@ function updateFX(now, dt) {
       Celebrate.start({
         frameNo: wf.frameNo, bonus: wf.bonus, oldSkin: wf.oldSkin, perfect: wf.perfect, undoEarned: wf.undoEarned, bonusEarned: wf.bonusEarned, multAfter: wf.multAfter, multBefore: wf.multBefore,
         onPay: d => { shownTarget += d; wf.paid += d; },
-        onSkin: () => { if (CONFIG.waterfall.changeSkin) { state.skin = (state.skin + 1) % SKINS.length; saveGame(); wf.skinChanged = true; FX.trayIn = state.tray.map((_, i) => performance.now() + 250 + i * 90); } return skin(); },
+        onSkin: () => { if (CONFIG.waterfall.changeSkin) { state.skin = (state.skin + 1) % SKINS.length; applyPalette(); saveGame(); wf.skinChanged = true; FX.trayIn = state.tray.map((_, i) => performance.now() + 250 + i * 90); } return skin(); },
       });
     }
     if (t >= wf.dur) { shownTarget += wf.bonus - wf.paid; wf.paid = wf.bonus; FX.waterfall = null; }
@@ -3982,7 +4048,7 @@ const DEBUG = {
   'Give Triple Pin': () => { grantPin(true); UI.update(true); },
   'Bonus piece': () => { Store.set('bonusPieces', Math.min(3, Store.get('bonusPieces', 0) + 1)); UI.update(true); },
   'Frame Bubble': () => { state.tray[0] = makeMystery(true); saveGame(); },
-  'Next skin': () => { state.skin = (state.skin + 1) % SKINS.length; UI.toast('Look: ' + skin().name); saveGame(); },
+  'Next skin': () => { state.skin = (state.skin + 1) % SKINS.length; applyPalette(); UI.toast('Look: ' + skin().name); saveGame(); },
 };
 (function debugPanel() {
   const el = document.getElementById('debug');
