@@ -476,6 +476,8 @@ const CONFIG = {
   clearRows: true,
   clearColumns: true,
 
+  themes: true,   // false = every skin uses the default backdrop (for comparing)
+
   scoring: {
     pointsPerCellPlaced: 2,        // every cell of a placed piece
     pointsPerLine: 100,            // each cleared row or column
@@ -521,6 +523,8 @@ const CONFIG = {
     // starChance, and the starBy-th reward in a row is always one. Measured: about 1 mystery piece
     // and 0.5 Frame Bubbles per game; a Frame Bubble in about 4 games out of 10.
     chancePerLine: 0.05, minLines: 10, maxLines: 30, starChance: 0.25, starBy: 4 },
+
+  celebrate: 'burst',   // frame clear: 'burst' = a barrage of water balloons popping, 'water' = the rising-water version
 
   waterfall: {
     trigger: 'boardEmpty',         // 'boardEmpty' | 'lines' | 'either'
@@ -1236,6 +1240,14 @@ const SKINS = [
   // A glass bubble holding a tiny galaxy: deep space, glowing nebula clouds in the bubble's colour,
   // a bright core, a dusting of stars, and a glass rim. Stars twinkle (drawn live in drawBubble).
   { name: 'Galaxy', galaxy: true, colours: ['#ff3d9e', '#20e3d2', '#a35bff', '#ffb02e', '#7cf03a', '#4d8dff'],
+    // soft indigo-lavender glow behind the board and tray, deep plum edges, slate-violet cells,
+    // and a fine cool rim + soft shadow so the dark marble edges read against everything
+    theme: {
+      bgEdge: '#22112e', glow: ['#fbf3e6', '#d9c9ef', '#2a1538'], glowAlpha: 1, blobs: [], pool: 0,
+      cellTop: 'rgba(120,96,170,0.13)', cellBot: 'rgba(120,96,170,0.20)', cellStroke: 'rgba(110,86,160,0.22)',
+      boardFill: 'rgba(255,252,246,0.45)', border: '#9a86de', ink: 'rgba(70,50,110,0.65)',
+      ballRim: 'rgba(255,255,255,0.4)', ballShadow: 0.32,
+    },
     draw(ctx, s, c) {
       const r = s * 0.45;
       let seed = parseInt(c.slice(1), 16) || 7;
@@ -1451,6 +1463,16 @@ const Sound = (() => {
       tone(t, { f: 300, f2: 200, peak: 0.06, attack: 0.006, decay: 0.12 });
     },
     trayIn() { if (!ok()) return; const t = ac.currentTime; [0, 0.06, 0.12].forEach((d, k) => plip(t + d, 600 + k * 160, 0.035, 0.025)); },
+    // Frame clear barrage: a water balloon bursting. Thump + wet splash + a pop that climbs as the barrage goes on.
+    balloonBurst(k, n, pan = 0, big = false) {
+      if (!ok()) return;
+      const t = ac.currentTime, steps = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2, 9 / 4, 5 / 2, 3];
+      const f = 330 * steps[Math.round((n > 1 ? k / (n - 1) : 0) * (steps.length - 1))] * R(0.98, 1.02);
+      tone(t, { f: big ? 120 : 210, f2: big ? 40 : 70, peak: big ? 0.11 : 0.045, attack: 0.004, decay: big ? 0.5 : 0.14, pan });
+      noise(t, { type: 'bandpass', f: big ? 1800 : 2600, f2: 500, q: 0.7, peak: big ? 0.09 : 0.04, attack: 0.002, decay: big ? 0.6 : 0.18, pan });
+      plip(t + 0.005, f, 0.05, big ? 0.05 : 0.036, pan);
+      for (let j = 0; j < (big ? 14 : 3); j++) plip(t + R(0.03, big ? 0.6 : 0.2), R(700, 1900), R(0.02, 0.04), R(0.008, 0.02), pan + R(-0.4, 0.4));
+    },
     // Frame clear chain: the pick-up pop climbing two octaves, one per leftover bubble.
     chainPop(k, n, pan = 0) {
       if (!ok()) return;
@@ -1515,6 +1537,14 @@ let bestAtStart = Store.get('best', 0);
 let shownTarget = 0, shownScore = 0;
 
 const skin = () => SKINS[state.skin % SKINS.length];
+// Visual theme for a skin: its own preset over the default look. CONFIG.themes = false shows the default everywhere.
+const DEFAULT_THEME = {
+  bgEdge: '#07080d', glow: null, glowAlpha: 0, blobs: null, pool: 0.82,
+  cellTop: 'rgba(255,255,255,0.075)', cellBot: 'rgba(255,255,255,0.12)', cellStroke: 'rgba(255,255,255,0.09)',
+  boardFill: 'rgba(255,255,255,0.025)', border: '#00e5d4', ink: 'rgba(255,255,255,0.55)', ballRim: null, ballShadow: 0,
+};
+const themeFor = sk => (CONFIG.themes !== false && sk && sk.theme) ? Object.assign({}, DEFAULT_THEME, sk.theme) : DEFAULT_THEME;
+const theme = () => themeFor(skin());
 const frameTarget = (n = state.boardClears) => {
   const F = CONFIG.frames, t = F.targets;
   return n < t.length ? t[n] : Math.min(F.maxTarget, t[t.length - 1] + F.step * (n - t.length + 1));
@@ -1971,7 +2001,7 @@ function layout() {
 }
 
 function sprite(skinIdx, colour) {
-  const key = skinIdx + '|' + colour;
+  const key = skinIdx + '|' + colour + '|' + (CONFIG.themes !== false);
   let s = spriteCache.get(key);
   if (s) return s;
   const size = Math.max(24, L.c);
@@ -1979,8 +2009,21 @@ function sprite(skinIdx, colour) {
   const c = document.createElement('canvas'); c.width = c.height = box;
   const x = c.getContext('2d');
   x.scale(dpr, dpr); x.translate(box / dpr / 2, box / dpr / 2);
-  const sk = SKINS[skinIdx % SKINS.length];
+  const sk = SKINS[skinIdx % SKINS.length], th = themeFor(sk);
+  if (th.ballShadow) {   // soft shadow just below: the marble sits slightly above the board
+    const g = x.createRadialGradient(0, size * 0.09, size * 0.2, 0, size * 0.09, size * 0.56);
+    g.addColorStop(0, `rgba(10,4,24,${th.ballShadow})`); g.addColorStop(1, 'rgba(10,4,24,0)');
+    x.fillStyle = g; x.beginPath(); x.arc(0, size * 0.09, size * 0.56, 0, Math.PI * 2); x.fill();
+  }
   sk.draw(x, size, sk.colours[colour % sk.colours.length], colour, sk.colours);
+  if (th.ballRim) {      // fine cool rim so a dark edge never melts into the background
+    x.strokeStyle = th.ballRim; x.lineWidth = Math.max(0.8, size * 0.022);
+    x.beginPath(); x.arc(0, 0, size * 0.447, 0, Math.PI * 2); x.stroke();
+    const hl = x.createLinearGradient(0, -size * 0.45, 0, size * 0.1);
+    hl.addColorStop(0, 'rgba(235,240,255,0.55)'); hl.addColorStop(1, 'rgba(235,240,255,0)');
+    x.strokeStyle = hl; x.lineWidth = Math.max(1, size * 0.03);
+    x.beginPath(); x.arc(0, 0, size * 0.44, Math.PI * 1.08, Math.PI * 1.92); x.stroke();
+  }
   s = { canvas: c, size, box: box / dpr };
   spriteCache.set(key, s);
   return s;
@@ -2100,19 +2143,20 @@ function wobbleAmount(w, now) {
   return w.amp * Math.exp(-t / F.wobbleDecay) * Math.sin(t * Math.PI * 2 * F.wobbleHz);
 }
 
-let boardBg = null;
+let boardBg = null, boardBgKey = '';
 function buildBoardBg() {
   boardBg = document.createElement('canvas');
   boardBg.width = Math.ceil(L.B * dpr); boardBg.height = Math.ceil(L.B * dpr);
   const x = boardBg.getContext('2d'); x.scale(dpr, dpr);
-  const c = L.c, bp = L.bp;
+  const c = L.c, bp = L.bp, th = theme();
+  boardBgKey = state.skin + '|' + (CONFIG.themes !== false);
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
     const px = bp + gx * c + c * 0.055, py = bp + gy * c + c * 0.055, w = c * 0.89;
     rr(x, px, py, w, w, c * 0.24);
     const g = x.createLinearGradient(0, py, 0, py + w);
-    g.addColorStop(0, 'rgba(255,255,255,0.075)'); g.addColorStop(1, 'rgba(255,255,255,0.12)');
+    g.addColorStop(0, th.cellTop); g.addColorStop(1, th.cellBot);
     x.fillStyle = g; x.fill();
-    x.strokeStyle = 'rgba(255,255,255,0.09)'; x.lineWidth = 1; x.stroke();
+    x.strokeStyle = th.cellStroke; x.lineWidth = 1; x.stroke();
   }
 }
 
@@ -2153,9 +2197,20 @@ const BG = (() => {
   function draw(now, dt) {
     const t = now / 1000, M = Math.max(W, H);
     x.globalCompositeOperation = 'source-over';
-    x.fillStyle = '#07080d'; x.fillRect(0, 0, W, H);
+    const th = theme(), r0 = stageEl.getBoundingClientRect();
+    x.fillStyle = th.bgEdge; x.fillRect(0, 0, W, H);
+    if (th.glow) {
+      // one calm glow behind the board and the tray, stretched to cover both
+      const top = r0.top + L.by, bot = r0.top + L.ty + L.T, cx0 = r0.left + L.bx + L.B / 2, cy0 = (top + bot) / 2;
+      const rx = Math.max(W * 0.66, L.B * 0.8), ry = (bot - top) * 0.78;
+      x.save(); x.translate(cx0, cy0); x.scale(1, ry / rx);
+      const g = x.createRadialGradient(0, 0, 0, 0, 0, rx);
+      g.addColorStop(0, th.glow[0]); g.addColorStop(0.55, th.glow[1]); g.addColorStop(1, th.glow[2] || th.bgEdge);
+      x.globalAlpha = th.glowAlpha; x.fillStyle = g; x.fillRect(-rx, -rx, rx * 2, rx * 2); x.globalAlpha = 1;
+      x.restore();
+    }
     x.globalCompositeOperation = 'lighter';
-    for (const b of blobs) {
+    for (const b of (th.blobs || blobs)) {
       const still = settings.reduced;
       const bx = (b.x + (still ? 0 : Math.sin(t * b.sp * 2 + b.ph) * 0.12)) * W;
       const by = (b.y + (still ? 0 : Math.cos(t * b.sp * 1.6 + b.ph) * 0.08)) * H;
@@ -2169,8 +2224,8 @@ const BG = (() => {
     const r = stageEl.getBoundingClientRect();
     const cx = r.left + L.bx + L.B / 2, cy = r.top + L.by + L.B / 2;
     const p = x.createRadialGradient(cx, cy, L.B * 0.3, cx, cy, L.B * 0.95);
-    p.addColorStop(0, 'rgba(7,8,13,0.82)'); p.addColorStop(1, 'rgba(7,8,13,0)');
-    x.fillStyle = p; x.fillRect(0, 0, W, H);
+    p.addColorStop(0, `rgba(7,8,13,${th.pool})`); p.addColorStop(1, 'rgba(7,8,13,0)');
+    if (th.pool) { x.fillStyle = p; x.fillRect(0, 0, W, H); }
     // drifting droplets, edges only
     if (false) {   // drifting dots removed: they read as a night sky
       while (drops.length < 16 && zones.length) { const d = spawn(); if (!d) break; d.life = Math.random() * d.max * 0.5; drops.push(d); }
@@ -2424,13 +2479,15 @@ function draw(now) {
   // thin glowing border so the grid's edge is always clear
   ctx.save();
   rr(ctx, L.bx + 0.75, L.by + 0.75, L.B - 1.5, L.B - 1.5, L.c * 0.32);
-  ctx.fillStyle = 'rgba(255,255,255,0.025)'; ctx.fill();
+  const th = theme();
+  ctx.fillStyle = th.boardFill; ctx.fill();
   let gk = 0;
   if (FX.waterfall && now >= FX.waterfall.t0) { const tt = now - FX.waterfall.t0; gk = Math.min(1, tt / 250) * Math.max(0, Math.min(1, (FX.waterfall.dur - tt) / 500)); }
-  const bc = gk ? ['#00e5d4', '#ff2d8a', '#9b3dff', '#ffb81c'][Math.floor(now / 140) % 4] : '#00e5d4';
+  const bc = gk ? ['#00e5d4', '#ff2d8a', '#9b3dff', '#ffb81c'][Math.floor(now / 140) % 4] : th.border;
   ctx.shadowColor = rgba(bc, 0.55 + 0.4 * gk); ctx.shadowBlur = 12 + 26 * gk;
   ctx.strokeStyle = rgba(bc, 0.55 + 0.4 * gk); ctx.lineWidth = 1.5 + 1.5 * gk; ctx.stroke();
   ctx.restore();
+  if (boardBgKey !== state.skin + '|' + (CONFIG.themes !== false)) buildBoardBg();
   ctx.drawImage(boardBg, L.bx, L.by, L.B, L.B);
 
   // preview info
@@ -2649,14 +2706,15 @@ function draw(now) {
       const total = labelW + shapes.reduce((a, sh) => a + sh.w * cs, 0) + gapW * (shapes.length - 1);
       let x = (L.W - total) / 2; const yMid = L.ty + L.T + Math.min(below * 0.4, cs * 3.2);
       ctx.font = `600 ${cs * 1.15}px Fredoka, ui-rounded, system-ui, sans-serif`;
-      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = theme().ink;
       ctx.fillText('Next', x, yMid); x += labelW;
-      ctx.fillStyle = 'rgba(255,255,255,0.32)';
+      ctx.globalAlpha = 0.6; ctx.fillStyle = theme().ink;
       for (const sh of shapes) {
         const top = yMid - sh.h * cs / 2;
         for (const [cx, cy] of sh.cells) { ctx.beginPath(); ctx.roundRect(x + cx * cs + 1, top + cy * cs + 1, cs - 2, cs - 2, cs * 0.3); ctx.fill(); }
         x += sh.w * cs + gapW;
       }
+      ctx.globalAlpha = 1;
     }
   }
 
@@ -2981,6 +3039,22 @@ const Celebrate = (() => {
     run = { t0: performance.now(), info, b, cx, cy, word, paid: 0, revealed: false, newSkin: null, letterSounded: 0, ticked: 0 };
     parts = []; rising = []; drips = []; wh.fill(0); wv.fill(0);
     run.surged = false; run.dripsMade = false; run.lastSlosh = 0;
+    run.burst = CONFIG.celebrate === 'burst';
+    if (run.burst) {
+      // water balloons all over the screen, popping faster and faster, then one giant one in the middle
+      const n = 26, balls = [];
+      for (let i = 0; i < n; i++) {
+        const near = i % 3 !== 0;
+        const bx = near ? b.x + R(0.08, 0.92) * b.s : R(0.06, 0.94) * W, by = near ? b.y + R(0.05, 0.95) * b.s : R(0.08, 0.92) * H;
+        const at = 60 + 1250 * Math.pow(i / n, 0.75);
+        balls.push({ x: bx, y: by, size: b.c * R(0.95, 1.6), colour: i % 6, at, k: i, n, popped: false });
+      }
+      balls.push({ x: cx, y: cy, size: b.c * 3.2, colour: 0, at: 1500, k: n, n: n + 1, big: true, popped: false });
+      run.balls = balls; run.shake = 0;
+      BG.pulse('#ff2d8a', 0.6);
+      if (settings.reduced) { run.balls = []; Sound.celebrate(word.length); }
+      return;
+    }
     Sound.celebrate(word.length);
     BG.pulse('#ff2d8a', 1);
     if (settings.reduced) return;
@@ -3002,10 +3076,57 @@ const Celebrate = (() => {
     x.setTransform(d, 0, 0, d, 0, 0); x.clearRect(0, 0, W, H);
     const fadeAll = t > DUR - 450 ? Math.max(0, (DUR - t) / 450) : 1;
     // flash over the board
-    if (t < 380) { x.save(); x.globalCompositeOperation = 'lighter';
+    if (t < 380 && !run.burst) { x.save(); x.globalCompositeOperation = 'lighter';
       const g = x.createRadialGradient(cx, cy, 0, cx, cy, b.s * 0.8); g.addColorStop(0, `rgba(255,255,255,${0.7 * (1 - t / 380)})`); g.addColorStop(1, 'rgba(255,255,255,0)');
       x.fillStyle = g; x.fillRect(0, 0, W, H); x.restore(); }
-    if (!red) {
+    if (run.burst && !red) {
+      const sk0 = SKINS[info.oldSkin % SKINS.length];
+      if (run.shake > 0) { x.translate(R(-1, 1) * run.shake, R(-1, 1) * run.shake); run.shake = Math.max(0, run.shake - dt * 60); }
+      for (const q of run.balls) {
+        const lt = t - (q.at - 220);        // appears 220ms before it pops
+        if (lt < 0) continue;
+        const col = sk0.colours[q.colour % sk0.colours.length];
+        if (!q.popped && t >= q.at) {
+          q.popped = true; q.pt = t;
+          Sound.balloonBurst(q.k, q.n, (q.x / W) * 2 - 1, q.big);
+          Haptics.pulse(q.big ? [30, 40, 50] : 12);
+          BG.pulse(col, q.big ? 1 : 0.35);
+          run.shake = q.big ? 14 : Math.max(run.shake, 4);
+          const cnt = q.big ? 160 : 22, sp0 = q.big ? H * 1.1 : H * 0.55;
+          for (let i = 0; i < cnt; i++) {
+            const a = R(0, Math.PI * 2), sp = R(0.3, 1) * sp0;
+            parts.push({ k: 'drop', x: q.x + Math.cos(a) * q.size * 0.3, y: q.y + Math.sin(a) * q.size * 0.3, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - sp * 0.35,
+              r: R(2.5, q.big ? 7 : 5.5), col: Math.random() < 0.6 ? col : '#d8f6ff', life: 0, max: R(0.7, q.big ? 2 : 1.3) });
+          }
+          if (q.big) for (let i = 0; i < 26; i++) { const a = R(0, Math.PI * 2), sp = R(0.5, 1.1) * H;
+            parts.push({ k: 'ball', x: cx, y: cy, vx: Math.cos(a) * sp * 0.6, vy: Math.sin(a) * sp - sp * 0.3, rot: R(0, 6), vr: R(-6, 6), size: c * R(0.6, 1.2), colour: i % 6, life: 0, max: 2.2 }); }
+        }
+        if (!q.popped) {
+          // swelling and wobbling just before it bursts
+          const g = Math.min(1, lt / 140), sw = 1 + Math.max(0, (lt - 120) / 100) * 0.18, wob = Math.sin(lt / 26) * 0.06 * g;
+          const sz = q.size * easeOutBack(g) * sw, sp = sprite(info.oldSkin, q.colour), w = sp.box * sz / sp.size;
+          x.save(); x.translate(q.x, q.y); x.scale(1 + wob, 1 - wob); x.drawImage(sp.canvas, -w / 2, -w / 2, w, w); x.restore();
+        } else {
+          // the burst: white flash and a ring of water
+          const pt = t - q.pt, life = q.big ? 700 : 380;
+          if (pt < life) {
+            const p = pt / life, rad = q.size * (0.5 + easeOut(p) * (q.big ? 4 : 1.6));
+            x.save(); x.globalCompositeOperation = 'lighter';
+            if (pt < 120) { const fg = x.createRadialGradient(q.x, q.y, 0, q.x, q.y, q.size * (q.big ? 3 : 1)); fg.addColorStop(0, `rgba(255,255,255,${0.9 * (1 - pt / 120)})`); fg.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = fg; x.fillRect(q.x - q.size * 3, q.y - q.size * 3, q.size * 6, q.size * 6); }
+            x.strokeStyle = rgba(col, 0.8 * (1 - p)); x.lineWidth = (q.big ? 14 : 6) * (1 - p) + 1;
+            x.beginPath(); x.arc(q.x, q.y, rad, 0, Math.PI * 2); x.stroke(); x.restore();
+          }
+        }
+      }
+      for (const p of parts) {
+        p.life += dt; p.vy += G * dt; p.x += p.vx * dt; p.y += p.vy * dt;
+        const a = Math.max(0, 1 - p.life / p.max) * fadeAll;
+        if (p.k === 'drop') drawDrop(p.x, p.y, p.r * 2.6, p.vx, p.vy, p.col, Math.min(1, a * 1.15));
+        else { p.rot += p.vr * dt; const sp = sprite(info.oldSkin, p.colour), k = p.size / sp.size, w = sp.box * k;
+          x.save(); x.globalAlpha = a; x.translate(p.x, p.y); x.rotate(p.rot); x.drawImage(sp.canvas, -w / 2, -w / 2, w, w); x.restore(); }
+      }
+      parts = parts.filter(p => p.life < p.max && p.y < H + 80);
+    } else if (!red) {
       // shockwave ring
       if (t < 850) { const p = t / 850, rad = easeOut(p) * Math.max(W, H) * 0.95;
         x.save(); x.globalCompositeOperation = 'lighter'; x.strokeStyle = `rgba(200,250,255,${0.5 * (1 - p)})`; x.lineWidth = 8 * (1 - p) + 1;
@@ -3047,7 +3168,7 @@ const Celebrate = (() => {
       parts = parts.filter(p => p.life < p.max && p.y < H + 80);
     }
     // title: light rays, "FRAME n", CLEAR! dropping in letter by letter, the bonus counting up
-    const T0 = red ? 100 : 650;
+    const T0 = red ? 100 : run.burst ? 1620 : 650;
     if (t >= T0) {
       const q = t - T0, ty = cy - c * 0.6;
       if (!red) { x.save(); x.globalCompositeOperation = 'lighter'; x.translate(cx, ty); x.rotate(q / 1000 * 0.5);
@@ -3063,7 +3184,7 @@ const Celebrate = (() => {
         x.strokeText(s, px, py); x.fillStyle = fill; x.fillText(s, px, py); x.shadowBlur = 0;
       };
       const k1 = red ? 1 : easeOutBack(Math.min(1, q / 320));
-      x.save(); x.translate(cx, ty - c * 1.25); x.scale(k1, k1); txt(info.perfect ? 'PERFECT CLEAR' : 'FRAME ' + info.frameNo, 0, 0, c * 0.55, '#00e5d4', 'rgba(0,229,212,0.9)'); x.restore();
+      x.save(); x.translate(cx, ty - c * 1.25); x.scale(k1, k1); txt('FRAME ' + info.frameNo, 0, 0, c * 0.55, '#00e5d4', 'rgba(0,229,212,0.9)'); x.restore();
       // letters drop in one by one with a pop each
       const big = c * 1.35, word = run.word;
       x.font = `700 ${big}px Fredoka, ui-rounded, system-ui, sans-serif`;
