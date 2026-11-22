@@ -297,7 +297,19 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .note{color:var(--muted);font-size:13px;margin-top:2px}
 
 .invitebtn{background:linear-gradient(180deg,#3ff0e0,#00b8aa)!important;color:#03201d!important;box-shadow:0 4px 0 #00877c!important;margin-top:10px}
-.howto{color:var(--muted);font-size:14px;line-height:1.45;text-align:left;margin:12px 0 4px}
+.howto{color:var(--muted);font-size:14px;line-height:1.45;text-align:left;margin:12px 0 14px}
+.howto summary{cursor:pointer;color:var(--text,#fff);font-weight:700;font-size:15px;padding:4px 0;list-style-position:inside}
+.setcard{position:relative;max-height:calc(100dvh - 40px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.setx{position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;border:0;background:rgba(255,255,255,.1);color:#fff;font-size:17px;cursor:pointer}
+.setbtns{display:flex;gap:10px;margin-top:10px}.setbtns .btn{flex:1;margin:0;font-size:15px;padding-left:6px;padding-right:6px}
+.bgbtn{font:inherit;font-size:15px;color:#fff;background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:12px;padding:8px 12px;cursor:pointer}
+.bggrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:6px}
+.bggrid button{font:inherit;font-size:12.5px;line-height:1.2;color:#fff;background:rgba(255,255,255,.07);border:2px solid transparent;border-radius:14px;padding:10px 4px 8px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px}
+.bggrid button b{font-size:26px;font-weight:400}
+.bggrid button.on{border-color:#2ee6d6;background:rgba(46,230,214,.15)}
+.bggrid button:disabled{opacity:.45}
+.bgsel{font:inherit;font-size:15px;color:#fff;background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:12px;padding:8px 10px;max-width:190px}
+.bgsel option{color:#000}
 .bonusbtn{position:absolute;left:50%;transform:translateX(-50%);display:none;height:40px;padding:0 18px;border-radius:999px;border:0;
   font:600 15px inherit;font-family:inherit;color:#2a1600;background:linear-gradient(180deg,#ffe08a,#ffb81c);box-shadow:0 0 18px rgba(255,184,28,.55);z-index:2;cursor:pointer}
 .bonusbtn.on{display:block}
@@ -470,18 +482,23 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <div class="note" id="inviteNote" style="margin-top:8px;min-height:18px"></div>
       </div>
     </div>
+    <div class="overlay" id="bgPick" style="z-index:7">
+      <div class="card setcard">
+        <button class="setx" id="bgX" aria-label="Close">✕</button>
+        <h2>Background</h2>
+        <div class="bggrid" id="bgGrid"></div>
+      </div>
+    </div>
     <div class="overlay" id="settings">
-      <div class="card">
+      <div class="card setcard">
+        <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div class="row"><span>Sound effects</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
-        <div class="row"><span>Helping hand<div class="note">Playtest: how much the early game helps</div></span>
-          <div class="seg" id="assistSeg"><button data-v="strong">Strong</button><button data-v="medium">Medium</button><button data-v="light">Light</button></div></div>
-        <div class="row"><span>Background<div class="note">Unlock more with high scores</div></span><div class="seg" id="bgSeg"></div></div>
+        <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
-        <div class="howto">Drag pieces onto the grid. Complete a row or column to pop it. Every so often, popping lines earns a surprise: a mystery piece that reveals a special shape when you pick it up, or, more rarely, a golden Frame Bubble. Drop the Frame Bubble anywhere to pop the whole board and clear the frame, for a big bonus, a new look and a bigger points multiplier. Every 10 frames you earn a bonus piece to use whenever you like. The undo arrow takes back your last move for 10% of your score. Undos are earned: one free in each of your first 3 games, one every 5th game, and one for every 10 frames you clear (you can hold up to 3).</div>
-        <button class="btn invitebtn" id="setInvite" style="margin:0 0 10px">Invite friends</button>
+        <div class="row"><span>Background</span><button class="bgbtn" id="bgBtn"><span id="bgNow">Every frame</span> ›</button></div>
+        <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
-        <button class="btn ghost" id="restart2">Start a new game</button>
+        <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
       </div>
     </div>
   </div>
@@ -5264,20 +5281,34 @@ const UI = (() => {
   const tog = (key, el) => $(el).addEventListener('click', () => { settings[key] = !settings[key]; Store.set(key, settings[key]); syncToggles(); });
   tog('vibe', 'tVibe');
   $('tVibe').addEventListener('click', () => Haptics.pulse(30));   // switching it on gives a tap, so you can check it works
-  const seg = $('assistSeg');
-  const syncSeg = () => seg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === CONFIG.assist.level));
-  seg.addEventListener('click', e => { const v = e.target.dataset && e.target.dataset.v; if (!v) return; CONFIG.assist.level = v; Store.set('assistLevel', v); syncSeg(); });
-  CONFIG.assist.level = Store.get('assistLevel', 'strong'); syncSeg();
+  // Helping hand is now automatic (the dealer plans early hands); older saved Light/Medium choices are reset
+  CONFIG.assist.level = 'strong'; Store.set('assistLevel', 'strong');
   const vol = (key, el) => $(el).addEventListener('input', e => {
     settings[key] = e.target.value / 100; Store.set(key, settings[key]); syncToggles(); Sound.setVolumes();
     if (key === 'sfx') Sound.pickup();
   });
   vol('sfx', 'vSfx');
-  const bgSeg = $('bgSeg');
-  const syncBg = () => { const ch = Backdrops.choice(); bgSeg.innerHTML = `<button data-v="auto" class="${ch === 'auto' ? 'on' : ''}">Every frame</button>` + Backdrops.LIST.map(b => Backdrops.isOpen(b.id) ? `<button data-v="${b.id}" class="${ch === b.id ? 'on' : ''}">${b.name}</button>` : `<button data-v="" disabled style="opacity:.55">🔒 ${b.name} ${b.need >= 1e6 ? b.need / 1e6 + 'M' : b.need / 1e3 + 'k'}</button>`).join(''); };
-  bgSeg.addEventListener('click', e => { const v = e.target.dataset && e.target.dataset.v; if (!v) return; Backdrops.choose(v); syncBg(); });
+  const BG_ICON = { auto: '🎲', night: '⬛', meadow: '🌼', ocean: '🐠', sunset: '🌅', candy: '🍭', space: '🪐', sky: '🐦', tank: '🐟', beach: '🏖️', fizzy: '🥤',
+    jungle: '🌴', desert: '🌵', sunrise: '🌄', moonrise: '🌕', starfall: '🌠', waterfall: '💦', hourglass: '⏳', cells: '🔬', grass: '🌱', rain: '🌧️', storm: '⛈️',
+    balloons: '🎈', harbour: '⛴️', city: '🌃', aurora: '🌌' };
+  const bgName = id => id === 'auto' ? 'Every frame' : id === 'night' ? 'None' : (Backdrops.LIST.find(b => b.id === id) || {}).name || id;
+  const bgPick = $('bgPick'), bgGrid = $('bgGrid');
+  const syncBg = () => { $('bgNow').textContent = bgName(Backdrops.choice()); };
+  const openBg = () => {
+    const ch = Backdrops.choice(), ids = ['auto', 'night'].concat(Backdrops.LIST.map(b => b.id).filter(id => id !== 'night'));
+    bgGrid.innerHTML = ids.map(id => {
+      const b = Backdrops.LIST.find(q => q.id === id), open = id === 'auto' || Backdrops.isOpen(id);
+      const label = open ? bgName(id) : `🔒 ${b.need >= 1e6 ? b.need / 1e6 + 'M' : b.need / 1e3 + 'k'}`;
+      return `<button data-v="${id}" class="${ch === id ? 'on' : ''}" ${open ? '' : 'disabled'}><b>${BG_ICON[id] || '🖼️'}</b>${label}</button>`;
+    }).join('');
+    bgPick.classList.add('show');
+  };
+  $('bgBtn').addEventListener('click', openBg);
+  $('bgX').addEventListener('click', () => bgPick.classList.remove('show'));
+  bgGrid.addEventListener('click', e => { const bt = e.target.closest('button'); if (!bt || bt.disabled) return; Backdrops.choose(bt.dataset.v); syncBg(); bgPick.classList.remove('show'); });
   $('settingsBtn').addEventListener('click', () => { syncToggles(); syncBg(); st.classList.add('show'); });
   $('closeSettings').addEventListener('click', () => st.classList.remove('show'));
+  $('setX').addEventListener('click', () => st.classList.remove('show'));
   $('restart2').addEventListener('click', () => { st.classList.remove('show'); newGame(); });
   $('playAgain').addEventListener('click', () => { Sound.unlock(); newGame(); });
   // The first time, explain what Undo does and what it costs before taking any points
