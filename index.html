@@ -85,6 +85,28 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .iconbtn.friends svg{width:34px;height:34px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
 .iconbtn.friends:active svg{transform:scale(.9)}
 .invcard{padding:26px 22px 20px}
+.ladbub{background:radial-gradient(circle at 35% 30%,#fff6c8 0,#ffd23f 35%,#e0a000 70%,#a86a00 100%)!important;color:#5a3b00!important;box-shadow:0 8px 18px rgba(255,184,28,.45)!important}
+.ncrow{display:grid;grid-template-columns:1fr 64px;gap:10px;margin:4px 0 8px}
+.ncrow input{height:56px;border-radius:16px;border:2px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff;font:600 21px Fredoka,ui-rounded,system-ui,sans-serif;padding:0 14px;outline:none;text-align:left;min-width:0}
+.ncrow input#ncInit{text-align:center;text-transform:uppercase}
+.ncrow input:focus{border-color:#ff6fb2;box-shadow:0 0 0 3px rgba(255,45,138,.25)}
+.ncnote{font-size:14px;color:var(--muted);margin:0 0 16px;min-height:18px}
+.ncnote.err{color:#ff8fb0}
+.best .rk{color:#ffd23f;font-weight:700}
+.ladder{text-align:left;margin:0 0 12px}
+.ladhead{display:flex;justify-content:space-between;align-items:baseline;font-size:15px;color:var(--muted);margin:0 2px 8px}
+.ladhead b{color:#fff;font-size:18px}
+.ladrow{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:8px;padding:9px 12px;border-radius:12px;font-size:17px}
+.ladrow:nth-child(odd){background:rgba(255,255,255,.04)}
+.ladrow .r{font-weight:700;color:var(--muted)}
+.ladrow.top1 .r{color:#ffd23f}.ladrow.top2 .r{color:#d7dde8}.ladrow.top3 .r{color:#ffa86b}
+.ladrow .v{font-weight:700}
+.ladrow.me{background:linear-gradient(90deg,rgba(255,45,138,.28),rgba(255,45,138,.08))!important;box-shadow:inset 0 0 0 1.5px rgba(255,111,178,.7)}
+.ladgap{text-align:center;color:var(--muted);letter-spacing:3px;margin:2px 0}
+.ladlinks{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin:2px 4px 12px}
+.ladlinks a{color:#9ff5ec;text-decoration:none;cursor:pointer}
+.gorank{font-size:17px;font-weight:700;color:#ffd23f;min-height:0;margin:-4px 0 10px}
+.gorank:empty{display:none}
 .pinbub{background:radial-gradient(circle at 35% 30%,#fff6c8 0,#ffd23f 35%,#e0a000 70%,#a86a00 100%)!important;box-shadow:0 8px 18px rgba(255,184,28,.45),inset 0 -4px 8px rgba(120,70,0,.35)!important}
 .pinbub svg{width:40px!important;height:40px!important}
 .pinhow{font-size:17px;font-weight:600;color:#ffd23f;margin:0 0 12px}
@@ -274,7 +296,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
     </div>
     <div class="scorewrap"><div class="score" id="score">0</div><div class="subline"><div class="best" title="Best score">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 17.5L3.5 8.5l5 4 3.5-6 3.5 6 5-4-1 9z" fill="rgba(255,210,63,.25)"/><path d="M5 20.5h14"/><circle cx="3.5" cy="7" r="1.6" fill="currentColor" stroke="none"/><circle cx="12" cy="4.6" r="1.8" fill="currentColor" stroke="none"/><circle cx="20.5" cy="7" r="1.6" fill="currentColor" stroke="none"/></svg>
-      <span id="best">0</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+      <span id="best">0</span><span class="rk" id="bestRank"></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
     </div><div class="combo" id="combo">Combo ×2</div></div></div>
     <div class="actions">
       <button class="iconbtn friends" id="shareBtn" aria-label="Play with friends">
@@ -308,6 +330,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <h2>Out of room!</h2>
         <div class="unum gonum" id="goScore" data-v="0">0</div>
         <div class="gobest" id="goNew"></div>
+        <div class="gorank" id="goRank"></div>
         <div class="gostreak" id="goStreak"></div>
         <div class="goopt" id="goPinWrap">
           <button class="btn pinuse" id="goPin"><span class="pinicon"></span><span id="goPinTxt">Pop a bubble</span><span class="ccost">free</span></button>
@@ -328,16 +351,29 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <div class="mplabel">Your best</div>
         <div class="unum mpbest" id="mpBest" data-v="0">0</div>
         <div class="mprows">
-          <div class="mprow"><span class="mpi fr"></span><span class="mpk">Top friend</span><span class="mpv" id="mpFriend">Coming soon</span></div>
-          <div class="mprow"><span class="mpi wr"></span><span class="mpk">World record</span><span class="mpv" id="mpWorld">Coming soon</span></div>
+          <div class="ladder" id="mpLadder"></div>
           <div class="mprow"><span class="mpi st"></span><span class="mpk">Days in a row</span><span class="mpv" id="mpStreak">0</span></div>
           <div class="mpnext" id="mpNext"></div>
           <div class="mprow"><span class="mpi pn"></span><span class="mpk">Pins saved</span><span class="mpv" id="mpPins">0</span></div>
           <div class="mprow"><span class="mpi gm"></span><span class="mpk">Games played</span><span class="mpv" id="mpGames">0</span></div>
         </div>
-        <div class="mpnote">Friends and world rankings arrive with leaderboards. Share Pop now so your friends are ready.</div>
+        <div class="mpnote" id="mpNote"></div>
         <button class="btn invbtn" id="mpShare">Play with friends</button>
         <button class="btn ghost" id="mpDone">Done</button>
+      </div>
+    </div>
+    <div class="overlay" id="nameCard">
+      <div class="card undocard">
+        <div class="ubub ladbub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 17.5L3.5 8.5l5 4 3.5-6 3.5 6 5-4-1 9z"/><path d="M5 20.5h14"/></svg></div>
+        <h2 id="ncTitle">Join the ladder!</h2>
+        <div class="ulead" id="ncLead">See who's got the top score. Pick the name everyone will see.</div>
+        <div class="ncrow">
+          <input id="ncFirst" maxlength="15" autocomplete="given-name" autocapitalize="words" placeholder="First name" aria-label="First name">
+          <input id="ncInit" maxlength="1" autocomplete="off" autocapitalize="characters" placeholder="R" aria-label="Surname initial">
+        </div>
+        <div class="ncnote" id="ncNote">First name and the first letter of your surname, like Mark R</div>
+        <button class="btn ubtn" id="ncGo">Let's go</button>
+        <button class="btn ghost" id="ncLater">Not now</button>
       </div>
     </div>
     <div class="overlay" id="pinInfo">
@@ -409,6 +445,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
    ===================================================================== */
 const CONFIG = {
   title: 'Pop',                      // game name, change freely
+  // The ladder lives in Supabase. Paste the Project URL and the publishable (anon) key here.
+  // These two are safe to have in the page; never put the secret / service key here.
+  online: { url: '', key: '' },
   shareUrl: 'https://markadamrosenberg-ux.github.io/pop/',   // public link friends are sent
   gridSize: 8,
   clearRows: true,
@@ -1495,7 +1534,7 @@ function serialise() {
   return { grid: state.grid, tray: state.tray.map(packPiece),
     score: state.score, combo: state.combo, sinceClear: state.sinceClear, skin: state.skin, boardClears: state.boardClears, frameLines: state.frameLines,
     mysteryLines: state.mysteryLines, mysteryCount: state.mysteryCount, mysteryPending: state.mysteryPending, mysterySinceFrame: state.mysterySinceFrame,
-    pid: state.pid, nextPid: state.nextPid, repo: state.repo, continues: state.continues | 0 };
+    pid: state.pid, nextPid: state.nextPid, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted };
 }
 function saveGame() { if (state.over) Store.set('game', null); else Store.set('game', serialise()); }
 function restoreGame() {
@@ -1509,7 +1548,7 @@ function restoreGame() {
   // older saves have no piece ids: their bubbles are fixed, new placements are tracked normally
   state.pid = validPids(g.pid, state.grid) ? g.pid.slice() : fixedPids(state.grid);
   state.nextPid = Math.max(g.nextPid | 0, 1, ...state.pid) + (validPids(g.pid, state.grid) ? 0 : 1);
-  state.continues = g.continues | 0;
+  state.continues = g.continues | 0; state.tainted = !!g.tainted;
   state.repo = CONFIG.reposition.enabled ? Math.max(0, Math.min(CONFIG.reposition.maxCharges, g.repo | 0)) : 0;
   if (state.tray.every(p => !p)) refillTray(false);
   shownTarget = shownScore = state.score;
@@ -1593,7 +1632,7 @@ function newGame() {
   state.grid = new Array(N * N).fill(0);
   state.score = 0; state.combo = 0; state.sinceClear = 0; state.over = false; state.boardClears = 0; state.frameLines = 0;
   state.mysteryLines = 0; state.mysteryCount = 0; state.mysteryPending = false; state.mysterySinceFrame = 0;
-  state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false; state.continues = 0;
+  state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false; state.continues = 0; state.tainted = false;
   Input.cancelRepo(); Input.cancelPin();
   state.skin = 0;
   bestAtStart = Store.get('best', 0);
@@ -1736,6 +1775,10 @@ function move(slot, gx, gy, repo = null) {
   }
 
   state.score += placePts + linePts + bonus;
+  if (!state.tainted && Net.player() && state.score > Store.get('ladderSent', 0) && state.score > Store.get('ladderPending', 0)) {
+    Store.set('ladderPending', state.score);
+    if (!Net._t) Net._t = setTimeout(() => { Net._t = 0; Net.flush(); }, 15000);
+  }
   if (state.score > Store.get('best', 0)) Store.set('best', state.score);
 
   // fill the mystery meter (at most one mystery piece per move; extra lines carry over, capped); when it's full, a mystery piece drops into the tray
@@ -2249,6 +2292,7 @@ function updateFX(now, dt) {
   if (FX.pendingRescue && now >= FX.pendingRescue) { FX.pendingRescue = 0; if (state.rescue && !state.over) UI.showRescue(); }
   if (FX.pendingGameOver && now >= FX.pendingGameOver) {
     FX.pendingGameOver = 0; FX.gameOverAt = now; Sound.gameOver();
+    if (!state.tainted) Net.report(state.score, true);
     setTimeout(() => UI.showGameOver(), settings.reduced ? 150 : 700);
   }
 }
@@ -2590,6 +2634,70 @@ function easeOutBack(t) { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(
 /* =====================================================================
    CELEBRATION: the full-screen frame clear, drawn on its own layer over everything.
    ===================================================================== */
+/* =====================================================================
+   ONLINE: your name, your best score and the ladder
+   Works in the background. If there's no internet the game carries on and catches up later.
+   ===================================================================== */
+const Net = (() => {
+  const cfg = () => Store.get('devOnline', null) || CONFIG.online;
+  const enabled = () => { const c = cfg(); return !!(c && c.url && c.key); };
+  const player = () => Store.get('player', null);
+  let busy = false, lastSend = 0;
+  async function rpc(fn, body) {
+    const c = cfg(), ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 9000);
+    const headers = { 'Content-Type': 'application/json', apikey: c.key };
+    if (!/^sb_/.test(c.key)) headers.Authorization = 'Bearer ' + c.key;   // older-style anon keys also go here
+    try {
+      const r = await fetch(c.url.replace(/\/$/, '') + '/rest/v1/rpc/' + fn, { method: 'POST', headers, body: JSON.stringify(body), signal: ctl.signal });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.message || ('HTTP ' + r.status));
+      return j;
+    } finally { clearTimeout(timer); }
+  }
+  function keepBoard(b) {
+    if (!b || !b.me) return;
+    Store.set('board', { ...b, at: Date.now() });
+    if (b.me.best > Store.get('best', 0)) Store.set('best', b.me.best);
+    if (typeof UI !== 'undefined') UI.update(true);
+  }
+  async function register(name) {
+    const r = await rpc('pop_register', { p_name: name });
+    Store.set('player', { id: r.id, token: r.token, name: r.name });
+    // the ladder starts fresh: your old phone best is kept to look back on, not ranked
+    const old = Store.get('best', 0);
+    if (old > 0 && !Store.get('bestBefore', 0)) Store.set('bestBefore', old);
+    Store.set('best', 0); Store.set('ladderSent', 0); Store.set('ladderGames', 0); Store.set('ladderPending', 0);
+    if (typeof bestAtStart !== 'undefined') bestAtStart = 0;
+    await refresh();
+    return r;
+  }
+  async function rename(name) { const p = player(); const b = await rpc('pop_rename', { p_id: p.id, p_token: p.token, p_name: name }); p.name = b.me.name; Store.set('player', p); keepBoard(b); return b; }
+  async function refresh() { const p = player(); if (!enabled() || !p) return null; try { const b = await rpc('pop_board', { p_id: p.id, p_token: p.token }); keepBoard(b); return b; } catch (e) { forget(e); return null; } }
+  function forget(e) { if (e && /unknown_player/.test(e.message)) { Store.set('player', null); Store.set('board', null); } }
+  // Remember a score to send. finished = the game just ended (counts as a game played).
+  function report(score, finished = false) {
+    if (!player()) return;
+    if (score > Store.get('ladderPending', 0)) Store.set('ladderPending', score);
+    if (finished) Store.set('ladderGames', Store.get('ladderGames', 0) + 1);
+    return flush();
+  }
+  async function flush(force = false) {
+    const p = player();
+    if (!enabled() || !p || busy) return null;
+    const pend = Store.get('ladderPending', 0), sent = Store.get('ladderSent', 0), games = Store.get('ladderGames', 0);
+    if (!force && pend <= sent && games === 0) return null;
+    if (performance.now() - lastSend < 2500) { setTimeout(() => flush(force), 2600); return null; }
+    busy = true; lastSend = performance.now();
+    try {
+      const b = await rpc('pop_score', { p_id: p.id, p_token: p.token, p_score: Math.max(pend, sent), p_new_games: games });
+      Store.set('ladderSent', Math.max(pend, sent)); Store.set('ladderGames', Math.max(0, Store.get('ladderGames', 0) - games));
+      keepBoard(b); return b;
+    } catch (e) { forget(e); return null; }
+    finally { busy = false; }
+  }
+  return { enabled, player, register, rename, refresh, report, flush, board: () => Store.get('board', null) };
+})();
+
 const Celebrate = (() => {
   const cv = document.getElementById('fx'), x = cv.getContext('2d');
   const PAL = ['#ff2d8a', '#00e5d4', '#9b3dff', '#ffb81c', '#8bea1c'];
@@ -3160,6 +3268,9 @@ const UI = (() => {
     rb.classList.toggle('ready', state.repo > 0);
     rb.classList.toggle('active', Input.repoMode());
     rb.classList.toggle('pulse', state.rescue && state.repo > 0 && !Input.repoMode());
+    // your place on the ladder, next to your best
+    const bd = Net.player() ? Net.board() : null, rkt = bd && bd.me && bd.me.rank ? ' · #' + bd.me.rank : '';
+    if ($('bestRank').textContent !== rkt) $('bestRank').textContent = rkt;
     // Pin: how many pops you've got saved
     const pc = pinCounts(), pb = $('pinBtn'), pops = pc.pins + pc.triples * 3;
     pb.classList.toggle('none', pops === 0 && !Input.pinMode());
@@ -3211,6 +3322,14 @@ const UI = (() => {
     $('goContCost').textContent = cost > 0 ? '-' + cost.toLocaleString() + ' pts' : 'free';
     $('goContNote').textContent = `${cost > 0 ? 'Pay ' + cost.toLocaleString() + ' points for' : 'Get'} a Rescue Bubble: a special piece shaped to fill your gaps and pop 3 to 5 lines at once. Once per game.`;
     $('playAgain').className = can || havePin ? 'btn ghost' : 'btn';
+    const gr = $('goRank'); gr.textContent = '';
+    if (Net.player() && !state.tainted) {
+      const shown = state.score;
+      Net.flush().then(b => b || Net.refresh()).then(b => {
+        if (!b || !b.me || !b.me.rank || !go.classList.contains('show')) return;
+        gr.textContent = b.me.rank === 1 ? `👑 Top of the ladder! (${b.total} ${b.total === 1 ? 'player' : 'players'})` : `#${b.me.rank} of ${b.total} on the ladder`;
+      });
+    } else if (Net.enabled() && !Net.player()) gr.textContent = '';
     go.classList.add('show');
   }
   function hideGameOver() { go.classList.remove('show'); }
@@ -3271,9 +3390,67 @@ const UI = (() => {
     const pc = pinCounts();
     $('mpPins').textContent = pc.pins + (pc.triples ? ` + ${pc.triples} Triple` : '');
     $('mpGames').textContent = Store.get('games', 0).toLocaleString();
-    ['mpFriend', 'mpWorld'].forEach(id => $(id).classList.add('soon'));
+    renderLadder();
     Sound.pickup(); mp.classList.add('show');
+    if (Net.player()) Net.flush(true).then(b => { if (!b) return Net.refresh(); }).then(() => renderLadder());
   }
+  const esc = t => String(t).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+  // the ladder on Your Pop: top players, you highlighted, your neighbours if you're further down
+  function renderLadder() {
+    const el = $('mpLadder'), note = $('mpNote'), b = Net.board(), me = Net.player(), before = Store.get('bestBefore', 0);
+    if (!Net.enabled()) { el.innerHTML = '<div class="ladhead"><b>Ladder</b><span>coming soon</span></div>'; note.textContent = 'Share Pop now so your friends are ready.'; return; }
+    if (!me) {
+      el.innerHTML = '<div class="ladhead"><b>Ladder</b></div><button class="btn invitebtn" id="mpJoin">Join the ladder</button>';
+      $('mpJoin').onclick = () => { mp.classList.remove('show'); showNameCard(true); };
+      note.textContent = 'Put your name on it and see where you rank.'; return;
+    }
+    if (!b) { el.innerHTML = '<div class="ladhead"><b>Ladder</b><span>loading…</span></div>'; note.textContent = ''; return; }
+    const row = r => `<div class="ladrow${r.me ? ' me' : ''}${r.rank <= 3 ? ' top' + r.rank : ''}"><span class="r">${r.rank}</span><span>${esc(r.name)}${r.me ? ' (you)' : ''}</span><span class="v">${r.best.toLocaleString()}</span></div>`;
+    let html = `<div class="ladhead"><b>Ladder</b><span>${b.total} ${b.total === 1 ? 'player' : 'players'}</span></div>`;
+    html += b.top.slice(0, 10).map(row).join('');
+    const shownMe = b.top.slice(0, 10).some(r => r.me);
+    if (!shownMe && b.me.rank) { html += '<div class="ladgap">• • •</div>' + (b.near.length ? b.near.map(row).join('') : b.top.filter(r => Math.abs(r.rank - b.me.rank) <= 2).map(row).join('')); }
+    if (!b.me.rank) html += `<div class="ladrow me"><span class="r">–</span><span>${esc(b.me.name)} (you)</span><span class="v">play a game</span></div>`;
+    html += `<div class="ladlinks"><a id="mpRename">Change name</a><span>${before ? 'Before the ladder: ' + before.toLocaleString() : ''}</span></div>`;
+    el.innerHTML = html;
+    $('mpRename').onclick = () => { mp.classList.remove('show'); showNameCard(true, true); };
+    note.textContent = b.me.rank === 1 ? "You're top of the ladder! Keep it that way." : b.me.rank ? `Beat ${b.top.find(r => r.rank === b.me.rank - 1) ? esc(b.top.find(r => r.rank === b.me.rank - 1).name) : 'the player above'} to move up.` : 'Finish a game to get on the ladder.';
+  }
+
+  // ---- your name: asked once, changeable from Your Pop
+  const nc = $('nameCard');
+  function showNameCard(force = false, renaming = false) {
+    if (!Net.enabled()) return;
+    if (!force && (Net.player() || Store.get('nameLater', '') === dayKey())) return;
+    nc._renaming = renaming;
+    $('ncTitle').textContent = renaming ? 'Change your name' : 'Join the ladder!';
+    $('ncLead').textContent = renaming ? 'This is the name everyone sees on the ladder.' : "See who's got the top score. Pick the name everyone will see.";
+    const cur = renaming && Net.player() ? Net.player().name.split(' ') : ['', ''];
+    $('ncFirst').value = cur[0] || ''; $('ncInit').value = cur[1] || '';
+    const nt = $('ncNote'); nt.className = 'ncnote'; nt.textContent = renaming ? '' : (Store.get('best', 0) > 0 ? `Your ladder score starts from your next game. Your best so far (${Store.get('best', 0).toLocaleString()}) stays on Your Pop.` : 'First name and the first letter of your surname, like Mark R');
+    $('ncLater').textContent = renaming ? 'Cancel' : 'Not now';
+    $('ncGo').textContent = renaming ? 'Save' : "Let's go"; $('ncGo').disabled = false;
+    nc.classList.add('show');
+  }
+  $('ncInit').addEventListener('input', e => { e.target.value = e.target.value.replace(/[^A-Za-zÀ-ÿ]/g, '').toUpperCase(); });
+  $('ncLater').addEventListener('click', () => { nc.classList.remove('show'); if (!nc._renaming) Store.set('nameLater', dayKey()); });
+  $('ncGo').addEventListener('click', async () => {
+    const first = $('ncFirst').value.trim().replace(/\s+/g, ' '), init = $('ncInit').value.trim(), nt = $('ncNote');
+    const bad = m => { nt.className = 'ncnote err'; nt.textContent = m; };
+    if (first.length < 1 || !/^[A-Za-zÀ-ÿ' -]+$/.test(first)) return bad('Type your first name');
+    if (!/^[A-Za-zÀ-ÿ]$/.test(init)) return bad('Add the first letter of your surname');
+    const name = first.charAt(0).toUpperCase() + first.slice(1) + ' ' + init.toUpperCase();
+    const go = $('ncGo'); go.disabled = true; go.textContent = nc._renaming ? 'Saving…' : 'Joining…';
+    try {
+      if (nc._renaming) await Net.rename(name); else await Net.register(name);
+      nc.classList.remove('show'); Sound.mysteryAppear(0);
+      toast(nc._renaming ? `You're now ${name}` : `You're on the ladder, ${name}!`);
+      update(true);
+    } catch (e) {
+      go.disabled = false; go.textContent = nc._renaming ? 'Save' : "Let's go";
+      bad(/bad_name/.test(e.message) ? "That name won't work. Try another" : /busy/.test(e.message) ? 'Lots of people joining. Try again in a minute' : "Couldn't connect. Check your internet and try again");
+    }
+  });
   $('best').closest('.best').addEventListener('click', () => { Sound.unlock(); if (!Input.isDragging()) openMyPop(); });
   $('mpDone').addEventListener('click', () => mp.classList.remove('show'));
   $('mpShare').addEventListener('click', () => { mp.classList.remove('show'); openInvite(); });
@@ -3336,9 +3513,11 @@ const UI = (() => {
     setTimeout(() => showGameOver(), 500);
   });
   $('bonusBtn').addEventListener('click', () => { Sound.unlock(); if (!useBonusPiece()) toast('Place a piece first to make room in your tray'); });
-  return { update, placeHint, showHint, dismissHint, toast, showGameOver, hideGameOver, modalOpen: () => go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show') || askEl.classList.contains('show') || mp.classList.contains('show') || pinInfoEl.classList.contains('show'),
+  return { update, placeHint, showHint, dismissHint, toast, showGameOver, hideGameOver, modalOpen: () => go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show') || askEl.classList.contains('show') || mp.classList.contains('show') || pinInfoEl.classList.contains('show') || nc.classList.contains('show'),
     showRescue() { rescueEl.classList.add('show'); },
     pinInfo: n => pinInfo(n),
+    showNameCard: (f, r) => showNameCard(f, r),
+    renderLadder: () => renderLadder(),
     flashPin() { const b = $('pinBtn'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 1600); },
     // the once-a-day moment: a big glowing "N days in a row!"
     streakToast(n, extra) {
@@ -3357,6 +3536,7 @@ function setup(rowsSpec, trayIds) {
   rowsSpec.forEach((r, y) => { if (!r) return; [...r].forEach((ch, x) => { if (ch !== '.') state.grid[Logic.idx(x, y)] = (parseInt(ch, 10) || 1); }); });
   state.tray = trayIds.map((id, i) => id ? { shape: SHAPE_BY_ID[id], color: (i * 2) % 7 } : null);
   state.pid = fixedPids(state.grid); state.rescue = false; undoSnap = null; Input.cancelRepo();
+  state.tainted = true;   // a test board: this game never goes to the ladder
   FX.trayIn = [0, 0, 0];
   saveGame();
 }
@@ -3423,9 +3603,14 @@ if (window.visualViewport) { window.visualViewport.addEventListener('resize', re
 ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, () => Sound.unlock(), { passive: true }));
 layout();
 if (!restoreGame()) newGame();
+else { state.over = isStuck(); if (state.over) newGame(); else if (state.rescue) setTimeout(() => UI.showRescue(), 600); }
 // everyone gets one Pin to try, including players part-way through a saved game
 if (!Store.get('pinStarter', false)) { Store.set('pinStarter', true); grantPin(); UI.update(true); }
-else { state.over = isStuck(); if (state.over) newGame(); else if (state.rescue) setTimeout(() => UI.showRescue(), 600); }
+// the ladder: ask for a name once, send anything waiting, keep your rank up to date
+setTimeout(() => { if (!Celebrate.active() && !UI.modalOpen()) UI.showNameCard(); }, 1200);
+Net.flush(); Net.refresh();
+document.addEventListener('visibilitychange', () => { if (document.hidden) Net.flush(); else Net.refresh(); });
+setInterval(() => { if (!document.hidden) Net.refresh(); }, 90000);
 UI.update(true);
 UI.showHint();
 if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => spriteCache.clear());
