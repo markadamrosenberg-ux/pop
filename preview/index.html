@@ -499,7 +499,13 @@ const CONFIG = {
   // Frames are levels: clear this many lines to fill the meter. Then the waterfall washes the
   // board clean, pays boardClearBonus, changes the bubble style and the next frame starts.
   // Clearing the whole board yourself also finishes the frame, with perfectBonus on top.
-  frames: { enabled: false, firstTarget: 6, step: 2, perfectBonus: 1500 },   // off: a frame is a full board clear
+  // Frame n needs targets[n] lines (then +step a frame, up to maxTarget). Early frames are quick on purpose.
+  frames: { enabled: true, targets: [3, 3, 4, 4, 5, 5, 5, 6, 6, 7], step: 1, maxTarget: 14, perfectBonus: 1500 },
+
+  // Starter board: each new frame begins with some nearly-full rows, each missing one short gap.
+  // rows[n] = how many for frame n (none after the list). exact[n] = how many of the gap-filling pieces
+  // are dealt straight into the tray, so early frames can be done in 3-4 moves; later you find them yourself.
+  starter: { enabled: true, rows: [3, 3, 4, 4, 4, 4, 4, 4, 4, 3, 3, 2, 2, 1], exact: [3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 1, 1, 1], gaps: ['2h', '3h', '4h', '2h', '3h'] },
 
   // Mystery piece: fill the meter with cleared lines to earn one. It shows as a glowing orb in the
   // tray; picking it up reveals a one-off shape built for the board right then, aiming to clear
@@ -531,7 +537,8 @@ const CONFIG = {
   // the board (a "frame") easyFrames times, then it eases off to normal.
   assist: {
     enabled: true,
-    easyFrames: 3,
+    easyFrames: 5,                 // full help for the first 5 frames...
+    normalFrom: 12,                // ...easing off a bit each frame until normal at frame 12
     // early-game help for playtesting: Strong / Medium / Light (chosen in settings)
     presets: {
       strong: { clearChance: 0.9, lineChance: 0.95, smallBias: 1.8, bigBias: 0.35 },
@@ -762,7 +769,12 @@ const Logic = (() => {
   function newTray(grid, colourCount, boardClears = 0) {
     const colour = () => Math.floor(Math.random() * colourCount);
     const A = CONFIG.assist;
-    const lv = A && A.enabled ? (boardClears < A.easyFrames ? A.easy : A.normal) : null;
+    let lv = null;
+    if (A && A.enabled) {
+      const k = Math.max(0, Math.min(1, (boardClears - A.easyFrames + 1) / Math.max(1, A.normalFrom - A.easyFrames + 1)));
+      const e = A.easy, n = A.normal; lv = {};
+      for (const key of Object.keys(n)) lv[key] = e[key] + (n[key] - e[key]) * k;
+    }
     const weightOf = s => s.weight * (!lv ? 1 : s.cells.length <= 3 ? lv.smallBias : s.cells.length >= 6 ? lv.bigBias : 1);
     const help = lv ? helperShapes(grid, lv.clearChance > 0) : null;
     const make = () => {
@@ -1501,7 +1513,31 @@ let bestAtStart = Store.get('best', 0);
 let shownTarget = 0, shownScore = 0;
 
 const skin = () => SKINS[state.skin % SKINS.length];
-const frameTarget = (n = state.boardClears) => CONFIG.frames.firstTarget + CONFIG.frames.step * n;
+const frameTarget = (n = state.boardClears) => {
+  const F = CONFIG.frames, t = F.targets;
+  return n < t.length ? t[n] : Math.min(F.maxTarget, t[t.length - 1] + F.step * (n - t.length + 1));
+};
+// A new frame's starter board: nearly-full rows, each with one gap. Returns the gap shapes (to deal) or [].
+function layStarter() {
+  const ST = CONFIG.starter, f = state.boardClears;
+  if (!ST.enabled || f >= ST.rows.length || !ST.rows[f]) return [];
+  const rowsN = Math.min(4, ST.rows[f]), cols = skin().colours.length, shapes = [];
+  const ys = [7, 6, 5, 4].sort(() => Math.random() - 0.5).slice(0, rowsN).sort((a, b) => b - a);
+  ys.forEach((y, k) => {
+    const sh = SHAPE_BY_ID[ST.gaps[(f + k) % ST.gaps.length]], x0 = Math.floor(Math.random() * (N - sh.w + 1));
+    for (let x = 0; x < N; x++) if (x < x0 || x >= x0 + sh.w) state.grid[Logic.idx(x, y)] = 1 + Math.floor(Math.random() * cols);
+    shapes.push(sh);
+  });
+  state.pid = fixedPids(state.grid);
+  return shapes.slice(0, ST.exact[f] || 0);
+}
+// Deal the gap pieces for a starter board into the tray (keeping any mystery piece)
+function dealStarter(shapes) {
+  if (!shapes.length) return;
+  const cols = skin().colours.length, base = Logic.newTray(state.grid, cols, state.boardClears);
+  let k = 0;
+  state.tray = state.tray.map((p, i) => p && p.mystery ? p : k < shapes.length ? { shape: shapes[k++], color: Math.floor(Math.random() * cols) } : (p || base[i]));
+}
 const mysteryTarget = () => state.mysteryCount === 0 ? CONFIG.mystery.firstAfterLines : CONFIG.mystery.everyLines;
 const makeMystery = (frame = false) => ({ mystery: true, frame, shape: null, color: 0 });
 const frameMult = () => Math.min(CONFIG.scoring.frameMultMax, 1 + state.boardClears * CONFIG.scoring.frameMultStep);
@@ -1680,6 +1716,7 @@ function newGame() {
   else if (games % U.everyGames === 0) grantUndo('Free undo for this game');
   FX.reset();
   refillTray();
+  dealStarter(layStarter());
   UI.hideGameOver();
   UI.update(true);
   saveGame();
@@ -1792,12 +1829,14 @@ function move(slot, gx, gy, repo = null) {
   const filledNow = state.grid.reduce((a, v) => a + (v ? 1 : 0), 0);
   const bonus = waterfall ? S.boardClearBonus * (state.boardClears + 1) + (boardEmpty && F.enabled ? F.perfectBonus : 0) + (frameBubble ? filledNow * S.poppedBubblePoints : 0) : 0;
   const multBefore = frameMult();
-  let washed = [];
+  let washed = [], starterShapes = [], starterCells = [];
   if (waterfall) {
     // the waterfall washes whatever is left off the board
     for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) { const v = state.grid[Logic.idx(gx, gy)]; if (v) washed.push({ gx, gy, v }); }
     state.grid = new Array(N * N).fill(0); state.pid = new Array(N * N).fill(0);
     state.boardClears++; state.frameLines = 0; state.mysterySinceFrame = 0;
+    starterShapes = layStarter();
+    starterCells = state.grid.map((v, i) => v ? i : -1).filter(i => i >= 0);
   }
   // a frame clear can't be undone (its rewards are already banked)
   if (waterfall) undoSnap = null;
@@ -1849,8 +1888,9 @@ function move(slot, gx, gy, repo = null) {
   }
 
   const streakNews = touchStreak();
-  const result = { repo: !!repo, grantSlot, bonusEarned, undoEarned, pinEarned, streakNews, multBefore, multAfter: frameMult(), skinName: null, frameBubble, mysteryGranted, mysteryPlaced: !!piece.mystery, slot, piece, gx, gy, placePts, linePts, colourPts, colourMatches, lines, comboMult, combo: state.combo, bonus, waterfall, boardEmpty, ...res, grid: state.grid, washed, frameNo: state.boardClears };
+  const result = { repo: !!repo, grantSlot, bonusEarned, undoEarned, pinEarned, streakNews, multBefore, multAfter: frameMult(), skinName: null, frameBubble, mysteryGranted, mysteryPlaced: !!piece.mystery, slot, piece, gx, gy, placePts, linePts, colourPts, colourMatches, starterCells, lines, comboMult, combo: state.combo, bonus, waterfall, boardEmpty, ...res, grid: state.grid, washed, frameNo: state.boardClears };
 
+  if (starterShapes.length) dealStarter(starterShapes);
   if (state.tray.every(p => !p)) refillTray();
   state.over = isStuck();
   saveGame();
@@ -2117,9 +2157,9 @@ const cellCentre = (gx, gy) => [L.ix + (gx + 0.5) * L.c, L.iy + (gy + 0.5) * L.c
 function slotCentre(i) { return [L.bx + L.slotW * (i + 0.5), L.ty + L.T / 2]; }
 
 const FX = {
-  goo: [], pops: [], particles: [], texts: [], settle: new Map(), waterfall: null, trayIn: [0, 0, 0], land: [], pendingRescue: 0,
+  goo: [], pops: [], particles: [], texts: [], settle: new Map(), waterfall: null, trayIn: [0, 0, 0], land: [], appear: new Map(), pendingRescue: 0,
   gameOverAt: 0, busyUntil: 0, pendingGameOver: 0, sheen: [],
-  reset() { if (typeof Celebrate !== 'undefined') Celebrate.cancel(); this.goo = []; this.pops = []; this.particles = []; this.texts = []; this.settle.clear(); this.waterfall = null; this.land = []; this.pendingRescue = 0; this.gameOverAt = 0; this.pendingGameOver = 0; this.sheen = []; },
+  reset() { if (typeof Celebrate !== 'undefined') Celebrate.cancel(); this.goo = []; this.pops = []; this.particles = []; this.texts = []; this.settle.clear(); this.appear.clear(); this.waterfall = null; this.land = []; this.pendingRescue = 0; this.gameOverAt = 0; this.pendingGameOver = 0; this.sheen = []; },
 };
 
 function spawnSplash(x, y, colourHex, I = 1, dir = 0) {
@@ -2264,6 +2304,7 @@ function playResult(res, pointerGesture) {
     FX.waterfall = { t0, dur: T.end, T, bonus: res.bonus, paid: 0, started: false, skinChanged: false, oldSkin: state.skin,
       washed, perfect: res.boardEmpty && !res.frameBubble, frameNo: res.frameNo, undoEarned: res.undoEarned, bonusEarned: res.bonusEarned, pinEarned: res.pinEarned, multAfter: res.multAfter, multBefore: res.multBefore };
     endAt = t0 + T.end;
+    (res.starterCells || []).forEach((i, k) => { const at = t0 + T.end * 0.82 + k * 22; FX.appear.set(i, at); FX.settle.set(i, { t0: at, amp: CONFIG.feel.landAmp }); });
   }
   FX.busyUntil = Math.max(FX.busyUntil, endAt);
   if (res.streakNews && res.streakNews.count > 1) {
@@ -2377,6 +2418,8 @@ function draw(now) {
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
     const v = state.grid[Logic.idx(gx, gy)];
     if (!v) continue;
+    const ap = FX.appear.get(Logic.idx(gx, gy));
+    if (ap !== undefined) { if (now < ap) continue; FX.appear.delete(Logic.idx(gx, gy)); }
     const [x, y] = cellCentre(gx, gy);
     const pidHere = state.pid[Logic.idx(gx, gy)];
     if (hidden && pidHere === hidden) {
@@ -3028,6 +3071,7 @@ const Celebrate = (() => {
     if (!run.revealed) { run.revealed = true; run.newSkin = run.info.onSkin(); UI.toast('New look: ' + run.newSkin.name); }
     run = null; parts = []; rising = []; drips = [];
     if (FX.waterfall) FX.waterfall.dur = Math.max(0, performance.now() - FX.waterfall.t0);
+    FX.appear.clear();
   }
   return { start, resize, frame, skip, duration: DUR, active: () => !!run, cancel() { run = null; parts = []; rising = []; } };
 })();
@@ -3289,7 +3333,7 @@ const UI = (() => {
     }
     // meter: progress to the next mystery piece, and which frame you're on
     let pct, lt, rt;
-    if (CONFIG.mystery.enabled) {
+    if (CONFIG.mystery.enabled && !CONFIG.frames.enabled) {
       // rewards are random now, so the bar just shows the frame and points multiplier,
       // and lights up when a mystery piece or Frame Bubble is waiting in the tray
       const fb = state.tray.some(p => p && p.mystery && p.frame) || state.mysteryPending === 'frame';
@@ -3303,7 +3347,12 @@ const UI = (() => {
       const wfOn = FX.waterfall && !FX.waterfall.skinChanged;
       const tgt = frameTarget(), got = Math.min(state.frameLines, tgt);
       pct = wfOn ? 100 : (got / tgt) * 100;
-      lt = 'Frame ' + (state.boardClears + 1); rt = got + ' / ' + tgt + ' lines';
+      const fb = state.tray.some(p => p && p.mystery && p.frame) || state.mysteryPending === 'frame';
+      const ready = fb || state.tray.some(p => p && p.mystery) || state.mysteryPending;
+      lt = fb ? '★ Frame Bubble ready!' : ready ? '✦ Mystery piece ready!' : 'Frame ' + (state.boardClears + 1);
+      rt = state.combo >= 2 ? 'Combo ' + state.combo + ' · ' + got + ' / ' + tgt : got + ' / ' + tgt + ' lines';
+      meterR.classList.toggle('cmb', state.combo >= 2);
+      meterEl.classList.toggle('ready', !!ready);
     }
     if (meterFill._p !== pct) { meterFill.style.width = pct + '%'; meterFill._p = pct; }
     if (meterL.textContent !== lt) meterL.textContent = lt;
