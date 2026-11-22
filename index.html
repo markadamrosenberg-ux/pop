@@ -69,9 +69,37 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .iconbtn.undo .cost{font-size:11px;font-weight:600;color:#ff8fb8;margin-top:1px}
 .iconbtn.undo .cost:empty{display:none}
 .iconbtn:disabled{opacity:.3}
+.iconbtn.pinbtn{position:relative}
+.iconbtn.pinbtn svg{width:30px;height:30px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}
+.iconbtn.pinbtn.none{opacity:.38}.iconbtn.pinbtn.none svg{filter:grayscale(.7)}
+.iconbtn.pinbtn .pcount{position:absolute;top:3px;right:4px;min-width:16px;height:16px;border-radius:8px;background:#ff2d8a;color:#fff;font-size:11px;font-weight:700;line-height:16px;padding:0 3px}
+.iconbtn.pinbtn .pcount:empty{display:none}
+.iconbtn.pinbtn.active{background:#ffd23f;box-shadow:0 0 18px rgba(255,184,28,.8)}
+.iconbtn.pinbtn.active svg{animation:pinWiggle .5s ease-in-out infinite}
+@keyframes pinWiggle{0%,100%{transform:rotate(-12deg)}50%{transform:rotate(12deg)}}
+.iconbtn.pinbtn.flash{animation:repoPulse .5s ease-in-out 3}
 .iconbtn.friends svg{width:34px;height:34px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.35))}
 .iconbtn.friends:active svg{transform:scale(.9)}
 .invcard{padding:26px 22px 20px}
+.gocard{max-height:92%;overflow:auto;padding:22px 20px 18px}
+.gocard h2{font-size:32px;margin-bottom:4px}
+.gonum{font-size:60px;display:inline-block;margin:2px 0 2px}
+.gobest{font-size:17px;font-weight:600;color:var(--muted);margin-bottom:10px;min-height:22px}
+.gobest.win{color:#ffd23f;text-shadow:0 0 12px rgba(255,184,28,.6)}
+.gostreak{display:flex;align-items:center;justify-content:center;gap:8px;font-size:16px;margin:0 0 14px;padding:8px 12px;border-radius:14px;background:rgba(0,229,212,.1);color:#9ff5ec}
+.gostreak:empty{display:none}
+.gostreak b{color:#fff}
+.gostreak .sb{width:22px;height:22px;border-radius:50%;flex:none;background:radial-gradient(circle at 35% 30%,#fff 0,#7ff3ea 30%,#00b8a8 100%);box-shadow:0 0 8px rgba(0,229,212,.7)}
+.goopt{margin:0 0 10px}
+.pinuse{height:60px;font-size:21px;display:flex;align-items:center;justify-content:center;gap:10px;background:linear-gradient(180deg,#ff7ab8,#ff2d8a)!important}
+.pinuse .pinicon{width:26px;height:26px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff6c8 0,#ffd23f 40%,#b77a00 100%);box-shadow:0 0 8px rgba(255,210,63,.8)}
+.pinuse .ccost{font-size:16px;font-weight:700;background:rgba(255,255,255,.2);border-radius:10px;padding:2px 8px}
+.streaktoast{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) scale(.6);opacity:0;pointer-events:none;z-index:30;text-align:center;
+  padding:16px 24px;border-radius:24px;background:rgba(8,40,44,.88);border:1px solid rgba(0,229,212,.5);box-shadow:0 0 30px rgba(0,229,212,.35);transition:transform .35s cubic-bezier(.3,1.6,.5,1),opacity .3s}
+.streaktoast.show{transform:translate(-50%,-50%) scale(1);opacity:1}
+.streaktoast .sn{font-size:46px;font-weight:700;color:#7ff3ea;line-height:1;text-shadow:0 0 16px rgba(0,229,212,.7)}
+.streaktoast .sl{font-size:18px;font-weight:600;color:#fff;margin-top:4px}
+.streaktoast .sx{font-size:16px;color:#ffd23f;margin-top:4px}
 .gocont{margin:4px 0 4px}
 .contbtn{height:62px;font-size:22px;display:flex;align-items:center;justify-content:center;gap:10px;
   background:linear-gradient(180deg,#ffe066,#ffb81c)!important;color:#4a2a00!important;box-shadow:0 4px 0 #b77a00,0 8px 22px rgba(255,184,28,.35)!important;animation:contGlow 1.6s ease-in-out infinite}
@@ -200,6 +228,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
         <span class="cost" id="undoCost"></span><span class="count" id="undoN"></span>
       </button>
+      <button class="iconbtn pinbtn" id="pinBtn" aria-label="Pin: pop one bubble">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><defs><radialGradient id="pinG" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff6c8"/><stop offset=".4" stop-color="#ffd23f"/><stop offset="1" stop-color="#b77a00"/></radialGradient></defs>
+          <path d="M16 20.5 L13.2 29.5 L16 30.5 L18.8 29.5 Z" fill="#cfd6e4" stroke="#7d8596" stroke-width=".8"/>
+          <circle cx="16" cy="12" r="9" fill="url(#pinG)"/><ellipse cx="12.6" cy="8.6" rx="3" ry="1.7" fill="#fff" opacity=".85" transform="rotate(-30 12.6 8.6)"/></svg>
+        <span class="pcount" id="pinN"></span>
+      </button>
       <button class="iconbtn repo" id="repoBtn" aria-label="Reposition a placed piece">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M3 12h18"/><path d="M9 6l3-3 3 3M9 18l3 3 3-3M6 9l-3 3 3 3M18 9l3 3-3 3"/></svg>
         <span class="charge" id="repoDot"></span>
@@ -237,20 +271,24 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
     <div class="debug" id="debug"></div>
     <button class="bonusbtn" id="bonusBtn" aria-label="Use bonus piece">★ Use bonus piece <span id="bonusN"></span></button>
     <div class="overlay" id="gameover">
-      <div class="card">
-        <h2>Out of room</h2>
-        <div class="sub">Nice run. Fancy another?</div>
-        <div class="big" id="goScore">0</div>
-        <div class="newbest" id="goNew"></div>
-        <div class="bestline">Best <span id="goBest">0</span></div>
-        <div class="gocont" id="goCont">
-          <button class="btn contbtn" id="goContinue"><span class="cbub"></span><span>Keep going</span><span class="ccost" id="goContCost">-285</span></button>
-          <div class="cnote">Get a Rescue Bubble that pops lines to make room. Once per game.</div>
+      <div class="card gocard">
+        <h2>Out of room!</h2>
+        <div class="unum gonum" id="goScore" data-v="0">0</div>
+        <div class="gobest" id="goNew"></div>
+        <div class="gostreak" id="goStreak"></div>
+        <div class="goopt" id="goPinWrap">
+          <button class="btn pinuse" id="goPin"><span class="pinicon"></span><span id="goPinTxt">Pop a bubble</span><span class="ccost">free</span></button>
+          <div class="cnote">Use your Pin to burst one bubble that's in the way, then keep playing.</div>
+        </div>
+        <div class="goopt" id="goCont">
+          <button class="btn contbtn" id="goContinue"><span class="cbub"></span><span>Keep going</span><span class="ccost" id="goContCost">-285 pts</span></button>
+          <div class="cnote" id="goContNote">Pay 285 points for a Rescue Bubble: a special piece shaped to fill your gaps and pop 3 to 5 lines at once. Once per game.</div>
         </div>
         <button class="btn ghost" id="playAgain">Play again</button>
         <button class="btn invitebtn" id="goInvite">Challenge a friend</button>
       </div>
     </div>
+    <div class="streaktoast" id="streakToast"><div class="sn" id="stN">2</div><div class="sl">days in a row!</div><div class="sx" id="stX"></div></div>
     <div class="overlay" id="undoAsk">
       <div class="card undocard">
         <div class="ubub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></div>
@@ -414,6 +452,14 @@ const CONFIG = {
   // Once the game is over there's no undo. You can keep going once per game: it costs a share of your
   // points and drops a Rescue Bubble (a mystery piece that pops lines) into the tray. Later: watch an ad.
   continueGame: { costPercent: 20, perGame: 1 },
+
+  // Pin: a saved reward that pops one bubble of your choice (a Triple Pin pops up to 3).
+  // Earned: some mystery rewards, every frame clear, streak days; one to try in your first game.
+  pin: { rewardShare: 0.3, maxPins: 5, maxTriples: 3, perFrame: 1, starter: 1, swellMs: 380 },
+
+  // Days in a row: a day counts once you place a piece. One missed day a week is forgiven.
+  // Milestones hand out Pins: a Pin every 3rd day, a Triple Pin every 7th.
+  streak: { pinEvery: 3, tripleEvery: 7 },
 
   undo: { costPercent: 10, maxBanked: 3, starterGames: 3, everyGames: 5, everyFrames: 10 },
 
@@ -1206,6 +1252,16 @@ const Sound = (() => {
       const drops = 2 + (Math.random() < 0.5 ? 1 : 0);
       for (let k = 0; k < drops; k++) plip(t + R(0.035, 0.13), f * R(1.3, 2.3), R(0.018, 0.03), R(0.008, 0.016), pan + R(-0.4, 0.4));
     },
+    // Pin: a big squishy, gooey pop. A wet low "blorp", a juicy burst, then drips.
+    goo(pan = 0) {
+      if (!ok()) return; const t = ac.currentTime;
+      tone(t, { f: 260, f2: 95, peak: 0.09, attack: 0.01, decay: 0.22, pan });
+      noise(t + 0.01, { type: 'lowpass', f: 1600, f2: 300, q: 0.7, peak: 0.08, attack: 0.004, decay: 0.28, pan });
+      plip(t + 0.005, 520, 0.07, 0.06, pan);
+      for (let k = 0; k < 7; k++) plip(t + R(0.06, 0.42), R(600, 1500), R(0.025, 0.05), R(0.012, 0.026), pan + R(-0.5, 0.5));
+    },
+    // Swelling before the pop: a stretchy rising squeak
+    stretch(pan = 0) { if (!ok()) return; const t = ac.currentTime; tone(t, { f: 180, f2: 420, peak: 0.03, attack: 0.15, decay: 0.2, pan, type: 'triangle' }); },
     // Full-screen frame clear: a soft big splash, droplet shower, then a warm water rush.
     celebrate(letters) {
       if (!ok()) return; const t = ac.currentTime;
@@ -1412,18 +1468,75 @@ function isStuck() {
   return true;
 }
 
+/* ---- Pins ---- */
+const pinCounts = () => ({ pins: Store.get('pins', 0), triples: Store.get('triplePins', 0) });
+const hasPin = () => { const c = pinCounts(); return c.pins + c.triples > 0; };
+function grantPin(triple = false) {
+  const P = CONFIG.pin;
+  if (triple) { const n = Store.get('triplePins', 0); if (n >= P.maxTriples) return false; Store.set('triplePins', n + 1); return true; }
+  const n = Store.get('pins', 0); if (n >= P.maxPins) return false; Store.set('pins', n + 1); return true;
+}
+
+// Pop one bubble with a Pin. Not undoable. Returns true if it popped.
+function pinPop(gx, gy) {
+  const i = Logic.idx(gx, gy), v = state.grid[i];
+  if (!v) return false;
+  const g = state.grid.slice(); g[i] = 0; state.grid = g;
+  // the piece it belonged to is now partly popped, so it's fixed
+  const id = state.pid[i], pid = state.pid.slice();
+  pid[i] = 0; if (id > 0) for (let k = 0; k < pid.length; k++) if (pid[k] === id) pid[k] = -1;
+  state.pid = pid;
+  undoSnap = null;
+  FX.goo.push({ gx, gy, colour: v - 1, skin: state.skin, t0: performance.now() });
+  FX.settle.delete(i);
+  Sound.stretch(((gx - 3.5) / 3.5) * 0.6);
+  saveGame();
+  return true;
+}
+
+/* ---- Days in a row ---- */
+const dayKey = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const daysBetween = (a, b) => Math.round((new Date(b + 'T12:00') - new Date(a + 'T12:00')) / 86400000);
+function streakInfo() {
+  const s = Store.get('streak', null) || { count: 0, last: null, best: 0, grace: null };
+  // shown as broken if more than the forgiven gap has passed
+  if (s.last) {
+    const gap = daysBetween(s.last, dayKey());
+    const graceOk = !s.grace || daysBetween(s.grace, dayKey()) >= 7;
+    if (gap > 2 || (gap === 2 && !graceOk)) return { ...s, count: 0, broken: true };
+  }
+  return s;
+}
+// Called when a piece is placed: counts today once and hands out milestone rewards.
+function touchStreak() {
+  const today = dayKey(), s = Store.get('streak', null) || { count: 0, last: null, best: 0, grace: null };
+  if (s.last === today) return null;
+  const gap = s.last ? daysBetween(s.last, today) : 99;
+  const graceOk = !s.grace || daysBetween(s.grace, today) >= 7;
+  if (gap === 1) s.count += 1;
+  else if (gap === 2 && graceOk) { s.count += 1; s.grace = today; }
+  else s.count = 1;
+  s.last = today; s.best = Math.max(s.best || 0, s.count);
+  Store.set('streak', s);
+  const C = CONFIG.streak, out = { count: s.count, reward: null };
+  if (s.count > 1 && s.count % C.tripleEvery === 0) { if (grantPin(true)) out.reward = 'triple'; }
+  else if (s.count > 1 && s.count % C.pinEvery === 0) { if (grantPin()) out.reward = 'pin'; }
+  return out;
+}
+
 function newGame() {
   state.grid = new Array(N * N).fill(0);
   state.score = 0; state.combo = 0; state.sinceClear = 0; state.over = false; state.boardClears = 0; state.frameLines = 0;
   state.mysteryLines = 0; state.mysteryCount = 0; state.mysteryPending = false; state.mysterySinceFrame = 0;
   state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false; state.continues = 0;
-  Input.cancelRepo();
+  Input.cancelRepo(); Input.cancelPin();
   state.skin = 0;
   bestAtStart = Store.get('best', 0);
   shownTarget = shownScore = 0;
   undoSnap = null;
   // hand out undos: free in your first few games, then one every few games
   const games = Store.get('games', 0) + 1; Store.set('games', games);
+  if (!Store.get('pinStarter', false)) { Store.set('pinStarter', true); for (let i = 0; i < CONFIG.pin.starter; i++) grantPin(); }
   const U = CONFIG.undo;
   if (games <= U.starterGames) { if (undoTokens() < 1) grantUndo(); }
   else if (games % U.everyGames === 0) grantUndo('Free undo for this game');
@@ -1546,7 +1659,8 @@ function move(slot, gx, gy, repo = null) {
   }
   // a frame clear can't be undone (its rewards are already banked)
   if (waterfall) undoSnap = null;
-  let undoEarned = false, bonusEarned = false;
+  let undoEarned = false, bonusEarned = false, pinEarned = false;
+  if (waterfall) for (let i = 0; i < CONFIG.pin.perFrame; i++) pinEarned = grantPin() || pinEarned;
   if (waterfall && state.boardClears % CONFIG.bonusPiece.everyFrames === 0) {
     const n = Store.get('bonusPieces', 0);
     if (n < CONFIG.bonusPiece.maxBanked) { Store.set('bonusPieces', n + 1); bonusEarned = true; }
@@ -1578,6 +1692,8 @@ function move(slot, gx, gy, repo = null) {
       const RP = CONFIG.reposition;
       if (RP.enabled && !isFrame && state.repo < RP.maxCharges && Math.random() < RP.rewardShare) {
         state.repo += 1; mysteryGranted = 'repo';        // a Reposition charge, saved for later
+      } else if (!isFrame && Math.random() < CONFIG.pin.rewardShare && grantPin()) {
+        mysteryGranted = 'pin';                          // a Pin, saved for when you need it
       } else {
         const free = slot >= 0 ? slot : state.tray.findIndex(p => !p);
         if (state.tray.some(Boolean) && free >= 0) { state.tray[free] = makeMystery(isFrame); grantSlot = free; }
@@ -1586,7 +1702,8 @@ function move(slot, gx, gy, repo = null) {
     }
   }
 
-  const result = { repo: !!repo, grantSlot, bonusEarned, undoEarned, multBefore, multAfter: frameMult(), skinName: null, frameBubble, mysteryGranted, mysteryPlaced: !!piece.mystery, slot, piece, gx, gy, placePts, linePts, lines, comboMult, combo: state.combo, bonus, waterfall, boardEmpty, ...res, grid: state.grid, washed, frameNo: state.boardClears };
+  const streakNews = touchStreak();
+  const result = { repo: !!repo, grantSlot, bonusEarned, undoEarned, pinEarned, streakNews, multBefore, multAfter: frameMult(), skinName: null, frameBubble, mysteryGranted, mysteryPlaced: !!piece.mystery, slot, piece, gx, gy, placePts, linePts, lines, comboMult, combo: state.combo, bonus, waterfall, boardEmpty, ...res, grid: state.grid, washed, frameNo: state.boardClears };
 
   if (state.tray.every(p => !p)) refillTray();
   state.over = isStuck();
@@ -1854,9 +1971,9 @@ const cellCentre = (gx, gy) => [L.ix + (gx + 0.5) * L.c, L.iy + (gy + 0.5) * L.c
 function slotCentre(i) { return [L.bx + L.slotW * (i + 0.5), L.ty + L.T / 2]; }
 
 const FX = {
-  pops: [], particles: [], texts: [], settle: new Map(), waterfall: null, trayIn: [0, 0, 0], land: [], pendingRescue: 0,
+  goo: [], pops: [], particles: [], texts: [], settle: new Map(), waterfall: null, trayIn: [0, 0, 0], land: [], pendingRescue: 0,
   gameOverAt: 0, busyUntil: 0, pendingGameOver: 0, sheen: [],
-  reset() { if (typeof Celebrate !== 'undefined') Celebrate.cancel(); this.pops = []; this.particles = []; this.texts = []; this.settle.clear(); this.waterfall = null; this.land = []; this.pendingRescue = 0; this.gameOverAt = 0; this.pendingGameOver = 0; this.sheen = []; },
+  reset() { if (typeof Celebrate !== 'undefined') Celebrate.cancel(); this.goo = []; this.pops = []; this.particles = []; this.texts = []; this.settle.clear(); this.waterfall = null; this.land = []; this.pendingRescue = 0; this.gameOverAt = 0; this.pendingGameOver = 0; this.sheen = []; },
 };
 
 function spawnSplash(x, y, colourHex, I = 1, dir = 0) {
@@ -1874,6 +1991,17 @@ function spawnSplash(x, y, colourHex, I = 1, dir = 0) {
   for (let i = 0; i < fall; i++) {
     P.push({ k: 'drop', x: x + (Math.random() - 0.5) * c * 0.5, y: y + c * 0.25, vx: (Math.random() - 0.5) * c * 0.8, vy: c * (0.6 + Math.random() * 2), r: c * (0.045 + Math.random() * 0.035), life: 0, max: 0.55 + Math.random() * 0.25, tint: Math.random() < 0.3 ? colourHex : null });
   }
+}
+
+/* Thick gooey blobs flung out from a Pin pop: big, slow, wobbly drops in the bubble's colour. */
+function spawnGoo(x, y, colourHex) {
+  if (settings.reduced) return;
+  const c = L.c, P = FX.particles;
+  for (let i = 0; i < 14; i++) {
+    const a = Math.random() * Math.PI * 2, sp = c * (2 + Math.random() * 4.5);
+    P.push({ k: 'drop', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - c * 2, r: c * (0.09 + Math.random() * 0.12), life: 0, max: 0.7 + Math.random() * 0.4, tint: i % 4 ? colourHex : null });
+  }
+  for (let i = 0; i < 5; i++) P.push({ k: 'drop', x: x + (Math.random() - 0.5) * c * 0.7, y: y + c * 0.3, vx: (Math.random() - 0.5) * c * 0.4, vy: c * (0.3 + Math.random() * 1.2), r: c * (0.07 + Math.random() * 0.06), life: 0, max: 1 + Math.random() * 0.4, tint: colourHex });
 }
 
 function spawnSparks(x, y, n, colourHex) {
@@ -1951,7 +2079,10 @@ function playResult(res, pointerGesture) {
     if (res.combo >= 2) floatText('Combo ' + res.combo + ' ×' + Logic.comboMultiplier(res.combo), cx, cy - L.c * 0.62, L.c * 0.36, '#8ff0ff', 800, 100);
     if (CONFIG.haptics.lineClear) Haptics.pulse(CONFIG.haptics.lineClear);
   }
-  if (res.mysteryGranted === 'repo') {
+  if (res.mysteryGranted === 'pin') {
+    Sound.mysteryAppear(0.35);
+    setTimeout(() => { UI.toast('📍 Pin earned! Pop any bubble you like'); UI.flashPin(); }, 300);
+  } else if (res.mysteryGranted === 'repo') {
     // a Reposition charge goes into the bank beside Undo
     Sound.mysteryAppear(0.35);
     setTimeout(() => { UI.toast('Reposition saved! Tap ⇄ to move a placed piece'); UI.flashRepo(); }, 300);
@@ -1979,10 +2110,14 @@ function playResult(res, pointerGesture) {
     const C = red ? popEnd : Math.max(BUILD + 120, popEnd - 80);   // cascade starts as the chain finishes
     const T = { build: BUILD, cascade: C, end: C + (red ? 1500 : Celebrate.duration) };
     FX.waterfall = { t0, dur: T.end, T, bonus: res.bonus, paid: 0, started: false, skinChanged: false, oldSkin: state.skin,
-      washed, perfect: res.boardEmpty && !res.frameBubble, frameNo: res.frameNo, undoEarned: res.undoEarned, bonusEarned: res.bonusEarned, multAfter: res.multAfter, multBefore: res.multBefore };
+      washed, perfect: res.boardEmpty && !res.frameBubble, frameNo: res.frameNo, undoEarned: res.undoEarned, bonusEarned: res.bonusEarned, pinEarned: res.pinEarned, multAfter: res.multAfter, multBefore: res.multBefore };
     endAt = t0 + T.end;
   }
   FX.busyUntil = Math.max(FX.busyUntil, endAt);
+  if (res.streakNews && res.streakNews.count > 1) {
+    const sn = res.streakNews, extra = sn.reward === 'triple' ? ' · Triple Pin earned!' : sn.reward === 'pin' ? ' · Pin earned!' : '';
+    setTimeout(() => { UI.streakToast(sn.count, extra); if (sn.reward) { Sound.mysteryAppear(0); UI.flashPin(); } }, Math.max(600, endAt - now + 200));
+  }
   if (state.over) FX.pendingGameOver = endAt + T.gameOverDelayMs;
   else if (state.rescue) FX.pendingRescue = endAt + T.gameOverDelayMs;
   UI.update();
@@ -1990,6 +2125,18 @@ function playResult(res, pointerGesture) {
 }
 
 function updateFX(now, dt) {
+  // Pin pops: swell and wobble, then burst in a big gooey splash
+  for (const g of FX.goo) {
+    if (!g.burst && now >= g.t0 + CONFIG.pin.swellMs) {
+      g.burst = true;
+      const [x, y] = cellCentre(g.gx, g.gy), sk = SKINS[g.skin % SKINS.length], col = sk.colours[g.colour % sk.colours.length];
+      spawnSplash(x, y, col, 2.8, 0); spawnSplash(x, y, '#ffffff', 1.2, 0);
+      spawnGoo(x, y, col);
+      Sound.goo(((g.gx - 3.5) / 3.5) * 0.6); Haptics.pulse([18, 30, 12]);
+      BG.pulse(col, 0.5);
+    }
+  }
+  FX.goo = FX.goo.filter(g => !g.burst);
   // pops
   for (const p of FX.pops) {
     if (!p.burst && now >= p.t0 + (settings.reduced ? 30 : CONFIG.timing.squashMs)) {
@@ -2073,7 +2220,7 @@ function draw(now) {
   // grid bubbles
   const goT = FX.gameOverAt ? (now - FX.gameOverAt) : -1;
   const wobble = now / 1000;
-  const hidden = Input.hiddenId(), lifted = Input.liftedId(), repoOn = Input.repoMode();
+  const hidden = Input.hiddenId(), lifted = Input.liftedId(), repoOn = Input.repoMode(), pinOn = Input.pinMode();
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
     const v = state.grid[Logic.idx(gx, gy)];
     if (!v) continue;
@@ -2091,6 +2238,7 @@ function draw(now) {
       if (k === null) FX.settle.delete(Logic.idx(gx, gy));
       else if (!settings.reduced) { sx = 1 + k; sy = 1 - k * 0.9; }
     }
+    if (pinOn && !settings.reduced) { const w = Math.sin(now / 45 + gx * 1.7 + gy * 2.3) * 0.035; sx += w; sy -= w; }
     if (glowRows.includes(gy) || glowCols.includes(gx)) s *= settings.reduced ? 1.1 : 1.16 + Math.sin(wobble * 8 + (gx + gy) * 0.6) * 0.04;
     // Reposition armed: fixed bubbles step back so the movable pieces stand out
     drawBubble(state.skin, v - 1, x, y, c * 0.96 * s, sx, sy, repoOn && pidHere < 0 ? 0.35 : 1, gx * 3 + gy * 5, now);
@@ -2150,6 +2298,12 @@ function draw(now) {
   }
   ctx.restore();
 
+  // Pin: the chosen bubble swells and wobbles before it bursts
+  for (const g of FX.goo) {
+    const [x, y] = cellCentre(g.gx, g.gy), q = Math.min(1, (now - g.t0) / CONFIG.pin.swellMs);
+    const w = settings.reduced ? 0 : Math.sin(q * Math.PI * 7) * 0.12 * (1 - q * 0.3);
+    drawBubble(g.skin, g.colour, x, y, c * 0.96 * (1 + q * 0.45), 1 + w, 1 - w, 1, g.gx * 3 + g.gy * 5, now);
+  }
   // popping bubbles (still visible until they burst)
   for (const p of FX.pops) {
     const [x, y] = cellCentre(p.gx, p.gy);
@@ -2513,6 +2667,7 @@ const Celebrate = (() => {
         const rows = [{ kind: 'look' }];
         if (info.multAfter > (info.multBefore || 1)) rows.push({ kind: 'text', s: '×' + info.multAfter + ' points next frame', col: '#ff8fd0', glow: 'rgba(255,45,138,0.9)' });
         if (info.bonusEarned) rows.push({ kind: 'text', s: '★ Bonus piece earned!', col: '#ffd23f', glow: 'rgba(255,184,28,0.9)' });
+        if (info.pinEarned) rows.push({ kind: 'text', s: '📍 Pin earned!', col: '#ffd23f', glow: 'rgba(255,184,28,0.9)' });
         if (info.undoEarned) rows.push({ kind: 'text', s: '↶ +1 undo earned', col: '#9ff7ee', glow: 'rgba(0,229,212,0.9)' });
         let ry = ty + c * 2.45;
         rows.forEach((row, i) => {
@@ -2587,12 +2742,40 @@ const Input = (() => {
     pv = { piece: drag.piece, gx, gy, onBoard, valid, rows, cols };
   }
 
+  // Pin mode: tap bubbles to pop them. shots left this time; 'kind' is what was spent.
+  let pin = null;
+  function endPin(refund = true) {
+    if (!pin) return;
+    const p = pin; pin = null;
+    if (refund && p.shots > 0) {
+      if (p.shots === p.total) grantPin(p.kind === 'triple');           // never used: give it back
+      else for (let k = 0; k < p.shots; k++) grantPin();               // part of a Triple Pin left: keep as Pins
+    }
+    // after popping, the run carries on only if something fits
+    if (!state.over && isStuck()) { state.over = true; saveGame(); FX.pendingGameOver = performance.now() + CONFIG.pin.swellMs + 700; }
+    UI.update(true);
+  }
   function down(e) {
     Sound.unlock();
     if (Celebrate.active()) { Celebrate.skip(); return; }
     if (drag || state.over || UI.modalOpen()) return;
     if (FX.waterfall && performance.now() < FX.waterfall.t0 + FX.waterfall.dur * 0.8) return;
     const [x, y] = pos(e);
+    if (pin) {
+      const gx = Math.floor((x - L.ix) / L.c), gy = Math.floor((y - L.iy) / L.c);
+      if (gx >= 0 && gy >= 0 && gx < N && gy < N) {
+        e.preventDefault();
+        if (!state.grid[Logic.idx(gx, gy)]) { UI.toast('Tap a bubble to pop it'); return; }
+        if (FX.goo.length && performance.now() - FX.goo[FX.goo.length - 1].t0 < 120) return;
+        pinPop(gx, gy);
+        pin.shots -= 1;
+        if (pin.shots <= 0) setTimeout(() => endPin(false), CONFIG.pin.swellMs + 60);
+        else UI.toast(pin.shots + (pin.shots === 1 ? ' more pop' : ' more pops') + ' left. Tap the Pin to save them');
+        UI.update(true);
+        return;
+      }
+      endPin(); // touching outside the board puts the Pin away
+    }
     if (repoMode) {
       // Reposition: pick up an intact placed piece from the board
       const gx = Math.floor((x - L.ix) / L.c), gy = Math.floor((y - L.iy) / L.c);
@@ -2735,6 +2918,22 @@ const Input = (() => {
       repoMode = true; UI.toast('Drag one of your placed pieces somewhere new'); return true;
     },
     cancelRepo() { repoMode = false; },
+    pinMode: () => !!pin,
+    pinShots: () => (pin ? pin.shots : 0),
+    // Tap the Pin: get it ready (a Pin first, otherwise a Triple Pin). Tap again to put it away.
+    togglePin() {
+      if (pin) { endPin(); return false; }
+      if (state.over || drag) return false;
+      repoMode = false;
+      const c = pinCounts();
+      if (c.pins > 0) { Store.set('pins', c.pins - 1); pin = { kind: 'pin', shots: 1, total: 1 }; }
+      else if (c.triples > 0) { Store.set('triplePins', c.triples - 1); pin = { kind: 'triple', shots: 3, total: 3 }; }
+      else { UI.toast('Earn Pins from rewards, frame clears and days in a row'); return false; }
+      Sound.pickup();
+      UI.toast(pin.total === 1 ? 'Tap any bubble to pop it' : 'Triple Pin! Tap up to 3 bubbles to pop them');
+      return true;
+    },
+    cancelPin() { endPin(); },
   };
 })();
 
@@ -2788,6 +2987,12 @@ const UI = (() => {
     rb.classList.toggle('ready', state.repo > 0);
     rb.classList.toggle('active', Input.repoMode());
     rb.classList.toggle('pulse', state.rescue && state.repo > 0 && !Input.repoMode());
+    // Pin: how many pops you've got saved
+    const pc = pinCounts(), pb = $('pinBtn'), pops = pc.pins + pc.triples * 3;
+    pb.classList.toggle('none', pops === 0 && !Input.pinMode());
+    pb.classList.toggle('active', Input.pinMode());
+    const pn = Input.pinMode() ? String(Input.pinShots()) : pops > 0 ? String(pops) : '';
+    if ($('pinN').textContent !== pn) $('pinN').textContent = pn;
     // undo button shows what it costs right now
     const ub = $('undoBtn'), uc = undoSnap ? undoCost() : 0, tokens = undoTokens();
     const can = !!undoSnap && tokens > 0 && !state.over && !(FX.waterfall && performance.now() < FX.waterfall.t0 + FX.waterfall.dur);
@@ -2812,15 +3017,27 @@ const UI = (() => {
   function dismissHint() { if (!Store.get('hintSeen', false)) { Store.set('hintSeen', true); } hint.classList.add('hide'); }
   function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800); }
   function showGameOver() {
-    $('goScore').textContent = state.score.toLocaleString();
-    const best = Store.get('best', 0);
-    $('goBest').textContent = best.toLocaleString();
-    $('goNew').textContent = state.score > 0 && state.score >= best && state.score > bestAtStart ? 'New best!' : '';
-    // the game's over: no undo. One paid "keep going" per game (later: watch an ad instead)
+    const sc = $('goScore'), txt = state.score.toLocaleString(); sc.textContent = txt; sc.dataset.v = txt;
+    const best = Store.get('best', 0), nb = $('goNew');
+    const isBest = state.score > 0 && state.score >= best && state.score > bestAtStart;
+    nb.className = 'gobest' + (isBest ? ' win' : '');
+    nb.textContent = isBest ? 'New best score!' : best - state.score > 0 ? `${(best - state.score).toLocaleString()} short of your best (${best.toLocaleString()})` : '';
+    // days in a row, and what the next one brings
+    const si = streakInfo(), S = CONFIG.streak, n = si.count || 0;
+    if (n > 0) {
+      const next = n + 1, toTriple = S.tripleEvery - (n % S.tripleEvery), toPin = S.pinEvery - (n % S.pinEvery);
+      const reward = toTriple <= toPin ? `${toTriple === 1 ? 'Tomorrow' : 'In ' + toTriple + ' days'}: a Triple Pin` : `${toPin === 1 ? 'Tomorrow' : 'In ' + toPin + ' days'}: a Pin`;
+      $('goStreak').innerHTML = `<span class="sb"></span><span><b>${n} ${n === 1 ? 'day' : 'days'} in a row.</b> ${reward}</span>`;
+    } else $('goStreak').innerHTML = '';
+    // the game's over: no undo. A free Pin if you've got one; one paid "keep going" per game (later: watch an ad)
+    const c = pinCounts(), havePin = c.pins + c.triples > 0;
+    $('goPinWrap').style.display = havePin ? '' : 'none';
+    $('goPinTxt').textContent = c.pins > 0 ? 'Pop a bubble' : 'Pop up to 3 bubbles';
     const can = canContinue(), cost = continueCost();
     $('goCont').style.display = can ? '' : 'none';
-    $('goContCost').textContent = cost > 0 ? '-' + cost.toLocaleString() : 'free';
-    $('playAgain').className = can ? 'btn ghost' : 'btn';
+    $('goContCost').textContent = cost > 0 ? '-' + cost.toLocaleString() + ' pts' : 'free';
+    $('goContNote').textContent = `${cost > 0 ? 'Pay ' + cost.toLocaleString() + ' points for' : 'Get'} a Rescue Bubble: a special piece shaped to fill your gaps and pop 3 to 5 lines at once. Once per game.`;
+    $('playAgain').className = can || havePin ? 'btn ghost' : 'btn';
     go.classList.add('show');
   }
   function hideGameOver() { go.classList.remove('show'); }
@@ -2863,6 +3080,14 @@ const UI = (() => {
   $('undoNo').addEventListener('click', () => askEl.classList.remove('show'));
   $('undoBtn').addEventListener('click', () => { Sound.unlock(); if (!Input.isDragging()) askUndo(); });
   $('goContinue').addEventListener('click', () => { Sound.unlock(); go.classList.remove('show'); continueGame(); });
+  // use a Pin from the game-over card: back to the board, ready to pop
+  $('goPin').addEventListener('click', () => {
+    Sound.unlock(); go.classList.remove('show');
+    state.over = false; FX.gameOverAt = 0; FX.pendingGameOver = 0;
+    if (!Input.togglePin()) { state.over = true; go.classList.add('show'); }
+    update(true);
+  });
+  $('pinBtn').addEventListener('click', () => { Sound.unlock(); Input.togglePin(); update(true); });
   // invite friends: a ready-to-send challenge message with your best score and the game link
   const inv = $('invite');
   function openInvite() {
@@ -2907,6 +3132,12 @@ const UI = (() => {
   $('bonusBtn').addEventListener('click', () => { Sound.unlock(); if (!useBonusPiece()) toast('Place a piece first to make room in your tray'); });
   return { update, placeHint, showHint, dismissHint, toast, showGameOver, hideGameOver, modalOpen: () => go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show') || askEl.classList.contains('show'),
     showRescue() { rescueEl.classList.add('show'); },
+    flashPin() { const b = $('pinBtn'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 1600); },
+    // the once-a-day moment: a big glowing "N days in a row!"
+    streakToast(n, extra) {
+      const t = $('streakToast'); $('stN').textContent = n; $('stX').textContent = extra.replace(/^ · /, '');
+      t.classList.add('show'); Sound.mysteryAppear(0); clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), 2200);
+    },
     flashRepo() { const b = $('repoBtn'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 1600); } };
 })();
 
@@ -2931,7 +3162,8 @@ const DEBUG = {
   'Nearly stuck': () => setup(['1.1.1.1.', '.1.1.1.1', '1.1.1.1.', '.1.1.1.1', '1.1.1.1.', '.1.1.1.1', '1.1.1.1.', '.1.1.1..'], ['sq3', 'sq3', '1']),
   'Mystery (3 lines)': () => { setup(['12.4..7.', '.3..56..', '..1...2.', '.....3..', '1234.671', '2345.712', '3456.123', '45671.34'], ['sq2', '1', '3h']); state.tray[0] = makeMystery(); saveGame(); },
   'Mystery (board clear)': () => { setup([, , , , , '1234.671', '2345.712', '3456.123'], ['sq2', '1', '3h']); state.tray[0] = makeMystery(); saveGame(); },
-  'Give Reposition': () => { state.repo = 1; saveGame(); UI.update(true); },
+  'Give Pin': () => { grantPin(); UI.update(true); },
+  'Give Triple Pin': () => { grantPin(true); UI.update(true); },
   'Bonus piece': () => { Store.set('bonusPieces', Math.min(3, Store.get('bonusPieces', 0) + 1)); UI.update(true); },
   'Frame Bubble': () => { state.tray[0] = makeMystery(true); saveGame(); },
   'Next skin': () => { state.skin = (state.skin + 1) % SKINS.length; UI.toast('Look: ' + skin().name); saveGame(); },
@@ -2942,7 +3174,7 @@ const DEBUG = {
   Object.entries(DEBUG).forEach(([k, f]) => { const b = document.createElement('button'); b.textContent = k; b.onclick = () => { f(); UI.update(true); }; el.appendChild(b); });
   window.addEventListener('hashchange', on); on();
 })();
-window.WBP = { undo: () => undo(), continueGame: () => continueGame(), Store, pieceById, rescueMove, isStuck, saveGame, Input,
+window.WBP = { undo: () => undo(), continueGame: () => continueGame(), pinPop: (x, y) => pinPop(x, y), grantPin: t => grantPin(t), touchStreak: () => touchStreak(), streakInfo: () => streakInfo(), Store, pieceById, rescueMove, isStuck, saveGame, Input,
   // place a tracked piece straight onto the board (no scoring), for tests
   placePiece(id, gx, gy, color = 0) { const s = SHAPE_BY_ID[id]; const r = Logic.apply(state.grid, s, gx, gy, color + 1);
     state.pid = updatePids(state.pid, s.cells.map(([x, y]) => Logic.idx(gx + x, gy + y)), state.nextPid++, r.cleared); state.grid = r.grid; saveGame(); return state.nextPid - 1; }, giveMystery: (i = 0, frame = false) => { state.tray[i] = makeMystery(frame); }, Celebrate, CONFIG, state, Logic, SHAPES, SKINS, move: (s, x, y) => { const r = move(s, x, y); if (r) playResult(r); return r; }, setup, newGame, layout: () => ({ ...L }), FX, Sound, settings, get shown() { return shownScore; } };
