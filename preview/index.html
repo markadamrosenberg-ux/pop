@@ -508,7 +508,7 @@ const CONFIG = {
   // The frame clears when the whole board is empty. plan[n] = [rows, pieces, shape tier] for frame n
   // (the last repeats). For the first pureFrames frames you're dealt only the carved pieces, so a perfect
   // fit clears the frame in `pieces` moves; after that one carved piece comes per hand among normal ones.
-  starter: { enabled: true, pureFrames: 10,
+  starter: { enabled: true, pureFrames: 10, gapsPerHand: 2,
     plan: [[2, 3, 0], [2, 3, 0], [3, 3, 1], [3, 3, 1], [3, 3, 2], [4, 3, 2], [3, 4, 2], [4, 4, 2], [4, 4, 3], [4, 5, 3], [4, 5, 3]] },
 
   // Mystery piece: fill the meter with cleared lines to earn one. It shows as a glowing orb in the
@@ -522,7 +522,10 @@ const CONFIG = {
     // of producing a reward; one is guaranteed by maxLines. Each reward is a Frame Bubble with
     // starChance, and the starBy-th reward in a row is always one. Measured: about 1 mystery piece
     // and 0.5 Frame Bubbles per game; a Frame Bubble in about 4 games out of 10.
-    chancePerLine: 0.05, minLines: 10, maxLines: 30, starChance: 0.25, starBy: 4 },
+    chancePerLine: 0.05, minLines: 10, maxLines: 30, starChance: 0.25, starBy: 4,
+    // Stuck on a frame? Once you've cleared this many lines in it without emptying the board, your next
+    // reward is a Frame Bubble: base + perFrame x frame, growing faster after lateFrom so games still end.
+    rescue: { enabled: true, base: 12, perFrame: 1, lateFrom: 20, latePerFrame: 4 } },
 
   celebrate: 'burst',   // frame clear: 'burst' = a barrage of water balloons popping, 'water' = the rising-water version
 
@@ -553,7 +556,9 @@ const CONFIG = {
     },
     level: 'strong',
     get easy() { return this.presets[this.level] || this.presets.strong; },
-    normal: { clearChance: 0.3, lineChance: 0.35, smallBias: 1, bigBias: 1 },
+    normal: { clearChance: 0.55, lineChance: 0.8, smallBias: 1.2, bigBias: 0.8 },   // frames 12-20
+    hardFrom: 20, hardFull: 35,    // then the help tapers to `hard` by frame 35, so games do end
+    hard: { clearChance: 0.25, lineChance: 0.4, smallBias: 1, bigBias: 1 },
     // clearChance: if one piece can empty the whole board, how often it's dealt
     // lineChance: how often a piece that completes a line is dealt
     // smallBias / bigBias: weight multipliers for 1-3 cell pieces and 6+ cell pieces
@@ -744,7 +749,7 @@ const Logic = (() => {
     };
     const firstMoves = [];
     for (const s of SHAPES) {
-      let best = 0, leastLeft = 99, empties = false;
+      let best = 0, leastLeft = 99, empties = false, snug = 0;
       for (let gy = 0; gy <= N - s.h; gy++) for (let gx = 0; gx <= N - s.w; gx++) {
         if (!canPlace(grid, s, gx, gy)) continue;
         const r = apply(grid, s, gx, gy, 1), n = r.rows.length + r.cols.length;
@@ -752,11 +757,18 @@ const Logic = (() => {
         if (!n) continue;
         const left = r.grid.reduce((a, v) => a + (v ? 1 : 0), 0);
         best = Math.max(best, n); leastLeft = Math.min(leastLeft, left);
+        // how snugly it sits: share of its sides touching bubbles or the wall (fills a hole you can see)
+        let touch = 0;
+        for (const [cx, cy] of s.cells) for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+          const X = gx + cx + dx, Y = gy + cy + dy;
+          if (X < 0 || Y < 0 || X >= N || Y >= N || grid[Y * N + X]) touch++;
+        }
+        snug = Math.max(snug, touch / (s.cells.length * 4));
         if (filled && left === 0) empties = true;
       }
-      if (empties) clearers.push(s); else if (best) liners.push({ s, best, left: leastLeft });
+      if (empties) clearers.push(s); else if (best) liners.push({ s, best, left: leastLeft, snug });
     }
-    if (!clearers.length && lookAhead && filled && filled <= 18) {
+    if (!clearers.length && lookAhead && filled && filled <= 24) {
       // sample first moves that keep the board small, and see if any second piece then empties it
       const cand = firstMoves.map(m => ({ ...m, left: m.g.reduce((a, v) => a + (v ? 1 : 0), 0) }))
         .sort((p, q) => p.left - q.left || Math.random() - 0.5).slice(0, 40);
@@ -779,7 +791,8 @@ const Logic = (() => {
     if (A && A.enabled) {
       const k = Math.max(0, Math.min(1, (boardClears - A.easyFrames + 1) / Math.max(1, A.normalFrom - A.easyFrames + 1)));
       const e = A.easy, n = A.normal; lv = {};
-      for (const key of Object.keys(n)) lv[key] = e[key] + (n[key] - e[key]) * k;
+      const k2 = Math.max(0, Math.min(1, (boardClears - (A.hardFrom || 99)) / Math.max(1, (A.hardFull || 100) - (A.hardFrom || 99))));
+      for (const key of Object.keys(n)) lv[key] = (e[key] + (n[key] - e[key]) * k) * (1 - k2) + (A.hard ? A.hard[key] : n[key]) * k2;
     }
     const weightOf = s => s.weight * (!lv ? 1 : s.cells.length <= 3 ? lv.smallBias : s.cells.length >= 6 ? lv.bigBias : 1);
     const help = lv ? helperShapes(grid, lv.clearChance > 0) : null;
@@ -789,8 +802,13 @@ const Logic = (() => {
         if (help.clearers.length && Math.random() < lv.clearChance) t.push(pickWeighted(help.clearers, weightOf));
         else if (help.pairs.length && Math.random() < lv.clearChance) t.push(...help.pairs[Math.floor(Math.random() * help.pairs.length)]);
         // favour line-completers that leave the board emptiest: sparse boards lead to full clears
-        if (t.length < 3 && help.liners.length && Math.random() < lv.lineChance)
-          t.push(pickWeighted(help.liners, it => weightOf(it.s) * it.best / (1 + it.left * 0.15)).s);
+        // favour pieces that complete lines by filling a hole you can see (snug), not ones dropped in the open
+        const lw = it => weightOf(it.s) * it.best * (0.3 + 3 * it.snug * it.snug) / (1 + it.left * 0.15);
+        if (t.length < 3 && help.liners.length && Math.random() < lv.lineChance) {
+          const a = pickWeighted(help.liners, lw); t.push(a.s);
+          const rest = help.liners.filter(it => it.s !== a.s);
+          if (t.length < 3 && rest.length && Math.random() < lv.lineChance * 0.6) t.push(pickWeighted(rest, lw).s);
+        }
       }
       while (t.length < 3) t.push(pickWeighted(SHAPES, weightOf));
       for (let i = t.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [t[i], t[j]] = [t[j], t[i]]; }
@@ -1597,8 +1615,12 @@ function dealGaps() {
     state.tray = state.tray.map(p => p && p.mystery ? p : k < 3 && state.gapQueue.length ? (k++, mk(state.gapQueue.shift())) : null);
     if (state.tray.every(p => !p)) state.tray[0] = mk(state.gapQueue.shift());
   } else {
-    const sh = SHAPE_BY_ID[state.gapQueue[0]], slot = state.tray.findIndex(p => p && !p.mystery);
-    if (sh && slot >= 0 && Logic.anyFit(state.grid, sh)) { state.gapQueue.shift(); state.tray[slot] = mk(sh.id); }
+    // later frames: up to gapsPerHand gap pieces per hand, mixed in with normal pieces
+    for (let n = 0; n < (CONFIG.starter.gapsPerHand || 1) && state.gapQueue.length; n++) {
+      const sh = SHAPE_BY_ID[state.gapQueue[0]], slot = state.tray.findIndex((p, i) => p && !p.mystery && !p.gap);
+      if (!sh || slot < 0 || !Logic.anyFit(state.grid, sh)) break;
+      state.gapQueue.shift(); state.tray[slot] = Object.assign(mk(sh.id), { gap: true });
+    }
   }
 }
 const mysteryTarget = () => state.mysteryCount === 0 ? CONFIG.mystery.firstAfterLines : CONFIG.mystery.everyLines;
@@ -1664,7 +1686,7 @@ function rescueMove() {
 function serialise() {
   return { grid: state.grid, tray: state.tray.map(packPiece),
     score: state.score, combo: state.combo, sinceClear: state.sinceClear, skin: state.skin, boardClears: state.boardClears, frameLines: state.frameLines,
-    mysteryLines: state.mysteryLines, mysteryCount: state.mysteryCount, mysteryPending: state.mysteryPending, mysterySinceFrame: state.mysterySinceFrame,
+    mysteryLines: state.mysteryLines, mysteryCount: state.mysteryCount, mysteryPending: state.mysteryPending, mysterySinceFrame: state.mysterySinceFrame, rescueGiven: !!state.rescueGiven,
     pid: state.pid, nextPid: state.nextPid, gapQueue: state.gapQueue || [], puzzlePure: !!state.puzzlePure, frameStart: state.frameStart | 0, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted };
 }
 function saveGame() { if (state.over) Store.set('game', null); else Store.set('game', serialise()); }
@@ -1673,7 +1695,7 @@ function restoreGame() {
   if (!g || !Array.isArray(g.grid) || g.grid.length !== N * N) return false;
   state.grid = g.grid.slice();
   state.tray = (g.tray || [null, null, null]).map(unpackPiece);
-  state.mysteryLines = g.mysteryLines | 0; state.mysteryCount = g.mysteryCount | 0; state.mysteryPending = g.mysteryPending || false; state.mysterySinceFrame = g.mysterySinceFrame | 0;
+  state.mysteryLines = g.mysteryLines | 0; state.mysteryCount = g.mysteryCount | 0; state.mysteryPending = g.mysteryPending || false; state.mysterySinceFrame = g.mysterySinceFrame | 0; state.rescueGiven = !!g.rescueGiven;
   state.score = g.score | 0; state.combo = g.combo | 0; state.sinceClear = g.sinceClear | 0;
   state.skin = g.skin | 0; state.boardClears = g.boardClears | 0; state.frameLines = g.frameLines | 0; state.over = false;
   // older saves have no piece ids: their bubbles are fixed, new placements are tracked normally
@@ -1765,7 +1787,7 @@ function touchStreak() {
 function newGame() {
   state.grid = new Array(N * N).fill(0);
   state.score = 0; state.combo = 0; state.sinceClear = 0; state.over = false; state.boardClears = 0; state.frameLines = 0;
-  state.mysteryLines = 0; state.mysteryCount = 0; state.mysteryPending = false; state.mysterySinceFrame = 0;
+  state.mysteryLines = 0; state.mysteryCount = 0; state.mysteryPending = false; state.mysterySinceFrame = 0; state.rescueGiven = false;
   state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false; state.continues = 0; state.tainted = false;
   Input.cancelRepo(); Input.cancelPin();
   state.skin = 0;
@@ -1899,7 +1921,7 @@ function move(slot, gx, gy, repo = null) {
     // the waterfall washes whatever is left off the board
     for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) { const v = state.grid[Logic.idx(gx, gy)]; if (v) washed.push({ gx, gy, v }); }
     state.grid = new Array(N * N).fill(0); state.pid = new Array(N * N).fill(0);
-    state.boardClears++; state.frameLines = 0; state.mysterySinceFrame = 0;
+    state.boardClears++; state.frameLines = 0; state.mysterySinceFrame = 0; state.rescueGiven = false;
     layStarter(); starterShapes = true;
     starterCells = state.grid.map((v, i) => v ? i : -1).filter(i => i >= 0);
   }
@@ -1932,8 +1954,13 @@ function move(slot, gx, gy, repo = null) {
     let earned = false;
     for (let i = 0; i < lines && !earned; i++)
       if (state.mysteryLines >= MY.minLines && (Math.random() < MY.chancePerLine || state.mysteryLines >= MY.maxLines)) earned = true;
+    const RS = MY.rescue, f = state.boardClears;
+    const rescueAt = RS && RS.enabled ? RS.base + RS.perFrame * f + Math.max(0, f - RS.lateFrom) * RS.latePerFrame : Infinity;
+    const rescue = !state.rescueGiven && state.frameLines >= rescueAt && !state.tray.some(p => p && p.mystery && p.frame);
+    if (rescue) earned = true;
     if (earned) {
       state.mysteryLines = 0;
+      if (rescue) { state.rescueGiven = true; state.mysterySinceFrame = MY.starBy; }   // makes this one a Frame Bubble
       state.mysteryCount++; mysteryGranted = true;
       // each reward has a chance of being the golden Frame Bubble; the starBy-th in a row always is
       const isFrame = state.mysterySinceFrame + 1 >= MY.starBy || Math.random() < MY.starChance;
