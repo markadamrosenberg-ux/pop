@@ -508,7 +508,7 @@ const CONFIG = {
   // The frame clears when the whole board is empty. plan[n] = [rows, pieces, shape tier] for frame n
   // (the last repeats). For the first pureFrames frames you're dealt only the carved pieces, so a perfect
   // fit clears the frame in `pieces` moves; after that one carved piece comes per hand among normal ones.
-  starter: { enabled: true, pureFrames: 10, gapsPerHand: 2,
+  starter: { enabled: false, pureFrames: 10, gapsPerHand: 2,
     plan: [[2, 3, 0], [2, 3, 0], [3, 3, 1], [3, 3, 1], [3, 3, 2], [4, 3, 2], [3, 4, 2], [4, 4, 2], [4, 4, 3], [4, 5, 3], [4, 5, 3]] },
 
   // Mystery piece: fill the meter with cleared lines to earn one. It shows as a glowing orb in the
@@ -525,7 +525,9 @@ const CONFIG = {
     chancePerLine: 0.05, minLines: 10, maxLines: 30, starChance: 0.25, starBy: 4,
     // Stuck on a frame? Once you've cleared this many lines in it without emptying the board, your next
     // reward is a Frame Bubble: base + perFrame x frame, growing faster after lateFrom so games still end.
-    rescue: { enabled: true, base: 12, perFrame: 1, lateFrom: 20, latePerFrame: 4 } },
+    rescue: { enabled: true, base: 8, perFrame: 1.5, lateFrom: 20, latePerFrame: 4 },
+    // Pop Party: some mystery rewards are "Pop N bubbles!" - tap that many bubbles off the board, right away.
+    party: { enabled: true, share: 0.4, counts: [3, 5, 8, 10, 12, 15, 20], pointsEach: 25 } },
 
   celebrate: 'burst',   // frame clear: 'burst' = a barrage of water balloons popping, 'water' = the rising-water version
 
@@ -1969,6 +1971,10 @@ function move(slot, gx, gy, repo = null) {
       const RP = CONFIG.reposition;
       if (RP.enabled && !isFrame && state.repo < RP.maxCharges && Math.random() < RP.rewardShare) {
         state.repo += 1; mysteryGranted = 'repo';        // a Reposition charge, saved for later
+      } else if (!isFrame && MY.party && MY.party.enabled && !waterfall && Math.random() < MY.party.share && state.grid.filter(Boolean).length >= 4) {
+        // Pop Party: never enough to empty the board on its own
+        const onBoard = state.grid.filter(Boolean).length, pick = MY.party.counts[Math.floor(Math.random() * MY.party.counts.length)];
+        state.partyPops = Math.min(pick, onBoard - 1); mysteryGranted = 'party';
       } else if (!isFrame && Math.random() < CONFIG.pin.rewardShare && grantPin()) {
         mysteryGranted = 'pin';                          // a Pin, saved for when you need it
       } else {
@@ -2388,7 +2394,10 @@ function playResult(res, pointerGesture) {
       UI.colourPop(sk0.colours[(m.v - 1) % sk0.colours.length], res.colourMatches.length, res.colourPts);
     }
   }
-  if (res.mysteryGranted === 'pin') {
+  if (res.mysteryGranted === 'party' && state.partyPops > 0) {
+    const n = state.partyPops; state.partyPops = 0;
+    setTimeout(() => { if (!state.over && !FX.waterfall) Input.startParty(n); }, Math.max(450, endAt - now + 80));
+  } else if (res.mysteryGranted === 'pin') {
     Sound.mysteryAppear(0.35);
     setTimeout(() => { UI.toast('📍 Pin earned! Pop any 3 bubbles you like'); UI.flashPin(); }, 300);
   } else if (res.mysteryGranted === 'repo') {
@@ -3323,7 +3332,7 @@ const Input = (() => {
   function endPin(refund = true) {
     if (!pin) return;
     const p = pin; pin = null;
-    if (refund && p.shots > 0) {
+    if (refund && p.shots > 0 && p.kind !== 'party') {
       if (p.shots === p.total && p.kind !== 'spare') grantPin(p.kind === 'triple');   // never used: give it back
       else Store.set('pinSpare', Store.get('pinSpare', 0) + p.shots);                 // the pops you didn't use stay saved
     }
@@ -3345,11 +3354,22 @@ const Input = (() => {
         if (FX.goo.length && performance.now() - FX.goo[FX.goo.length - 1].t0 < 120) return;
         pinPop(gx, gy);
         pin.shots -= 1;
+        if (pin.kind === 'party') {
+          const pts = Math.round(CONFIG.mystery.party.pointsEach * frameMult()); state.score += pts; saveGame();
+          const [fx, fy] = cellCentre(gx, gy); floatText('+' + pts, fx, fy - L.c * 0.3, L.c * 0.42, '#ffd23f', 800, CONFIG.pin.swellMs);
+          setTimeout(() => { shownTarget += pts; }, CONFIG.pin.swellMs);
+          if (pin.shots <= 0) { setTimeout(() => endPin(false), CONFIG.pin.swellMs + 60); setTimeout(() => UI.toast('🎉 Pop party over!'), CONFIG.pin.swellMs + 200); }
+          else UI.toast(pin.shots + (pin.shots === 1 ? ' more pop!' : ' more pops!'));
+          if (!state.grid.some(Boolean)) { pin.shots = 0; setTimeout(() => endPin(false), CONFIG.pin.swellMs + 60); }
+          UI.update(true);
+          return;
+        }
         if (pin.shots <= 0) setTimeout(() => endPin(false), CONFIG.pin.swellMs + 60);
         else UI.toast(pin.shots + (pin.shots === 1 ? ' more pop' : ' more pops') + ' left. Tap the Pin to save them');
         UI.update(true);
         return;
       }
+      if (pin.kind === 'party') { UI.toast('Tap the bubbles on the board to pop them'); return; }
       endPin(); // touching outside the board puts the Pin away
     }
     if (repoMode) {
@@ -3498,6 +3518,7 @@ const Input = (() => {
     pinShots: () => (pin ? pin.shots : 0),
     // Tap the Pin: get it ready (a Pin first, otherwise a Triple Pin). Tap again to put it away.
     togglePin() {
+      if (pin && pin.kind === 'party') return false;   // finish the party first
       if (pin) { endPin(); return false; }
       if (state.over || drag) return false;
       repoMode = false;
@@ -3512,6 +3533,15 @@ const Input = (() => {
       return true;
     },
     cancelPin() { endPin(); },
+    // Pop Party reward: tap n bubbles off the board, starting now
+    startParty(n) {
+      repoMode = false; if (pin) endPin();
+      pin = { kind: 'party', shots: n, total: n };
+      UI.banner('#ff2d8a', '✦ MYSTERY REWARD ✦', `Pop ${n} bubbles!`, 'Tap any bubbles to pop them');
+      Sound.reveal(); Haptics.pulse([20, 40, 20]);
+      UI.update(true);
+    },
+    partyMode: () => !!(pin && pin.kind === 'party'),
   };
 })();
 
@@ -3831,6 +3861,12 @@ const UI = (() => {
     renderLadder: () => renderLadder(),
     flashPin() { const b = $('pinBtn'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 1600); },
     // the once-a-day moment: a big glowing "N days in a row!"
+    banner(colour, a, b, c, ms = 1900) {
+      const t = $('colourPop'); t.style.setProperty('--cp', colour);
+      $('cpA').textContent = a; $('cpB').textContent = b; $('cpC').textContent = c;
+      t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
+      clearTimeout(t._t); t._t = setTimeout(() => t.classList.remove('show'), ms);
+    },
     colourPop(colour, n, pts) {
       const t = $('colourPop'); t.style.setProperty('--cp', colour);
       $('cpA').textContent = n >= 2 ? `YEAH! ${n} COLOUR MATCHES` : 'YEAH! COLOUR MATCH';
