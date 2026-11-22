@@ -308,6 +308,12 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .bggrid button b{font-size:26px;font-weight:400}
 .bggrid button.on{border-color:#2ee6d6;background:rgba(46,230,214,.15)}
 .bggrid button:disabled{opacity:.45}
+.libsub{color:var(--muted);font-size:14px;margin:-4px 0 12px}
+.libbar{height:8px;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden;margin:8px 0 0}.libbar i{display:block;height:100%;background:linear-gradient(90deg,#2ee6d6,#ff2d8a)}
+.libgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.libgrid div{background:rgba(255,255,255,.07);border-radius:14px;padding:8px 4px 8px;font-size:13px;line-height:1.2;color:#fff;display:flex;flex-direction:column;align-items:center;gap:4px}
+.libgrid div.lock{color:var(--muted)}
+.libgrid canvas{position:static !important;display:block;inset:auto;width:120px !important;height:44px !important;pointer-events:none}
 .bgsel{font:inherit;font-size:15px;color:#fff;background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:12px;padding:8px 10px;max-width:190px}
 .bgsel option{color:#000}
 .bonusbtn{position:absolute;left:50%;transform:translateX(-50%);display:none;height:40px;padding:0 18px;border-radius:999px;border:0;
@@ -482,6 +488,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <div class="note" id="inviteNote" style="margin-top:8px;min-height:18px"></div>
       </div>
     </div>
+    <div class="overlay" id="libPick" style="z-index:7">
+      <div class="card setcard">
+        <button class="setx" id="libX" aria-label="Close">✕</button>
+        <h2>Ball library</h2>
+        <div class="libsub" id="libSub"></div>
+        <div class="libgrid" id="libGrid"></div>
+      </div>
+    </div>
     <div class="overlay" id="bgPick" style="z-index:7">
       <div class="card setcard">
         <button class="setx" id="bgX" aria-label="Close">✕</button>
@@ -495,6 +509,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <h2 id="titleText">Pop</h2>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
+        <div class="row"><span>Ball library<div class="note" id="libNote"></div></span><button class="bgbtn" id="libBtn">See all ›</button></div>
         <div class="row"><span>Background</span><button class="bgbtn" id="bgBtn"><span id="bgNow">Every frame</span> ›</button></div>
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
@@ -2303,6 +2318,23 @@ const withScene = t => onScene() ? Object.assign({}, t, {
 const theme = () => withScene(themeFor(skin()));
 // Background scenes. By default the scene changes every frame (with the bubble look); the special ones
 // are unlocked with your best score and then join the rotation. You can also pin one in Settings.
+// Ball library: every look you've reached in a game is collected for good. A new game always starts on the
+// first look and moves on one per frame, so getting further into a game is how you collect them all.
+const Library = (() => {
+  const seen = () => Store.get('skinsSeen', []);
+  return {
+    seen,
+    has: i => seen().includes(SKINS[i % SKINS.length].name),
+    see(i) {
+      const n = SKINS[i % SKINS.length].name, s = seen();
+      if (s.includes(n)) return false;
+      Store.set('skinsSeen', s.concat(n));
+      if (s.length) setTimeout(() => { try { UI.toast('🎉 New ball for your library: ' + n); } catch (_) {} }, 1600);
+      return true;
+    },
+    count: () => SKINS.filter(k => seen().includes(k.name)).length,
+  };
+})();
 const Backdrops = (() => {
   const LIST = [
     { id: 'night', name: 'Night', need: 0 },
@@ -2648,6 +2680,7 @@ function newGame() {
   state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false; state.continues = 0; state.tainted = false;
   Input.cancelRepo(); Input.cancelPin();
   state.skin = 0; state.bgOffset = Math.floor(Math.random() * 1000);
+  if (typeof Library !== 'undefined') Library.see(0);
   applyPalette();
   bestAtStart = Store.get('best', 0);
   shownTarget = shownScore = 0;
@@ -2873,7 +2906,7 @@ function move(slot, gx, gy, repo = null) {
    RENDER + EFFECTS
    ===================================================================== */
 const cv = document.getElementById('cv');
-const ctx = cv.getContext('2d');
+const ctx = cv.getContext('2d'); window._mainCtx = ctx;
 const stageEl = document.getElementById('stage');
 const L = {}; // layout
 let dpr = 1;
@@ -3003,7 +3036,8 @@ function drawWater(cx, cy, size, sx, sy, alpha, seed, now) {
 
 // Faces look: 0 = happy, ~0.5 = worried (their line is about to fill), 1 = terrified (about to burst)
 let faceMood = 0;
-function drawFace(cx, cy, size, sx, sy, alpha, seed, now) {
+function drawFace(cx, cy, size, sx, sy, alpha, seed, now, g2 = null) {
+  const ctx = g2 || window._mainCtx;
   const r = size * 0.45, t = now / 1000, m = faceMood;
   const shake = m > 0.8 && !settings.reduced ? r * 0.05 : 0;
   ctx.save(); ctx.translate(cx + (shake ? Math.sin(t * 90 + seed) * shake : 0), cy + (shake ? Math.cos(t * 77 + seed) * shake : 0)); ctx.scale(sx, sy); ctx.globalAlpha = alpha;
@@ -4127,7 +4161,7 @@ function updateFX(now, dt) {
       Celebrate.start({
         frameNo: wf.frameNo, bonus: wf.bonus, oldSkin: wf.oldSkin, perfect: wf.perfect, undoEarned: wf.undoEarned, bonusEarned: wf.bonusEarned, multAfter: wf.multAfter, multBefore: wf.multBefore,
         onPay: d => { shownTarget += d; wf.paid += d; },
-        onSkin: () => { if (CONFIG.waterfall.changeSkin) { state.skin = (state.skin + 1) % SKINS.length; applyPalette(); saveGame(); wf.skinChanged = true; FX.trayIn = state.tray.map((_, i) => performance.now() + 250 + i * 90); } return skin(); },
+        onSkin: () => { if (CONFIG.waterfall.changeSkin) { state.skin = (state.skin + 1) % SKINS.length; Library.see(state.skin); applyPalette(); saveGame(); wf.skinChanged = true; FX.trayIn = state.tray.map((_, i) => performance.now() + 250 + i * 90); } return skin(); },
       });
     }
     if (t >= wf.dur) { shownTarget += wf.bonus - wf.paid; wf.paid = wf.bonus; FX.waterfall = null; }
@@ -5399,7 +5433,36 @@ const UI = (() => {
   $('bgBtn').addEventListener('click', openBg);
   $('bgX').addEventListener('click', () => bgPick.classList.remove('show'));
   bgGrid.addEventListener('click', e => { const bt = e.target.closest('button'); if (!bt || bt.disabled) return; Backdrops.choose(bt.dataset.v); syncBg(); bgPick.classList.remove('show'); });
-  $('settingsBtn').addEventListener('click', () => { syncToggles(); syncBg(); st.classList.add('show'); });
+  const libPick = $('libPick');
+  const syncLib = () => { $('libNote').textContent = Library.count() + ' of ' + SKINS.length + ' collected'; };
+  const openLib = () => {
+    const have = Library.count(), dpr2 = Math.min(2, window.devicePixelRatio || 1);
+    $('libSub').innerHTML = `${have} of ${SKINS.length} collected. Each frame you clear brings a new ball, so the further you get, the more you collect.<div class="libbar"><i style="width:${Math.round(have / SKINS.length * 100)}%"></i></div>`;
+    const grid = $('libGrid'); grid.innerHTML = '';
+    SKINS.forEach((sk, i) => {
+      const got = Library.has(i), tile = document.createElement('div'), cv2 = document.createElement('canvas');
+      cv2.width = 120 * dpr2; cv2.height = 44 * dpr2; const g = cv2.getContext('2d'); g.scale(dpr2, dpr2);
+      [0, 2, 4].forEach((col, k) => {
+        const cx = 22 + k * 38, cy = 22, size = 36;
+        if (got) {
+          const sp = sprite(i, col), kk = size / sp.size, w = sp.box * kk;
+          g.drawImage(sp.canvas, cx - w / 2, cy - w / 2, w, w);
+          if (sk.face) drawFace(cx, cy, size, 1, 1, 1, k * 3, performance.now(), g);
+        } else {
+          g.fillStyle = 'rgba(255,255,255,0.1)'; g.beginPath(); g.arc(cx, cy, size * 0.45, 0, Math.PI * 2); g.fill();
+          g.fillStyle = 'rgba(255,255,255,0.35)'; g.font = '700 18px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', cx, cy + 1);
+        }
+      });
+      tile.appendChild(cv2);
+      const lab = document.createElement('span'); lab.textContent = got ? sk.name : '🔒 Reach frame ' + (i + 1);
+      tile.appendChild(lab); if (!got) tile.className = 'lock';
+      grid.appendChild(tile);
+    });
+    libPick.classList.add('show');
+  };
+  $('libBtn').addEventListener('click', openLib);
+  $('libX').addEventListener('click', () => libPick.classList.remove('show'));
+  $('settingsBtn').addEventListener('click', () => { syncLib(); syncToggles(); syncBg(); st.classList.add('show'); });
   $('closeSettings').addEventListener('click', () => st.classList.remove('show'));
   $('setX').addEventListener('click', () => st.classList.remove('show'));
   $('restart2').addEventListener('click', () => { st.classList.remove('show'); newGame(); });
@@ -5812,6 +5875,8 @@ window.addEventListener('pageshow', () => { refit(); setTimeout(() => { fitViewp
 ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, () => Sound.unlock(), { passive: true }));
 layout();
 if (!restoreGame()) newGame();
+// a game in progress has already passed every look up to the current one
+if (!Store.get('skinsSeen', []).length) { const k = Math.min(state.skin | 0, SKINS.length - 1); Store.set('skinsSeen', SKINS.slice(0, k + 1).map(q => q.name)); }
 else { state.over = isStuck(); if (state.over) newGame(); else if (state.rescue) setTimeout(() => UI.showRescue(), 600); }
 setTimeout(() => Backdrops.check(0), 1500);   // a best score from before may already unlock a background
 // everyone gets one Pin to try, including players part-way through a saved game
