@@ -449,6 +449,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <div class="row"><span>Sound effects</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Helping hand<div class="note">Playtest: how much the early game helps</div></span>
           <div class="seg" id="assistSeg"><button data-v="strong">Strong</button><button data-v="medium">Medium</button><button data-v="light">Light</button></div></div>
+        <div class="row"><span>Background<div class="note">Unlock more with high scores</div></span><div class="seg" id="bgSeg"></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="howto">Drag pieces onto the grid. Complete a row or column to pop it. Every so often, popping lines earns a surprise: a mystery piece that reveals a special shape when you pick it up, or, more rarely, a golden Frame Bubble. Drop the Frame Bubble anywhere to pop the whole board and clear the frame, for a big bonus, a new look and a bigger points multiplier. Every 10 frames you earn a bonus piece to use whenever you like. The undo arrow takes back your last move for 10% of your score. Undos are earned: one free in each of your first 3 games, one every 5th game, and one for every 10 frames you clear (you can hold up to 3).</div>
         <button class="btn invitebtn" id="setInvite" style="margin:0 0 10px">Invite friends</button>
@@ -477,7 +478,8 @@ const CONFIG = {
   clearColumns: true,
 
   themes: true,
-  palettes: true,   // a new colour palette every frame (false = each skin keeps its own colours)   // false = every skin uses the default backdrop (for comparing)
+  palettes: true,
+  newLooks: true,   // add the 11 new candidate looks to the rotation   // a new colour palette every frame (false = each skin keeps its own colours)   // false = every skin uses the default backdrop (for comparing)
 
   scoring: {
     pointsPerCellPlaced: 2,        // every cell of a placed piece
@@ -1647,6 +1649,215 @@ const PALETTES = [
   ['#ff6b35', '#00c49a', '#ffd23f', '#ee4266', '#3bceac', '#a855f7', '#f8961e'],   // tropical
   ['#a2d2ff', '#ffc8dd', '#cdb4db', '#bde0fe', '#b9fbc0', '#fde4a8', '#c8b6ff'],   // ice cream
 ];
+// ---- New looks (candidates): switched on with CONFIG.newLooks. Each draw(ctx, size, colour, index) fills a ball of radius 0.45*size.
+const NEW_COLS = ['#ff3d8b', '#ff8c2a', '#ffd23f', '#38d27a', '#2fb6ff', '#7a5cff', '#d64dff'];
+const mixH = (h, to, k) => { const a = hexToRgb(h), b = hexToRgb(to); return '#' + a.map((v, j) => Math.round(v + (b[j] - v) * k).toString(16).padStart(2, '0')).join(''); };
+const seeded = k => () => (k = (k * 16807) % 2147483647) / 2147483647;
+function nlGloss(ctx, r, a = 0.85) {
+  ctx.fillStyle = `rgba(255,255,255,${a})`;
+  ctx.beginPath(); ctx.ellipse(-r * 0.38, -r * 0.5, r * 0.26, r * 0.12, -0.6, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = `rgba(255,255,255,${a * 0.8})`;
+  ctx.beginPath(); ctx.arc(-r * 0.62, -r * 0.2, r * 0.06, 0, Math.PI * 2); ctx.fill();
+}
+function nlFill(ctx, r, c, lift = 0.55, dark = 0.4) {
+  const g = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.05, 0, 0, r * 1.05);
+  g.addColorStop(0, mix(c, '#ffffff', lift)); g.addColorStop(0.5, c); g.addColorStop(1, mix(c, '#14001e', dark));
+  return g;
+}
+const NEW_SKINS = [
+  { name: 'Happy Jellies', colours: NEW_COLS,
+    // squishy jelly blobs with faces: smiles, winks, little "o"s and cheeky tongues
+    draw(ctx, s, c, i) {
+      const r = s * 0.45;
+      ctx.fillStyle = nlFill(ctx, r, c, 0.5, 0.35);
+      ctx.beginPath(); ctx.ellipse(0, r * 0.05, r, r * 0.93, 0, 0, Math.PI * 2); ctx.fill();
+      nlGloss(ctx, r, 0.7);
+      const ex = r * 0.3, ey = -r * 0.02, mood = i % 4;
+      ctx.fillStyle = '#2a1030';
+      const eye = (x, wink) => {
+        if (wink) { ctx.strokeStyle = '#2a1030'; ctx.lineWidth = r * 0.07; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(x, ey + r * 0.04, r * 0.1, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); return; }
+        ctx.beginPath(); ctx.ellipse(x, ey, r * 0.1, r * 0.13, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x - r * 0.035, ey - r * 0.05, r * 0.04, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#2a1030';
+      };
+      eye(-ex, false); eye(ex, mood === 2);
+      ctx.fillStyle = 'rgba(255,90,140,0.45)';
+      ctx.beginPath(); ctx.ellipse(-r * 0.5, r * 0.2, r * 0.12, r * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(r * 0.5, r * 0.2, r * 0.12, r * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#2a1030'; ctx.lineWidth = r * 0.07; ctx.lineCap = 'round'; ctx.fillStyle = '#2a1030';
+      if (mood === 1) { ctx.beginPath(); ctx.ellipse(0, r * 0.3, r * 0.08, r * 0.1, 0, 0, Math.PI * 2); ctx.fill(); }
+      else { ctx.beginPath(); ctx.arc(0, r * 0.16, r * 0.2, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke(); }
+      if (mood === 3) { ctx.fillStyle = '#ff5c8a'; ctx.beginPath(); ctx.ellipse(r * 0.04, r * 0.4, r * 0.08, r * 0.09, 0, 0, Math.PI * 2); ctx.fill(); }
+    } },
+  { name: 'Donuts', colours: NEW_COLS,
+    // glazed ring donuts with a wobbly glaze edge, sprinkles and a hole you can see through
+    draw(ctx, s, c, i) {
+      const r = s * 0.45, hole = r * 0.3, rnd = seeded(77 + i * 31);
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.arc(0, 0, hole, 0, Math.PI * 2, true);
+      const dg = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+      dg.addColorStop(0, '#f8cf8e'); dg.addColorStop(0.7, '#dc9a52'); dg.addColorStop(1, '#a8652b'); ctx.fillStyle = dg; ctx.fill();
+      ctx.beginPath();
+      for (let k = 0; k <= 48; k++) { const a = k / 48 * Math.PI * 2, w = r * (0.86 + Math.sin(a * 6 + i) * 0.05 + Math.sin(a * 11) * 0.02); k ? ctx.lineTo(Math.cos(a) * w, Math.sin(a) * w) : ctx.moveTo(Math.cos(a) * w, Math.sin(a) * w); }
+      ctx.closePath(); ctx.arc(0, 0, hole * 1.25, 0, Math.PI * 2, true);
+      ctx.fillStyle = nlFill(ctx, r, c, 0.5, 0.3); ctx.fill('evenodd');
+      const sp = ['#ffffff', '#ffe14a', '#4fb8ff', '#8fe03a', '#ff7aa8', '#b45cff'];
+      for (let k = 0; k < 14; k++) {
+        const a = rnd() * Math.PI * 2, d = r * (0.5 + rnd() * 0.3);
+        ctx.save(); ctx.translate(Math.cos(a) * d, Math.sin(a) * d); ctx.rotate(rnd() * 3);
+        ctx.fillStyle = sp[k % sp.length]; ctx.beginPath(); ctx.roundRect(-r * 0.07, -r * 0.025, r * 0.14, r * 0.05, r * 0.025); ctx.fill(); ctx.restore();
+      }
+      ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = r * 0.07; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(0, 0, r * 0.68, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke();
+    } },
+  { name: 'Lollipops', colours: NEW_COLS,
+    // candy swirls: a glossy spiral of colour and white
+    draw(ctx, s, c, i) {
+      const r = s * 0.45;
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+      ctx.fillStyle = c; ctx.fillRect(-r, -r, r * 2, r * 2);
+      ctx.strokeStyle = 'rgba(255,255,255,0.92)'; ctx.lineWidth = r * 0.2; ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let t = 0; t < 1; t += 0.005) { const a = t * Math.PI * 7 + i, d = t * r * 1.05; t ? ctx.lineTo(Math.cos(a) * d, Math.sin(a) * d) : ctx.moveTo(0, 0); }
+      ctx.stroke();
+      const sh = ctx.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.1, 0, 0, r * 1.05);
+      sh.addColorStop(0, 'rgba(255,255,255,0.25)'); sh.addColorStop(0.6, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(30,0,30,0.45)');
+      ctx.fillStyle = sh; ctx.fillRect(-r, -r, r * 2, r * 2);
+      ctx.restore(); nlGloss(ctx, r);
+    } },
+  { name: 'Citrus Slices', colours: NEW_COLS,
+    // a juicy fruit slice: rind, pith and glistening segments
+    draw(ctx, s, c, i) {
+      const r = s * 0.45;
+      ctx.fillStyle = mix(c, '#3a1000', 0.15); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff8ec'; ctx.beginPath(); ctx.arc(0, 0, r * 0.86, 0, Math.PI * 2); ctx.fill();
+      for (let k = 0; k < 9; k++) {
+        const a0 = k / 9 * Math.PI * 2 + i * 0.3, a1 = a0 + Math.PI * 2 / 9;
+        ctx.beginPath(); ctx.moveTo(Math.cos((a0 + a1) / 2) * r * 0.08, Math.sin((a0 + a1) / 2) * r * 0.08);
+        ctx.arc(0, 0, r * 0.78, a0 + 0.06, a1 - 0.06); ctx.closePath();
+        const g = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r * 0.8);
+        g.addColorStop(0, mix(c, '#ffffff', 0.45)); g.addColorStop(1, c); ctx.fillStyle = g; ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.6)';
+        ctx.beginPath(); ctx.ellipse(Math.cos((a0 + a1) / 2) * r * 0.5, Math.sin((a0 + a1) / 2) * r * 0.5, r * 0.04, r * 0.09, (a0 + a1) / 2, 0, Math.PI * 2); ctx.fill();
+      }
+      nlGloss(ctx, r, 0.7);
+    } },
+  { name: 'Gummy Drops', colours: NEW_COLS,
+    // sugar-coated gummies: see-through colour, a glowing middle and a frost of sugar crystals
+    draw(ctx, s, c, i) {
+      const r = s * 0.45, rnd = seeded(500 + i * 17);
+      const g = ctx.createRadialGradient(0, r * 0.15, r * 0.05, 0, 0, r);
+      g.addColorStop(0, mix(c, '#ffffff', 0.55)); g.addColorStop(0.6, rgba(c, 0.92)); g.addColorStop(1, mix(c, '#200020', 0.45));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      for (let k = 0; k < 70; k++) {
+        const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * r * 0.95, z = r * (0.03 + rnd() * 0.04);
+        ctx.fillStyle = `rgba(255,255,255,${0.35 + rnd() * 0.5})`;
+        ctx.save(); ctx.translate(Math.cos(a) * d, Math.sin(a) * d); ctx.rotate(rnd() * 3); ctx.fillRect(-z / 2, -z / 2, z, z); ctx.restore();
+      }
+      nlGloss(ctx, r, 0.55);
+    } },
+  { name: 'Planets', colours: NEW_COLS,
+    // little ringed planets with banded clouds
+    draw(ctx, s, c, i) {
+      const r = s * 0.45, pr = r * 0.72, tilt = -0.35;
+      const ring = (front) => {
+        ctx.save(); ctx.rotate(tilt); ctx.beginPath();
+        ctx.ellipse(0, 0, r * 1.02, r * 0.28, 0, front ? 0 : Math.PI, front ? Math.PI : Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,240,210,0.9)'; ctx.lineWidth = r * 0.09; ctx.stroke();
+        ctx.strokeStyle = rgba(c, 0.6); ctx.lineWidth = r * 0.03; ctx.stroke(); ctx.restore();
+      };
+      ring(false);
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, pr, 0, Math.PI * 2); ctx.clip();
+      ctx.fillStyle = nlFill(ctx, pr, c, 0.4, 0.5); ctx.fillRect(-pr, -pr, pr * 2, pr * 2);
+      ctx.rotate(tilt);
+      for (let k = -3; k <= 3; k++) { ctx.fillStyle = k % 2 ? 'rgba(255,255,255,0.18)' : 'rgba(40,0,40,0.16)'; ctx.fillRect(-pr, k * pr * 0.28 - pr * 0.07, pr * 2, pr * 0.14); }
+      ctx.restore();
+      ring(true);
+      ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.ellipse(-pr * 0.35, -pr * 0.45, pr * 0.22, pr * 0.1, -0.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; [[0.85, -0.75], [-0.85, 0.7], [0.7, 0.85]].forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x * r, y * r, r * 0.035, 0, Math.PI * 2); ctx.fill(); });
+    } },
+  { name: 'Macarons', colours: NEW_COLS,
+    // French macarons: two pastel shells, ruffled feet and a cream filling
+    draw(ctx, s, c, i) {
+      const r = s * 0.45, pc = mixH(c, '#ffffff', 0.35);
+      const shell = (y, up) => {
+        const g = ctx.createLinearGradient(0, y - r * 0.3, 0, y + r * 0.3);
+        g.addColorStop(0, up ? mix(pc, '#ffffff', 0.35) : pc); g.addColorStop(1, up ? pc : mix(pc, '#401030', 0.25));
+        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, y, r * 0.98, r * 0.5, 0, up ? Math.PI : 0, up ? Math.PI * 2 : Math.PI); ctx.lineTo(up ? r * 0.98 : -r * 0.98, y); ctx.fill();
+        // ruffled foot
+        ctx.fillStyle = mixH(pc, '#ffffff', 0.15);
+        for (let k = -8; k <= 8; k++) { ctx.beginPath(); ctx.arc(k * r * 0.115, y + (up ? r * 0.05 : -r * 0.05), r * 0.07, 0, Math.PI * 2); ctx.fill(); }
+      };
+      shell(-r * 0.1, true); shell(r * 0.3, false);
+      ctx.fillStyle = '#fff6e6'; ctx.beginPath(); ctx.roundRect(-r * 0.92, -r * 0.08, r * 1.84, r * 0.32, r * 0.16); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.ellipse(-r * 0.35, -r * 0.35, r * 0.28, r * 0.07, -0.2, 0, Math.PI * 2); ctx.fill();
+    } },
+  { name: 'Kitties', colours: NEW_COLS,
+    // round kitty faces: pointy ears, big shiny eyes, a pink nose and whiskers
+    draw(ctx, s, c, i) {
+      const r = s * 0.45, hr = r * 0.82, y0 = r * 0.12;
+      const ear = sx => { ctx.beginPath(); ctx.moveTo(sx * hr * 0.2, y0 - hr * 0.8); ctx.lineTo(sx * hr * 0.95, y0 - hr * 1.15); ctx.lineTo(sx * hr * 0.85, y0 - hr * 0.35); ctx.closePath(); };
+      ctx.fillStyle = mix(c, '#200020', 0.15); ear(-1); ctx.fill(); ear(1); ctx.fill();
+      ctx.fillStyle = '#ffb3cf'; ctx.save(); ctx.translate(0, hr * 0.12); ctx.scale(0.7, 0.7); ear(-1); ctx.fill(); ear(1); ctx.fill(); ctx.restore();
+      ctx.fillStyle = nlFill(ctx, hr, c, 0.45, 0.3); ctx.beginPath(); ctx.ellipse(0, y0, hr, hr * 0.88, 0, 0, Math.PI * 2); ctx.fill();
+      for (const sx of [-1, 1]) {
+        ctx.fillStyle = '#1e1030'; ctx.beginPath(); ctx.ellipse(sx * hr * 0.36, y0 - hr * 0.08, hr * 0.15, hr * 0.19, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(sx * hr * 0.36 - hr * 0.05, y0 - hr * 0.15, hr * 0.06, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#ff6f9e'; ctx.beginPath(); ctx.moveTo(-hr * 0.08, y0 + hr * 0.14); ctx.lineTo(hr * 0.08, y0 + hr * 0.14); ctx.lineTo(0, y0 + hr * 0.24); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = '#1e1030'; ctx.lineWidth = hr * 0.05; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(-hr * 0.08, y0 + hr * 0.26, hr * 0.08, 0, Math.PI * 0.9); ctx.arc(hr * 0.08, y0 + hr * 0.26, hr * 0.08, Math.PI * 0.1, Math.PI); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.8)'; ctx.lineWidth = hr * 0.025;
+      for (const sx of [-1, 1]) for (const dy of [-0.04, 0.06]) { ctx.beginPath(); ctx.moveTo(sx * hr * 0.3, y0 + hr * (0.2 + dy)); ctx.lineTo(sx * hr * 0.85, y0 + hr * (0.15 + dy * 2)); ctx.stroke(); }
+    } },
+  { name: 'Disco Balls', colours: NEW_COLS,
+    // mirror-tiled disco balls that throw little stars
+    draw(ctx, s, c, i) {
+      const r = s * 0.45, rnd = seeded(900 + i * 7);
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+      ctx.fillStyle = mix(c, '#100020', 0.5); ctx.fillRect(-r, -r, r * 2, r * 2);
+      const rows = 9;
+      for (let k = 0; k < rows; k++) {
+        const y = -r + (k + 0.5) * (2 * r / rows), w = Math.sqrt(Math.max(0, r * r - y * y)), n = Math.max(2, Math.round(w / (r * 0.11)));
+        for (let j = 0; j < n; j++) {
+          const x = -w + (j + 0.5) * (2 * w / n), lit = Math.max(0, 1 - Math.hypot(x + r * 0.35, y + r * 0.35) / (r * 1.5));
+          ctx.fillStyle = mix(c, '#ffffff', Math.min(0.9, lit * 0.8 + rnd() * 0.3));
+          ctx.fillRect(x - w / n + 1, y - r / rows + 1, 2 * w / n - 2, 2 * r / rows - 2);
+        }
+      }
+      ctx.restore();
+      ctx.fillStyle = '#fff';
+      [[-0.4, -0.45, 0.16], [0.35, 0.3, 0.1]].forEach(([x, y, z]) => {
+        ctx.beginPath(); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, d = k % 2 ? z * 0.25 : z; ctx.lineTo(x * r + Math.cos(a) * d * r, y * r + Math.sin(a) * d * r); } ctx.fill();
+      });
+    } },
+  { name: 'Opals', colours: NEW_COLS,
+    // precious opals: deep colour with flashes of every colour inside
+    draw(ctx, s, c, i) {
+      const r = s * 0.45, rnd = seeded(300 + i * 13);
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+      ctx.fillStyle = nlFill(ctx, r, c, 0.25, 0.6); ctx.fillRect(-r, -r, r * 2, r * 2);
+      ctx.globalCompositeOperation = 'lighter';
+      const fl = ['#ff3d8b', '#38f2d0', '#ffe14a', '#7a8cff', '#7cf03a', '#ff9a3d'];
+      for (let k = 0; k < 26; k++) {
+        const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * r * 0.85, z = r * (0.08 + rnd() * 0.14);
+        ctx.fillStyle = rgba(fl[k % fl.length], 0.22 + rnd() * 0.25);
+        ctx.beginPath(); ctx.ellipse(Math.cos(a) * d, Math.sin(a) * d, z, z * 0.55, rnd() * 3, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore(); nlGloss(ctx, r, 0.8);
+    } },
+  { name: 'Neon Rings', colours: NEW_COLS,
+    // glowing arcade neon: a bright tube ring around a dark glass middle
+    draw(ctx, s, c, i) {
+      const r = s * 0.45;
+      ctx.fillStyle = 'rgba(10,6,20,0.92)'; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.shadowColor = c; ctx.shadowBlur = r * 0.45;
+      ctx.strokeStyle = c; ctx.lineWidth = r * 0.2; ctx.beginPath(); ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      ctx.strokeStyle = mix(c, '#ffffff', 0.75); ctx.lineWidth = r * 0.06; ctx.beginPath(); ctx.arc(0, 0, r * 0.7, 0, Math.PI * 2); ctx.stroke();
+      const g = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.5); g.addColorStop(0, rgba(c, 0.55)); g.addColorStop(1, rgba(c, 0));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r * 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.beginPath(); ctx.ellipse(-r * 0.35, -r * 0.55, r * 0.3, r * 0.1, -0.5, 0, Math.PI * 2); ctx.fill();
+    } },
+];
+if (CONFIG.newLooks) SKINS.push(...NEW_SKINS);   // trying out the new looks
 SKINS.forEach(k => { k.baseColours = k.colours.slice(); });
 function applyPalette() {
   const sk = skin(), f = state.boardClears, P = CONFIG.palettes !== false && f > 0 ? PALETTES[(f - 1) % PALETTES.length] : null;
@@ -1661,7 +1872,41 @@ const DEFAULT_THEME = {
   boardFill: 'rgba(255,255,255,0.025)', border: '#00e5d4', ink: 'rgba(255,255,255,0.55)', ballRim: null, ballShadow: 0,
 };
 const themeFor = sk => (CONFIG.themes !== false && sk && sk.theme) ? Object.assign({}, DEFAULT_THEME, sk.theme) : DEFAULT_THEME;
-const theme = () => themeFor(skin());
+const theme = () => {
+  const t = themeFor(skin()), bd = Backdrops.current();
+  // on a bright sky the board gets a darker glass panel so the bubbles still pop
+  return bd === 'sky' ? Object.assign({}, t, { boardFill: 'rgba(18,26,58,0.62)', border: '#ffffff', cellTop: 'rgba(255,255,255,0.08)', cellBot: 'rgba(255,255,255,0.13)', cellStroke: 'rgba(255,255,255,0.14)', ballShadow: t.ballShadow }) : t;
+};
+// Backgrounds you unlock with your best score. Night is the default.
+const Backdrops = (() => {
+  const LIST = [
+    { id: 'night', name: 'Night', need: 0 },
+    { id: 'sky', name: 'Blue Sky', need: 100000 },
+    { id: 'aurora', name: 'Aurora', need: 1000000 },
+  ];
+  const unlocked = () => Store.get('backdrops', ['night']);
+  const best = () => Math.max(Store.get('best', 0), Store.get('bestBefore', 0));
+  return {
+    LIST,
+    unlocked,
+    isOpen: id => unlocked().includes(id),
+    current: () => { const c = Store.get('backdrop', 'night'); return unlocked().includes(c) ? c : 'night'; },
+    choose(id) { if (unlocked().includes(id)) { Store.set('backdrop', id); boardBgKey = ''; } },
+    // call with any score: unlocks (and switches to) any background it has earned, with a big announcement
+    check(score) {
+      const have = unlocked(), s0 = Math.max(score | 0, best());
+      const fresh = LIST.filter(b => b.need && s0 >= b.need && !have.includes(b.id));
+      if (!fresh.length) return;
+      Store.set('backdrops', have.concat(fresh.map(b => b.id)));
+      const top = fresh[fresh.length - 1]; this.choose(top.id);
+      setTimeout(() => {
+        UI.banner(top.id === 'aurora' ? '#7cf0c8' : '#5ec8ff', '✦ NEW BACKGROUND UNLOCKED ✦', top.name + '!', `For reaching ${top.need.toLocaleString()} points. Change it in Settings.`, 3200);
+        try { Sound.mysteryAppear(0); } catch (_) {}
+        Haptics.pulse([20, 40, 20, 40, 60]); BG.pulse(top.id === 'aurora' ? '#7cf0c8' : '#5ec8ff', 1);
+      }, 600);
+    },
+  };
+})();
 const frameTarget = (n = state.boardClears) => {
   const F = CONFIG.frames, t = F.targets;
   return n < t.length ? t[n] : Math.min(F.maxTarget, t[t.length - 1] + F.step * (n - t.length + 1));
@@ -2082,6 +2327,7 @@ function move(slot, gx, gy, repo = null) {
     if (!Net._t) Net._t = setTimeout(() => { Net._t = 0; Net.flush(); }, 15000);
   }
   if (state.score > Store.get('best', 0)) Store.set('best', state.score);
+  if (!state.tainted) Backdrops.check(state.score);
 
   // fill the mystery meter (at most one mystery piece per move; extra lines carry over, capped); when it's full, a mystery piece drops into the tray
   let mysteryGranted = false, grantSlot = -1;
@@ -2317,7 +2563,7 @@ function buildBoardBg() {
   boardBg.width = Math.ceil(L.B * dpr); boardBg.height = Math.ceil(L.B * dpr);
   const x = boardBg.getContext('2d'); x.scale(dpr, dpr);
   const c = L.c, bp = L.bp, th = theme();
-  boardBgKey = state.skin + '|' + (CONFIG.themes !== false);
+  boardBgKey = state.skin + '|' + (CONFIG.themes !== false) + Backdrops.current();
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
     const px = bp + gx * c + c * 0.055, py = bp + gy * c + c * 0.055, w = c * 0.89;
     rr(x, px, py, w, w, c * 0.24);
@@ -2362,9 +2608,56 @@ const BG = (() => {
     }
     return null;
   }
+  // unlocked backgrounds
+  const clouds = Array.from({ length: 8 }, (_, k) => ({ x: Math.random(), y: 0.04 + Math.random() * 0.9, s: 0.6 + Math.random() * 0.8, v: 0.004 + Math.random() * 0.008, puffs: Array.from({ length: 6 }, () => [Math.random() * 1.6 - 0.8, Math.random() * 0.4 - 0.2, 0.35 + Math.random() * 0.4]) }));
+  const stars = Array.from({ length: 120 }, () => ({ x: Math.random(), y: Math.random(), r: 0.4 + Math.random() * 1.3, ph: Math.random() * 6 }));
+  let shoot = null;
+  function drawSky(t) {
+    const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2f8fff'); g.addColorStop(0.55, '#7cc4ff'); g.addColorStop(1, '#d6efff');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    const sg = x.createRadialGradient(W * 0.85, H * 0.08, 0, W * 0.85, H * 0.08, W * 0.6);
+    sg.addColorStop(0, 'rgba(255,250,220,0.95)'); sg.addColorStop(0.12, 'rgba(255,240,180,0.5)'); sg.addColorStop(1, 'rgba(255,240,180,0)');
+    x.fillStyle = sg; x.fillRect(0, 0, W, H);
+    for (const c of clouds) {
+      const cs = Math.min(W, H) * 0.16 * c.s, cx = (((c.x + t * c.v * (settings.reduced ? 0 : 1)) % 1.4) - 0.2) * W, cy = c.y * H;
+      for (const [dx, dy, r] of c.puffs) {
+        const px = cx + dx * cs, py = cy + dy * cs, pr = r * cs;
+        const pg = x.createRadialGradient(px - pr * 0.3, py - pr * 0.4, pr * 0.1, px, py, pr);
+        pg.addColorStop(0, 'rgba(255,255,255,0.95)'); pg.addColorStop(0.7, 'rgba(240,248,255,0.85)'); pg.addColorStop(1, 'rgba(220,235,255,0)');
+        x.fillStyle = pg; x.beginPath(); x.arc(px, py, pr, 0, Math.PI * 2); x.fill();
+      }
+    }
+  }
+  function drawAurora(t, dt) {
+    const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#020414'); g.addColorStop(0.6, '#0a1030'); g.addColorStop(1, '#1a0b2e');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    for (const st of stars) { const a = 0.4 + 0.6 * Math.abs(Math.sin(t * 1.5 + st.ph)); x.fillStyle = `rgba(255,255,255,${a})`; x.beginPath(); x.arc(st.x * W, st.y * H, st.r, 0, Math.PI * 2); x.fill(); }
+    x.globalCompositeOperation = 'lighter';
+    const bands = [['#39ffb0', 0.22, 0.0], ['#3fd0ff', 0.32, 1.7], ['#b35cff', 0.15, 3.1], ['#ff5ccf', 0.7, 4.2]];
+    for (const [col, yb, ph] of bands) {
+      for (let k = 0; k <= 60; k++) {
+        const u = k / 60, px = u * W, wave = Math.sin(u * 5 + t * 0.4 + ph) * 0.05 + Math.sin(u * 11 - t * 0.7 + ph) * 0.02;
+        const top = (yb + wave) * H, hgt = H * (0.18 + 0.08 * Math.sin(u * 7 + t + ph));
+        const bg = x.createLinearGradient(0, top, 0, top + hgt);
+        bg.addColorStop(0, rgba(col, 0)); bg.addColorStop(0.35, rgba(col, 0.16)); bg.addColorStop(1, rgba(col, 0));
+        x.fillStyle = bg; x.fillRect(px - W / 60, top, W / 30 + 1, hgt);
+      }
+    }
+    x.globalCompositeOperation = 'source-over';
+    if (!shoot && Math.random() < dt * 0.25 && !settings.reduced) shoot = { x: Math.random() * W * 0.6, y: Math.random() * H * 0.3, life: 0 };
+    if (shoot) {
+      shoot.life += dt; const p = shoot.life / 0.9, sx = shoot.x + p * W * 0.5, sy = shoot.y + p * H * 0.18;
+      const lg = x.createLinearGradient(sx - W * 0.12, sy - H * 0.045, sx, sy); lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(1, `rgba(255,255,255,${1 - p})`);
+      x.strokeStyle = lg; x.lineWidth = 2; x.beginPath(); x.moveTo(sx - W * 0.12, sy - H * 0.045); x.lineTo(sx, sy); x.stroke();
+      if (p >= 1) shoot = null;
+    }
+  }
   function draw(now, dt) {
     const t = now / 1000, M = Math.max(W, H);
     x.globalCompositeOperation = 'source-over';
+    const bd = Backdrops.current();
+    if (bd === 'sky') { drawSky(t); pulse = Math.max(0, pulse - dt * 1.6); return; }
+    if (bd === 'aurora') { drawAurora(t, dt); pulse = Math.max(0, pulse - dt * 1.6); return; }
     const th = theme(), r0 = stageEl.getBoundingClientRect();
     x.fillStyle = th.bgEdge; x.fillRect(0, 0, W, H);
     if (th.glow) {
@@ -2673,7 +2966,7 @@ function draw(now) {
   ctx.shadowColor = rgba(bc, 0.55 + 0.4 * gk); ctx.shadowBlur = 12 + 26 * gk;
   ctx.strokeStyle = rgba(bc, 0.55 + 0.4 * gk); ctx.lineWidth = 1.5 + 1.5 * gk; ctx.stroke();
   ctx.restore();
-  if (boardBgKey !== state.skin + '|' + (CONFIG.themes !== false)) buildBoardBg();
+  if (boardBgKey !== state.skin + '|' + (CONFIG.themes !== false) + Backdrops.current()) buildBoardBg();
   ctx.drawImage(boardBg, L.bx, L.by, L.B, L.B);
 
   // preview info
@@ -3851,7 +4144,10 @@ const UI = (() => {
     if (key === 'sfx') Sound.pickup();
   });
   vol('sfx', 'vSfx');
-  $('settingsBtn').addEventListener('click', () => { syncToggles(); st.classList.add('show'); });
+  const bgSeg = $('bgSeg');
+  const syncBg = () => { bgSeg.innerHTML = Backdrops.LIST.map(b => Backdrops.isOpen(b.id) ? `<button data-v="${b.id}" class="${Backdrops.current() === b.id ? 'on' : ''}">${b.name}</button>` : `<button data-v="" disabled style="opacity:.55">🔒 ${b.need >= 1e6 ? b.need / 1e6 + 'M' : b.need / 1e3 + 'k'}</button>`).join(''); };
+  bgSeg.addEventListener('click', e => { const v = e.target.dataset && e.target.dataset.v; if (!v) return; Backdrops.choose(v); syncBg(); });
+  $('settingsBtn').addEventListener('click', () => { syncToggles(); syncBg(); st.classList.add('show'); });
   $('closeSettings').addEventListener('click', () => st.classList.remove('show'));
   $('restart2').addEventListener('click', () => { st.classList.remove('show'); newGame(); });
   $('playAgain').addEventListener('click', () => { Sound.unlock(); newGame(); });
@@ -4139,6 +4435,7 @@ setInterval(() => { if (fitViewport()) layout(); }, 1000);
 layout();
 if (!restoreGame()) newGame();
 else { state.over = isStuck(); if (state.over) newGame(); else if (state.rescue) setTimeout(() => UI.showRescue(), 600); }
+setTimeout(() => Backdrops.check(0), 1500);   // a best score from before may already unlock a background
 // everyone gets one Pin to try, including players part-way through a saved game
 if (!Store.get('pinStarter', false)) { Store.set('pinStarter', true); grantPin(); UI.update(true); }
 // the ladder: ask for a name once, send anything waiting, keep your rank up to date
