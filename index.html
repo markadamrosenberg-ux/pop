@@ -587,6 +587,9 @@ const CONFIG = {
     enabled: true,
     easyFrames: 2,                 // full help for the first 2 frames...
     normalFrom: 5,                 // ...easing off a bit each frame until normal at frame 5
+    // Planned hands: early on, the dealer plays three pieces ahead and deals the set that clears the most,
+    // so the pieces you need show up. Full strength for planFull frames, fading out by planUntil.
+    plan: { planFull: 4, planUntil: 7, chance: 0.85, pick: 2 },
     // early-game help for playtesting: Strong / Medium / Light (chosen in settings)
     presets: {
       strong: { clearChance: 0.9, lineChance: 0.95, smallBias: 1.8, bigBias: 0.35 },
@@ -818,6 +821,52 @@ const Logic = (() => {
     }
     return { clearers, liners, pairs };
   }
+  // Plays three pieces ahead: each step picks one of the few best pieces for the board as it will be,
+  // favouring clears, then filling the holes you can see. Returns three shapes or null.
+  // Looks three pieces ahead (a small beam search) and deals the set that leaves the board emptiest,
+  // filling the gaps you can see, the way Block Blast hands you the piece you need. Returns three shapes or null.
+  function planHand(grid, weightOf, pick) {
+    const count = g => g.reduce((a, v) => a + (v ? 1 : 0), 0);
+    const holes = g => { let h = 0; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { if (g[y * N + x]) continue;
+      let n = 0; for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= N || Y >= N || g[Y * N + X]) n++; }
+      if (n >= 3) h++; } return h; };
+    const value = st => (st.empty ? 5000 : 0) - count(st.g) * 4 - holes(st.g) * 3 + st.lines * 25 + st.snug * 10 + Math.random() * 6;
+    let beam = [{ g: grid, hand: [], lines: 0, snug: 0, empty: false }];
+    const B = 18;
+    for (let k = 0; k < 3; k++) {
+      const next = [];
+      for (const st of beam) {
+        if (st.empty) { next.push(st); continue; }
+        const filled = count(st.g);
+        for (const s of SHAPES) {
+          if (weightOf(s) <= 0) continue;
+          let best = null;
+          for (let gy = 0; gy <= N - s.h; gy++) for (let gx = 0; gx <= N - s.w; gx++) {
+            if (!canPlace(st.g, s, gx, gy)) continue;
+            const r = apply(st.g, s, gx, gy, 1), n = r.rows.length + r.cols.length;
+            let touch = 0;
+            for (const [cx, cy] of s.cells) for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+              const X = gx + cx + dx, Y = gy + cy + dy;
+              if (X < 0 || Y < 0 || X >= N || Y >= N || st.g[Y * N + X]) touch++;
+            }
+            const snug = touch / (s.cells.length * 4), left = count(r.grid);
+            const sc = n * 30 + snug * 20 - left * 2;
+            if (!best || sc > best.sc) best = { sc, g: r.grid, n, snug, empty: filled > 0 && n > 0 && left === 0 };
+          }
+          if (best) next.push({ g: best.g, hand: [...st.hand, s], lines: st.lines + best.n, snug: st.snug + best.snug, empty: best.empty });
+        }
+      }
+      if (!next.length) return null;
+      next.forEach(st => st.v = value(st));
+      next.sort((p, q) => q.v - p.v);
+      beam = next.slice(0, B);
+    }
+    const done = beam.filter(st => st.hand.length === 3);
+    if (!done.length) return null;
+    // one of the best few, so it isn't the same every time
+    const top = done[0].empty ? done[0] : done[Math.floor(Math.random() * Math.min(pick, done.length))];
+    return top.hand;
+  }
   function pickWeighted(items, w) {
     const total = items.reduce((a, it) => a + w(it), 0);
     let r = Math.random() * total;
@@ -835,7 +884,7 @@ const Logic = (() => {
       for (const key of Object.keys(n)) lv[key] = (e[key] + (n[key] - e[key]) * k) * (1 - k2) + (A.hard ? A.hard[key] : n[key]) * k2;
       // pressure: the longer you sit in one frame without clearing it, the less help and the bigger the pieces
       const fm = typeof state !== 'undefined' ? state.frameMoves | 0 : 0, P = A.pressure;
-      if (P) {
+      if (P && !(A.plan && boardClears < A.plan.planFull)) {   // no pressure while the early frames are planned
         const q = Math.max(0, Math.min(1, (fm - P.from) / (P.full - P.from)));
         lv.clearChance *= 1 - q * 0.8; lv.lineChance *= 1 - q * 0.85;
         lv.smallBias = lv.smallBias * (1 - q) + 0.5 * q; lv.bigBias = lv.bigBias * (1 - q) + 2.2 * q;
@@ -843,9 +892,14 @@ const Logic = (() => {
     }
     const weightOf = s => s.weight * (!lv ? 1 : s.cells.length <= 3 ? lv.smallBias : s.cells.length >= 6 ? lv.bigBias : 1);
     const help = lv ? helperShapes(grid, lv.clearChance > 0) : null;
+    const PL = A && A.enabled && A.plan;
+    const planOn = PL ? Math.max(0, Math.min(1, 1 - (boardClears - PL.planFull + 1) / Math.max(1, PL.planUntil - PL.planFull))) * PL.chance : 0;
+    const filledNow = grid.reduce((a, v) => a + (v ? 1 : 0), 0);
     const make = () => {
       const t = [];
-      if (lv) {
+      if (filledNow && Math.random() < planOn) { const h = planHand(grid, weightOf, PL.pick); if (h) t.push(...h); }
+      if (t.length === 3) { /* planned */ }
+      else if (lv) {
         if (help.clearers.length && Math.random() < lv.clearChance) t.push(pickWeighted(help.clearers, weightOf));
         else if (help.pairs.length && Math.random() < lv.clearChance) t.push(...help.pairs[Math.floor(Math.random() * help.pairs.length)]);
         // favour line-completers that leave the board emptiest: sparse boards lead to full clears
