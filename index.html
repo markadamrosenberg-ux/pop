@@ -106,6 +106,17 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .ladrow .v{font-weight:700}
 .ladrow.me{background:linear-gradient(90deg,rgba(255,45,138,.28),rgba(255,45,138,.08))!important;box-shadow:inset 0 0 0 1.5px rgba(255,111,178,.7)}
 .ladgap{text-align:center;color:var(--muted);letter-spacing:3px;margin:2px 0}
+.ladtabs{display:flex;gap:6px;margin:0 0 10px}
+.ladtabs button{flex:1;border:0;border-radius:10px;padding:8px 0;font:700 15px inherit;font-family:inherit;background:rgba(255,255,255,.07);color:var(--muted);cursor:pointer}
+.ladtabs button.on{background:var(--accent);color:#03201d}
+.ladrow .fm{border:0;background:rgba(255,255,255,.08);color:#fff;border-radius:8px;width:30px;height:26px;margin-left:6px;font-size:16px;line-height:1;cursor:pointer}
+.ladrow.f{grid-template-columns:34px 1fr auto auto}
+.fcode{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 2px 4px;font-size:14px;color:var(--muted)}
+.fcode b{color:#fff;letter-spacing:.04em;font-size:15px;white-space:nowrap}
+#mpAddFriend{margin:6px 0 12px}
+.fcode a,.ncalt a{color:var(--accent);cursor:pointer}
+.ncalt{font-size:14px;color:var(--muted);margin:10px 0 0;text-align:center}
+#fcInput{width:100%;box-sizing:border-box;font:700 20px inherit;font-family:inherit;text-align:center;letter-spacing:.08em;text-transform:uppercase;padding:12px;border-radius:14px;border:2px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;margin:4px 0 10px}
 .ladlinks{display:flex;justify-content:space-between;font-size:14px;color:var(--muted);margin:2px 4px 12px}
 .ladlinks a{color:#9ff5ec;text-decoration:none;cursor:pointer}
 .gorank{font-size:17px;font-weight:700;color:#ffd23f;min-height:0;margin:-4px 0 10px}
@@ -401,6 +412,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <div class="ncnote" id="ncNote">First name and the first letter of your surname, like Mark R</div>
         <button class="btn ubtn" id="ncGo">Let's go</button>
         <button class="btn ghost" id="ncLater">Not now</button>
+        <div class="ncalt" id="ncAlt" style="display:none">Already play Pop from your home screen? <a id="ncCopyCode">Copy friend code</a></div>
       </div>
     </div>
     <div class="overlay" id="pinInfo">
@@ -434,6 +446,17 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <div class="sub">You've got a Reposition saved. Move one of your placed pieces to make space?</div>
         <button class="btn" id="useRescue">Use Reposition</button>
         <button class="btn ghost" id="endRescue">End game</button>
+      </div>
+    </div>
+    <div class="overlay" id="friendCard">
+      <div class="card undocard">
+        <div class="ubub ladbub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 19c.6-3.2 2.8-5 5.5-5s4.9 1.8 5.5 5"/><path d="M17 8v6M14 11h6"/></svg></div>
+        <h2 id="fcTitle">Add a friend</h2>
+        <div class="ulead" id="fcLead"></div>
+        <input id="fcInput" maxlength="16" autocomplete="off" autocapitalize="characters" placeholder="POP-XXXX-XXXX" aria-label="Friend code">
+        <div class="ncnote" id="fcNote"></div>
+        <button class="btn ubtn" id="fcGo">Find</button>
+        <button class="btn ghost" id="fcLater">Not now</button>
       </div>
     </div>
     <div class="overlay" id="invite">
@@ -3854,7 +3877,7 @@ const Net = (() => {
   }
   async function rename(name) { const p = player(); const b = await rpc('pop_rename', { p_id: p.id, p_token: p.token, p_name: name }); p.name = b.me.name; Store.set('player', p); keepBoard(b); return b; }
   async function refresh() { const p = player(); if (!enabled() || !p) return null; try { const b = await rpc('pop_board', { p_id: p.id, p_token: p.token }); keepBoard(b); return b; } catch (e) { forget(e); return null; } }
-  function forget(e) { if (e && /unknown_player/.test(e.message)) { Store.set('player', null); Store.set('board', null); } }
+  function forget(e) { if (e && /unknown_player/.test(e.message)) { Store.set('player', null); Store.set('board', null); Store.set('friends', null); Store.set('friendCode', null); } }
   // Remember a score to send. finished = the game just ended (counts as a game played).
   function report(score, finished = false) {
     if (!player()) return;
@@ -3876,7 +3899,21 @@ const Net = (() => {
     } catch (e) { forget(e); return null; }
     finally { busy = false; }
   }
-  return { enabled, player, register, rename, refresh, report, flush, board: () => Store.get('board', null) };
+  // ---- friends: direct, mutual, never chained (server: pop-friends.sql)
+  const fmtCode = c => c ? 'POP-' + c.slice(0, 4) + '-' + c.slice(4) : '';
+  const cleanCode = c => String(c || '').toUpperCase().replace(/^\s*POP/, '').replace(/[^A-Z0-9]/g, '');
+  async function myCode() {
+    const p = player(); if (!enabled() || !p) return null;
+    if (Store.get('friendCode', null)) return Store.get('friendCode');
+    try { const c = await rpc('pop_my_code', { p_id: p.id, p_token: p.token }); Store.set('friendCode', c); return c; } catch (e) { forget(e); return null; }
+  }
+  async function lookup(code) { if (!enabled()) return null; try { return await rpc('pop_lookup_code', { p_code: cleanCode(code) }); } catch (e) { return null; } }
+  function keepFriends(f) { if (f && f.rows) { Store.set('friends', { ...f, at: Date.now() }); if (typeof UI !== 'undefined') UI.update(true); } return f; }
+  async function friends() { const p = player(); if (!enabled() || !p) return null; try { return keepFriends(await rpc('pop_friends', { p_id: p.id, p_token: p.token })); } catch (e) { forget(e); return null; } }
+  async function addFriend(code, via = 'code') { const p = player(); return keepFriends(await rpc('pop_add_friend', { p_id: p.id, p_token: p.token, p_code: cleanCode(code), p_via: via })); }
+  async function removeFriend(id) { const p = player(); return keepFriends(await rpc('pop_remove_friend', { p_id: p.id, p_token: p.token, p_friend: id })); }
+  return { enabled, player, register, rename, refresh, report, flush, board: () => Store.get('board', null),
+    fmtCode, cleanCode, myCode, lookup, friends, addFriend, removeFriend, friendsBoard: () => Store.get('friends', null) };
 })();
 
 const Celebrate = (() => {
@@ -4601,9 +4638,12 @@ const UI = (() => {
     const gr = $('goRank'); gr.textContent = '';
     if (Net.player() && !state.tainted) {
       const shown = state.score;
-      Net.flush().then(b => b || Net.refresh()).then(b => {
-        if (!b || !b.me || !b.me.rank || !go.classList.contains('show')) return;
-        gr.textContent = b.me.rank === 1 ? `👑 Top of the ladder! (${b.total} ${b.total === 1 ? 'player' : 'players'})` : `#${b.me.rank} of ${b.total} on the ladder`;
+      Net.flush().then(b => b || Net.refresh()).then(async b => {
+        const f = await Net.friends();
+        if (!go.classList.contains('show')) return;
+        const world = b && b.me && b.me.rank ? (b.me.rank === 1 ? `👑 Top of the World ladder (${b.total} ${b.total === 1 ? 'player' : 'players'})` : `#${b.me.rank} of ${b.total} in the world`) : '';
+        if (f && f.friends > 0 && f.me) gr.textContent = (f.me.rank === 1 ? `👑 Top of your Friends ladder (${f.count} incl. you)` : `${ord(f.me.rank)} of ${f.count} on your Friends ladder`) + (world ? ' · ' + world : '');
+        else gr.textContent = world;
       });
     } else if (Net.enabled() && !Net.player()) gr.textContent = '';
     go.classList.add('show');
@@ -4671,44 +4711,144 @@ const UI = (() => {
     $('mpGames').textContent = Store.get('games', 0).toLocaleString();
     renderLadder();
     Sound.pickup(); mp.classList.add('show');
-    if (Net.player()) Net.flush(true).then(b => { if (!b) return Net.refresh(); }).then(() => renderLadder());
+    if (Net.player()) { Net.flush(true).then(b => { if (!b) return Net.refresh(); }).then(() => renderLadder()); Net.myCode().then(() => Net.friends()).then(() => renderLadder()); }
   }
   const esc = t => String(t).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
   // the ladder on Your Pop: top players, you highlighted, your neighbours if you're further down
+  const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['th', 'st', 'nd', 'rd'][n % 10] || 'th');
+  let ladTab = null;
   function renderLadder() {
-    const el = $('mpLadder'), note = $('mpNote'), b = Net.board(), me = Net.player(), before = Store.get('bestBefore', 0);
+    const el = $('mpLadder'), note = $('mpNote'), b = Net.board(), me = Net.player(), before = Store.get('bestBefore', 0), fb = Net.friendsBoard();
     if (!Net.enabled()) { el.innerHTML = '<div class="ladhead"><b>Ladder</b><span>coming soon</span></div>'; note.textContent = 'Share Pop now so your friends are ready.'; return; }
     if (!me) {
       el.innerHTML = '<div class="ladhead"><b>Ladder</b></div><button class="btn invitebtn" id="mpJoin">Join the ladder</button>';
       $('mpJoin').onclick = () => { mp.classList.remove('show'); showNameCard(true); };
       note.textContent = 'Put your name on it and see where you rank.'; return;
     }
-    if (!b) { el.innerHTML = '<div class="ladhead"><b>Ladder</b><span>loading…</span></div>'; note.textContent = ''; return; }
+    const hasFriends = !!(fb && fb.friends > 0);
+    const tail = () => { const code = Store.get('friendCode', null);
+      return `<div class="fcode"><span>Your friend code <b>${code ? Net.fmtCode(code) : '…'}</b></span><a id="mpCopyCode">Copy</a></div>`
+        + '<button class="btn invitebtn" id="mpAddFriend">Add a friend</button>'
+        + `<div class="ladlinks"><a id="mpRename">Change name</a><span>${before ? 'Before the ladder: ' + before.toLocaleString() : ''}</span></div>`; };
+    const tab = ladTab || (hasFriends ? 'friends' : 'world');
+    let html = `<div class="ladtabs"><button data-t="friends" class="${tab === 'friends' ? 'on' : ''}">Friends</button><button data-t="world" class="${tab === 'world' ? 'on' : ''}">World</button></div>`;
     const row = r => `<div class="ladrow${r.me ? ' me' : ''}${r.rank <= 3 ? ' top' + r.rank : ''}"><span class="r">${r.rank}</span><span>${esc(r.name)}${r.me ? ' (you)' : ''}</span><span class="v">${r.best.toLocaleString()}</span></div>`;
-    let html = `<div class="ladhead"><b>Ladder</b><span>${b.total} ${b.total === 1 ? 'player' : 'players'}</span></div>`;
-    html += b.top.slice(0, 10).map(row).join('');
-    const shownMe = b.top.slice(0, 10).some(r => r.me);
-    if (!shownMe && b.me.rank) { html += '<div class="ladgap">• • •</div>' + (b.near.length ? b.near.map(row).join('') : b.top.filter(r => Math.abs(r.rank - b.me.rank) <= 2).map(row).join('')); }
-    if (!b.me.rank) html += `<div class="ladrow me"><span class="r">–</span><span>${esc(b.me.name)} (you)</span><span class="v">play a game</span></div>`;
-    html += `<div class="ladlinks"><a id="mpRename">Change name</a><span>${before ? 'Before the ladder: ' + before.toLocaleString() : ''}</span></div>`;
-    el.innerHTML = html;
+    if (tab === 'friends') {
+      if (!fb) html += '<div class="ladhead"><span>loading…</span></div>';
+      else {
+        html += `<div class="ladhead"><b>Your Friends ladder</b><span>${fb.count} incl. you</span></div>`;
+        html += fb.rows.map(r => `<div class="ladrow f${r.you ? ' me' : ''}${r.rank <= 3 ? ' top' + r.rank : ''}"><span class="r">${r.rank}</span><span>${esc(r.name)}${r.you ? ' (you)' : ''}</span><span class="v">${r.best ? r.best.toLocaleString() : '–'}</span>${r.you ? '<span></span>' : `<button class="fm" data-id="${esc(r.id)}" data-n="${esc(r.name)}" aria-label="Options for ${esc(r.name)}">⋯</button>`}</div>`).join('');
+        if (!hasFriends) html += '<div class="ladhead"><span>No friends yet. Send your invite or add a friend\'s code.</span></div>';
+      }
+      html += tail();
+      el.innerHTML = html;
+      el.querySelectorAll('.fm').forEach(bt => bt.onclick = () => { mp.classList.remove('show'); openFriendCard({ mode: 'remove', id: bt.dataset.id, name: bt.dataset.n }); });
+      note.textContent = hasFriends ? (fb.me.rank === 1 ? 'Top of your friends! Keep it that way.' : `You're ${ord(fb.me.rank)} of ${fb.count} on your Friends ladder.`) : '';
+    } else {
+      if (!b) html += '<div class="ladhead"><span>loading…</span></div>';
+      else {
+        html += `<div class="ladhead"><b>World ladder</b><span>${b.total} ${b.total === 1 ? 'player' : 'players'}</span></div>`;
+        html += b.top.slice(0, 10).map(row).join('');
+        const shownMe = b.top.slice(0, 10).some(r => r.me);
+        if (!shownMe && b.me.rank) { html += '<div class="ladgap">• • •</div>' + (b.near.length ? b.near.map(row).join('') : b.top.filter(r => Math.abs(r.rank - b.me.rank) <= 2).map(row).join('')); }
+        if (!b.me.rank) html += `<div class="ladrow me"><span class="r">–</span><span>${esc(b.me.name)} (you)</span><span class="v">play a game</span></div>`;
+      }
+      html += tail();
+      el.innerHTML = html;
+      note.textContent = !b ? '' : b.me.rank === 1 ? "You're top of the ladder! Keep it that way." : b.me.rank ? `Beat ${b.top.find(r => r.rank === b.me.rank - 1) ? esc(b.top.find(r => r.rank === b.me.rank - 1).name) : 'the player above'} to move up.` : 'Finish a game to get on the ladder.';
+    }
     $('mpRename').onclick = () => { mp.classList.remove('show'); showNameCard(true, true); };
-    note.textContent = b.me.rank === 1 ? "You're top of the ladder! Keep it that way." : b.me.rank ? `Beat ${b.top.find(r => r.rank === b.me.rank - 1) ? esc(b.top.find(r => r.rank === b.me.rank - 1).name) : 'the player above'} to move up.` : 'Finish a game to get on the ladder.';
+    $('mpAddFriend').onclick = () => { mp.classList.remove('show'); openFriendCard({ mode: 'enter' }); };
+    $('mpCopyCode').onclick = () => copyText(Net.fmtCode(Store.get('friendCode', '')), 'Your code is copied. Send it to a friend who already plays.');
+    el.querySelectorAll('.ladtabs button').forEach(bt => bt.onclick = () => { ladTab = bt.dataset.t; Sound.pickup(); renderLadder(); });
+  }
+  async function copyText(text, msg) {
+    let done = false;
+    try { await navigator.clipboard.writeText(text); done = true; } catch (e) {}
+    if (!done) { try { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); done = document.execCommand('copy'); ta.remove(); } catch (e) {} }
+    toast(done ? msg : 'Your code: ' + text);
   }
 
+  // ---- friends: one card for entering a code, confirming an add, and removing
+  const fc = $('friendCard');
+  let fcState = null;
+  async function openFriendCard(o) {
+    fcState = o; const inp = $('fcInput'), nt = $('fcNote'), go2 = $('fcGo');
+    nt.className = 'ncnote'; nt.textContent = ''; go2.disabled = false; $('fcLater').textContent = 'Not now';
+    if (o.mode === 'enter') {
+      $('fcTitle').textContent = 'Add a friend'; $('fcLead').textContent = "Type the friend code from their Pop page. You'll be on each other's Friends ladder.";
+      inp.style.display = ''; inp.value = ''; go2.textContent = 'Find';
+    } else if (o.mode === 'confirm') {
+      $('fcTitle').textContent = `Add ${o.name}?`; $('fcLead').textContent = "You'll be on each other's Friends ladder. Only people you connect with directly are on it.";
+      inp.style.display = 'none'; go2.textContent = `Add ${o.name}`;
+    } else if (o.mode === 'remove') {
+      $('fcTitle').textContent = `Remove ${o.name}?`; $('fcLead').textContent = "They won't be told. You'll both drop off each other's Friends ladder.";
+      inp.style.display = 'none'; go2.textContent = 'Remove friend'; $('fcLater').textContent = 'Cancel';
+    }
+    fc.classList.add('show'); Sound.pickup();
+    if (o.mode === 'enter') setTimeout(() => inp.focus(), 250);
+  }
+  $('fcInput').addEventListener('input', e => { const c = Net.cleanCode(e.target.value).slice(0, 8); e.target.value = c.length > 4 ? 'POP-' + c.slice(0, 4) + '-' + c.slice(4) : c ? 'POP-' + c : ''; });
+  $('fcLater').addEventListener('click', () => { fc.classList.remove('show'); if (fcState && fcState.mode === 'remove') openMyPop(); fcState = null; });
+  $('fcGo').addEventListener('click', async () => {
+    const o = fcState, nt = $('fcNote'), go2 = $('fcGo'); if (!o) return;
+    const bad = m => { nt.className = 'ncnote err'; nt.textContent = m; go2.disabled = false; };
+    go2.disabled = true;
+    try {
+      if (o.mode === 'enter') {
+        const code = Net.cleanCode($('fcInput').value);
+        if (code.length !== 8) return bad('A friend code looks like POP-7K2Q-M9TX');
+        if (code === Store.get('friendCode', '')) return bad("That's your own code");
+        const who = await Net.lookup(code);
+        if (!who) return bad("We can't find that code. Check it and try again");
+        return openFriendCard({ mode: 'confirm', code, name: who.name, via: 'code' });
+      }
+      if (o.mode === 'confirm') {
+        if (!Net.player()) { fc.classList.remove('show'); showNameCard(true, false, o); return; }
+        await Net.addFriend(o.code, o.via || 'code');
+        fc.classList.remove('show'); fcState = null; ladTab = 'friends';
+        try { Sound.mysteryAppear(0); } catch (_) {}
+        toast(`${o.name} is on your Friends ladder!`); return;
+      }
+      if (o.mode === 'remove') {
+        await Net.removeFriend(o.id);
+        fc.classList.remove('show'); fcState = null; toast(`${o.name} removed`); openMyPop(); return;
+      }
+    } catch (e) {
+      const m = String(e.message || '');
+      bad(/you_are_full/.test(m) ? 'You already have 200 friends, the most allowed' : /they_are_full/.test(m) ? `${o.name || 'They'} already have 200 friends` : /thats_you/.test(m) ? "That's your own code" : /no_such_code/.test(m) ? "We can't find that code" : "Couldn't connect. Try again in a moment");
+    }
+  });
+  // an invite link (…/pop/?f=CODE): nothing happens until the player says so
+  async function handleInvite() {
+    const code = Store.get('pendingInvite', null); if (!code || !Net.enabled()) return false;
+    Store.set('pendingInvite', null);
+    const who = await Net.lookup(code); if (!who) return false;
+    if (Net.player()) {
+      const mine = await Net.myCode(); if (mine === code) return false;
+      const f = Net.friendsBoard(); if (f && f.rows && f.rows.some(r => r.name === who.name && !r.you)) return false;
+      openFriendCard({ mode: 'confirm', code, name: who.name, via: 'link' }); return true;
+    }
+    showNameCard(true, false, { code, name: who.name, via: 'link' }); return true;
+  }
   // ---- your name: asked once, changeable from Your Pop
   const nc = $('nameCard');
-  function showNameCard(force = false, renaming = false) {
+  const standalone = () => window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches;
+  const isIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  function showNameCard(force = false, renaming = false, invite = null) {
     if (!Net.enabled()) return;
     if (!force && (Net.player() || Store.get('nameLater', '') === dayKey())) return;
-    nc._renaming = renaming;
-    $('ncTitle').textContent = renaming ? 'Change your name' : 'Join the ladder!';
-    $('ncLead').textContent = renaming ? 'This is the name everyone sees on the ladder.' : "See who's got the top score. Pick the name everyone will see.";
+    nc._renaming = renaming; nc._invite = invite;
+    $('ncTitle').textContent = renaming ? 'Change your name' : invite ? `${invite.name} invited you!` : 'Join the ladder!';
+    $('ncLead').textContent = renaming ? 'This is the name everyone sees on the ladder.' : invite ? `Join the ladder and you and ${invite.name} will be on each other's Friends ladder.` : "See who's got the top score. Pick the name everyone will see.";
+    // iPhone: the home-screen app and Safari are separate players. Don't make a second one by accident.
+    $('ncAlt').style.display = invite && isIOS() && !standalone() ? '' : 'none';
+    $('ncCopyCode').onclick = () => invite && copyText(Net.fmtCode(invite.code), `Copied ${invite.name}'s code. Open Pop from your home screen, tap your best score, then Add a friend and paste it.`);
     const cur = renaming && Net.player() ? Net.player().name.split(' ') : ['', ''];
     $('ncFirst').value = cur[0] || ''; $('ncInit').value = cur[1] || '';
     const nt = $('ncNote'); nt.className = 'ncnote'; nt.textContent = renaming ? '' : (Store.get('best', 0) > 0 ? `Your ladder score starts from your next game. Your best so far (${Store.get('best', 0).toLocaleString()}) stays on Your Pop.` : 'First name and the first letter of your surname, like Mark R');
     $('ncLater').textContent = renaming ? 'Cancel' : 'Not now';
-    $('ncGo').textContent = renaming ? 'Save' : "Let's go"; $('ncGo').disabled = false;
+    $('ncGo').textContent = renaming ? 'Save' : invite ? `Join ladder and add ${invite.name}` : "Let's go"; $('ncGo').disabled = false;
     nc.classList.add('show');
   }
   $('ncInit').addEventListener('input', e => { e.target.value = e.target.value.replace(/[^A-Za-zÀ-ÿ]/g, '').toUpperCase(); });
@@ -4724,7 +4864,7 @@ const UI = (() => {
     try {
       if (nc._renaming) got = (await Net.rename(name)).me.name; else got = (await Net.register(name)).name || name;
     } catch (e) {
-      go.disabled = false; go.textContent = nc._renaming ? 'Save' : "Let's go";
+      go.disabled = false; go.textContent = nc._renaming ? 'Save' : nc._invite ? `Join ladder and add ${nc._invite.name}` : "Let's go";
       const why = e.name === 'AbortError' ? 'timed out' : String(e.message || e).slice(0, 60);
       bad(/bad_name/.test(e.message) ? "That name won't work. Try another" : /busy/.test(e.message) ? 'Lots of people joining. Try again in a minute' : `Couldn't connect. Tap Let's go to try again (${why})`);
       return;
@@ -4733,6 +4873,12 @@ const UI = (() => {
     nc.classList.remove('show');
     try { Sound.mysteryAppear(0); } catch (_) {}
     const taken = got !== name ? `${name} was taken, so you're ${got}. ` : '';
+    const inv0 = nc._invite; nc._invite = null;
+    if (inv0 && !nc._renaming) {
+      try { await Net.addFriend(inv0.code, inv0.via || 'link'); ladTab = 'friends'; toast(`${taken}You're on the ladder, and ${inv0.name} is your friend!`); update(true); Net.myCode(); return; }
+      catch (e) { /* joined fine; the add can be done later */ }
+    }
+    Net.myCode();
     try { toast(taken ? taken + 'Change it on Your Pop any time' : nc._renaming ? `You're now ${got}` : `You're on the ladder, ${got}!`); update(true); } catch (_) {}
   });
   $('best').closest('.best').addEventListener('click', () => { Sound.unlock(); if (!Input.isDragging()) openMyPop(); });
@@ -4759,7 +4905,10 @@ const UI = (() => {
   const inv = $('invite');
   function openInvite() {
     const best = Math.max(Store.get('best', 0), state.score);
-    const msg = (best > 0 ? 'I scored ' + best.toLocaleString() + ' on ' + CONFIG.title + '. Can you beat me? ' : 'Come and play ' + CONFIG.title + ' with me! ') + '🫧 ' + CONFIG.shareUrl;
+    const code = Net.player() ? Store.get('friendCode', null) : null;
+    if (Net.player() && !code) Net.myCode().then(c => { if (c && inv.classList.contains('show')) openInvite(); });
+    const link = CONFIG.shareUrl + (code ? '?f=' + Net.fmtCode(code) : '');
+    const msg = (best > 0 ? 'I scored ' + best.toLocaleString() + ' on ' + CONFIG.title + '. Can you beat me? ' : 'Come and play ' + CONFIG.title + ' with me! ') + '🫧 ' + link + (code ? ` (my friend code: ${Net.fmtCode(code)})` : '');
     $('inviteText').textContent = msg; $('inviteNote').textContent = '';
     $('inviteLead').textContent = best > 0 ? 'Challenge them to beat your best' : 'Send Pop to anyone. They can play straight away';
     st.classList.remove('show'); go.classList.remove('show'); inv.classList.add('show');
@@ -4797,10 +4946,11 @@ const UI = (() => {
     setTimeout(() => showGameOver(), 500);
   });
   $('bonusBtn').addEventListener('click', () => { Sound.unlock(); if (!useBonusPiece()) toast('Place a piece first to make room in your tray'); });
-  return { update, placeHint, showHint, dismissHint, toast, showGameOver, hideGameOver, modalOpen: () => document.getElementById('tapStart').classList.contains('show') || go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show') || askEl.classList.contains('show') || mp.classList.contains('show') || pinInfoEl.classList.contains('show') || nc.classList.contains('show'),
+  return { update, placeHint, showHint, dismissHint, toast, showGameOver, hideGameOver, modalOpen: () => document.getElementById('tapStart').classList.contains('show') || go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show') || askEl.classList.contains('show') || mp.classList.contains('show') || pinInfoEl.classList.contains('show') || nc.classList.contains('show') || fc.classList.contains('show'),
     showRescue() { rescueEl.classList.add('show'); },
     pinInfo: n => pinInfo(n),
     showNameCard: (f, r) => showNameCard(f, r),
+    handleInvite: () => handleInvite(),
     renderLadder: () => renderLadder(),
     flashPin() { const b = $('pinBtn'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); setTimeout(() => b.classList.remove('flash'), 1600); },
     // the once-a-day moment: a big glowing "N days in a row!"
@@ -4938,7 +5088,8 @@ const TapStart = (() => {
   });
   return { show };
 })();
-TapStart.show(() => { if (!Celebrate.active() && !UI.modalOpen()) UI.showNameCard(); });
+(() => { const m = location.search.match(/[?&]f=([^&]+)/); if (m) { Store.set('pendingInvite', Net.cleanCode(decodeURIComponent(m[1]))); try { history.replaceState(null, '', location.pathname + location.search.replace(/[?&]f=[^&]+/, '').replace(/^&/, '?') + location.hash); } catch (_) {} } })();
+TapStart.show(async () => { if (Celebrate.active() || UI.modalOpen()) return; if (await UI.handleInvite()) return; UI.showNameCard(); });
 Net.flush(); Net.refresh();
 document.addEventListener('visibilitychange', () => { if (document.hidden) Net.flush(); else Net.refresh(); });
 setInterval(() => { if (!document.hidden) Net.refresh(); }, 90000);
