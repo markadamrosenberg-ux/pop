@@ -500,12 +500,14 @@ const CONFIG = {
   // board clean, pays boardClearBonus, changes the bubble style and the next frame starts.
   // Clearing the whole board yourself also finishes the frame, with perfectBonus on top.
   // Frame n needs targets[n] lines (then +step a frame, up to maxTarget). Early frames are quick on purpose.
-  frames: { enabled: true, targets: [3, 3, 4, 4, 5, 5, 5, 6, 6, 7], step: 1, maxTarget: 14, perfectBonus: 1500 },
+  frames: { enabled: false, targets: [3, 3, 4, 4, 5, 5, 5, 6, 6, 7], step: 1, maxTarget: 14, perfectBonus: 1500 },
 
-  // Starter board: each new frame begins with some nearly-full rows, each missing one short gap.
-  // rows[n] = how many for frame n (none after the list). exact[n] = how many of the gap-filling pieces
-  // are dealt straight into the tray, so early frames can be done in 3-4 moves; later you find them yourself.
-  starter: { enabled: true, rows: [3, 3, 4, 4, 4, 4, 4, 4, 4, 3, 3, 2, 2, 1], exact: [3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 1, 1, 1], gaps: ['2h', '3h', '4h', '2h', '3h'] },
+  // Starter board: each frame begins with full rows at the bottom with pieces carved out of them.
+  // The frame clears when the whole board is empty. plan[n] = [rows, pieces, shape tier] for frame n
+  // (the last repeats). For the first pureFrames frames you're dealt only the carved pieces, so a perfect
+  // fit clears the frame in `pieces` moves; after that one carved piece comes per hand among normal ones.
+  starter: { enabled: true, pureFrames: 10,
+    plan: [[2, 3, 0], [2, 3, 0], [3, 3, 1], [3, 3, 1], [3, 3, 2], [4, 3, 2], [3, 4, 2], [4, 4, 2], [4, 4, 3], [4, 5, 3], [4, 5, 3]] },
 
   // Mystery piece: fill the meter with cleared lines to earn one. It shows as a glowing orb in the
   // tray; picking it up reveals a one-off shape built for the board right then, aiming to clear
@@ -1517,26 +1519,57 @@ const frameTarget = (n = state.boardClears) => {
   const F = CONFIG.frames, t = F.targets;
   return n < t.length ? t[n] : Math.min(F.maxTarget, t[t.length - 1] + F.step * (n - t.length + 1));
 };
-// A new frame's starter board: nearly-full rows, each with one gap. Returns the gap shapes (to deal) or [].
+// A new frame's starter board: a block of full rows at the bottom with pieces carved out of it.
+// The carved pieces are exactly what you're dealt, so filling every gap empties the board.
+const GAP_TIERS = [
+  ['2h', '3h', '4h', '1', '2h', '3h'],
+  ['2h', '3h', '4h', '2v', '3v', 'sq2', 'c2a', 'c2b', 'c2c', 'c2d'],
+  ['3h', '4h', '2v', '3v', 'sq2', 'c2a', 'c2b', 'c2c', 'c2d', 'L1', 'L2', 'L3', 'L4', 'J1', 'J2', 'J3', 'J4', 'T1', 'T2', 'T3', 'T4'],
+  ['4h', '3v', 'sq2', 'r23', 'r32', 'L1', 'L2', 'L3', 'L4', 'J1', 'J2', 'J3', 'J4', 'T1', 'T2', 'T3', 'T4', 'S1', 'S2', 'Z1', 'Z2'],
+];
 function layStarter() {
   const ST = CONFIG.starter, f = state.boardClears;
-  if (!ST.enabled || f >= ST.rows.length || !ST.rows[f]) return [];
-  const rowsN = Math.min(4, ST.rows[f]), cols = skin().colours.length, shapes = [];
-  const ys = [7, 6, 5, 4].sort(() => Math.random() - 0.5).slice(0, rowsN).sort((a, b) => b - a);
-  ys.forEach((y, k) => {
-    const sh = SHAPE_BY_ID[ST.gaps[(f + k) % ST.gaps.length]], x0 = Math.floor(Math.random() * (N - sh.w + 1));
-    for (let x = 0; x < N; x++) if (x < x0 || x >= x0 + sh.w) state.grid[Logic.idx(x, y)] = 1 + Math.floor(Math.random() * cols);
-    shapes.push(sh);
-  });
-  state.pid = fixedPids(state.grid);
-  return shapes.slice(0, ST.exact[f] || 0);
+  state.gapQueue = []; state.puzzlePure = false;
+  if (!ST.enabled || !ST.plan.length) return;
+  const [rowsN, pieces, tier] = ST.plan[Math.min(f, ST.plan.length - 1)];
+  const pool = GAP_TIERS[Math.min(tier, GAP_TIERS.length - 1)], top = N - rowsN;
+  for (let attempt = 0; attempt < 60; attempt++) {
+    const g = new Array(N * N).fill(0);
+    for (let y = top; y < N; y++) for (let x = 0; x < N; x++) g[Logic.idx(x, y)] = 1;
+    const carved = [];
+    for (let tries = 0; carved.length < pieces && tries < 400; tries++) {
+      const sh = SHAPE_BY_ID[pool[Math.floor(Math.random() * pool.length)]];
+      if (sh.h > rowsN) continue;
+      const x0 = Math.floor(Math.random() * (N - sh.w + 1)), y0 = top + Math.floor(Math.random() * (rowsN - sh.h + 1));
+      if (!sh.cells.every(([cx, cy]) => g[Logic.idx(x0 + cx, y0 + cy)])) continue;
+      sh.cells.forEach(([cx, cy]) => { g[Logic.idx(x0 + cx, y0 + cy)] = 0; });
+      carved.push(sh.id);
+    }
+    // every row in the block needs a gap (a full row would never pop)
+    let ok = carved.length === pieces;
+    for (let y = top; y < N && ok; y++) if ([...Array(N).keys()].every(x => g[Logic.idx(x, y)])) ok = false;
+    if (!ok && attempt < 59) continue;
+    const cols = skin().colours.length;
+    state.grid = g.map(v => v ? 1 + Math.floor(Math.random() * cols) : 0);
+    state.pid = fixedPids(state.grid);
+    state.gapQueue = carved.sort(() => Math.random() - 0.5);
+    state.puzzlePure = f < ST.pureFrames;   // early frames: you're only dealt the gap pieces
+    state.frameStart = state.grid.filter(Boolean).length;
+    return;
+  }
 }
-// Deal the gap pieces for a starter board into the tray (keeping any mystery piece)
-function dealStarter(shapes) {
-  if (!shapes.length) return;
-  const cols = skin().colours.length, base = Logic.newTray(state.grid, cols, state.boardClears);
-  let k = 0;
-  state.tray = state.tray.map((p, i) => p && p.mystery ? p : k < shapes.length ? { shape: shapes[k++], color: Math.floor(Math.random() * cols) } : (p || base[i]));
+// Hand out owed gap pieces: a whole hand of them in early frames, one per hand later
+function dealGaps() {
+  if (!state.gapQueue || !state.gapQueue.length) return;
+  const cols = skin().colours.length, mk = id => ({ shape: SHAPE_BY_ID[id], color: Math.floor(Math.random() * cols) });
+  if (state.puzzlePure) {
+    let k = 0;
+    state.tray = state.tray.map(p => p && p.mystery ? p : k < 3 && state.gapQueue.length ? (k++, mk(state.gapQueue.shift())) : null);
+    if (state.tray.every(p => !p)) state.tray[0] = mk(state.gapQueue.shift());
+  } else {
+    const sh = SHAPE_BY_ID[state.gapQueue[0]], slot = state.tray.findIndex(p => p && !p.mystery);
+    if (sh && slot >= 0 && Logic.anyFit(state.grid, sh)) { state.gapQueue.shift(); state.tray[slot] = mk(sh.id); }
+  }
 }
 const mysteryTarget = () => state.mysteryCount === 0 ? CONFIG.mystery.firstAfterLines : CONFIG.mystery.everyLines;
 const makeMystery = (frame = false) => ({ mystery: true, frame, shape: null, color: 0 });
@@ -1602,7 +1635,7 @@ function serialise() {
   return { grid: state.grid, tray: state.tray.map(packPiece),
     score: state.score, combo: state.combo, sinceClear: state.sinceClear, skin: state.skin, boardClears: state.boardClears, frameLines: state.frameLines,
     mysteryLines: state.mysteryLines, mysteryCount: state.mysteryCount, mysteryPending: state.mysteryPending, mysterySinceFrame: state.mysterySinceFrame,
-    pid: state.pid, nextPid: state.nextPid, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted };
+    pid: state.pid, nextPid: state.nextPid, gapQueue: state.gapQueue || [], puzzlePure: !!state.puzzlePure, frameStart: state.frameStart | 0, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted };
 }
 function saveGame() { if (state.over) Store.set('game', null); else Store.set('game', serialise()); }
 function restoreGame() {
@@ -1616,7 +1649,7 @@ function restoreGame() {
   // older saves have no piece ids: their bubbles are fixed, new placements are tracked normally
   state.pid = validPids(g.pid, state.grid) ? g.pid.slice() : fixedPids(state.grid);
   state.nextPid = Math.max(g.nextPid | 0, 1, ...state.pid) + (validPids(g.pid, state.grid) ? 0 : 1);
-  state.continues = g.continues | 0; state.tainted = !!g.tainted;
+  state.continues = g.continues | 0; state.tainted = !!g.tainted; state.gapQueue = Array.isArray(g.gapQueue) ? g.gapQueue.slice() : []; state.puzzlePure = !!g.puzzlePure; state.frameStart = g.frameStart | 0;
   state.repo = CONFIG.reposition.enabled ? Math.max(0, Math.min(CONFIG.reposition.maxCharges, g.repo | 0)) : 0;
   if (state.tray.every(p => !p)) refillTray(false);
   shownTarget = shownScore = state.score;
@@ -1626,6 +1659,7 @@ function restoreGame() {
 function refillTray(animate = true) {
   state.tray = Logic.newTray(state.grid, skin().colours.length, state.boardClears);
   if (state.mysteryPending) { state.tray[Math.floor(Math.random() * 3)] = makeMystery(state.mysteryPending === 'frame'); state.mysteryPending = false; }
+  dealGaps();   // pieces owed from this frame's starter board
   const now = performance.now();
   FX.trayIn = state.tray.map((_, i) => now + i * 60);
   if (animate) Sound.trayIn();
@@ -1715,8 +1749,9 @@ function newGame() {
   if (games <= U.starterGames) { if (undoTokens() < 1) grantUndo(); }
   else if (games % U.everyGames === 0) grantUndo('Free undo for this game');
   FX.reset();
+  state.gapQueue = [];
+  layStarter();
   refillTray();
-  dealStarter(layStarter());
   UI.hideGameOver();
   UI.update(true);
   saveGame();
@@ -1829,13 +1864,13 @@ function move(slot, gx, gy, repo = null) {
   const filledNow = state.grid.reduce((a, v) => a + (v ? 1 : 0), 0);
   const bonus = waterfall ? S.boardClearBonus * (state.boardClears + 1) + (boardEmpty && F.enabled ? F.perfectBonus : 0) + (frameBubble ? filledNow * S.poppedBubblePoints : 0) : 0;
   const multBefore = frameMult();
-  let washed = [], starterShapes = [], starterCells = [];
+  let washed = [], starterShapes = false, starterCells = [];
   if (waterfall) {
     // the waterfall washes whatever is left off the board
     for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) { const v = state.grid[Logic.idx(gx, gy)]; if (v) washed.push({ gx, gy, v }); }
     state.grid = new Array(N * N).fill(0); state.pid = new Array(N * N).fill(0);
     state.boardClears++; state.frameLines = 0; state.mysterySinceFrame = 0;
-    starterShapes = layStarter();
+    layStarter(); starterShapes = true;
     starterCells = state.grid.map((v, i) => v ? i : -1).filter(i => i >= 0);
   }
   // a frame clear can't be undone (its rewards are already banked)
@@ -1890,7 +1925,7 @@ function move(slot, gx, gy, repo = null) {
   const streakNews = touchStreak();
   const result = { repo: !!repo, grantSlot, bonusEarned, undoEarned, pinEarned, streakNews, multBefore, multAfter: frameMult(), skinName: null, frameBubble, mysteryGranted, mysteryPlaced: !!piece.mystery, slot, piece, gx, gy, placePts, linePts, colourPts, colourMatches, starterCells, lines, comboMult, combo: state.combo, bonus, waterfall, boardEmpty, ...res, grid: state.grid, washed, frameNo: state.boardClears };
 
-  if (starterShapes.length) dealStarter(starterShapes);
+  if (starterShapes) { const m = state.tray.filter(p => p && p.mystery); state.tray = [null, null, null]; m.forEach((p, i) => state.tray[i] = p); if (state.gapQueue.length) dealGaps(); }
   if (state.tray.every(p => !p)) refillTray();
   state.over = isStuck();
   saveGame();
@@ -2603,6 +2638,26 @@ function draw(now) {
     ctx.lineWidth = t.size * 0.18; ctx.strokeStyle = `rgba(4,26,42,${0.7 * a})`; ctx.lineJoin = 'round';
     ctx.strokeText(t.text, t.x, y);
     ctx.globalAlpha = a; ctx.fillStyle = t.colour; ctx.fillText(t.text, t.x, y); ctx.globalAlpha = 1;
+  }
+
+  // coming up: the rest of this frame's pieces, as small silhouettes under the tray
+  if (state.puzzlePure && state.gapQueue && state.gapQueue.length && !FX.waterfall) {
+    const below = L.H - (L.ty + L.T), cs = Math.min(L.c * 0.3, 13);
+    if (below > cs * 4) {
+      const shapes = state.gapQueue.map(id => SHAPE_BY_ID[id]).filter(Boolean);
+      const gapW = cs * 1.4, labelW = cs * 4.6;
+      const total = labelW + shapes.reduce((a, sh) => a + sh.w * cs, 0) + gapW * (shapes.length - 1);
+      let x = (L.W - total) / 2; const yMid = L.ty + L.T + Math.min(below * 0.4, cs * 3.2);
+      ctx.font = `600 ${cs * 1.15}px Fredoka, ui-rounded, system-ui, sans-serif`;
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.fillText('Next', x, yMid); x += labelW;
+      ctx.fillStyle = 'rgba(255,255,255,0.32)';
+      for (const sh of shapes) {
+        const top = yMid - sh.h * cs / 2;
+        for (const [cx, cy] of sh.cells) { ctx.beginPath(); ctx.roundRect(x + cx * cs + 1, top + cy * cs + 1, cs - 2, cs - 2, cs * 0.3); ctx.fill(); }
+        x += sh.w * cs + gapW;
+      }
+    }
   }
 
   // dragged piece on top
@@ -3338,9 +3393,11 @@ const UI = (() => {
       // and lights up when a mystery piece or Frame Bubble is waiting in the tray
       const fb = state.tray.some(p => p && p.mystery && p.frame) || state.mysteryPending === 'frame';
       const ready = fb || state.tray.some(p => p && p.mystery) || state.mysteryPending;
-      pct = ready ? 100 : 0;
+      // the bar fills as the board empties: the frame clears when every bubble is gone
+      const left = state.grid.filter(Boolean).length, start = Math.max(state.frameStart | 0, left, 1);
+      pct = ready ? 100 : (FX.waterfall && !FX.waterfall.skinChanged) ? 100 : Math.max(4, (1 - left / start) * 100);
       lt = fb ? '★ Frame Bubble ready!' : ready ? '✦ Mystery piece ready!' : 'Frame ' + (state.boardClears + 1);
-      rt = state.combo >= 2 ? 'Combo ' + state.combo + ' · ×' + Logic.comboMultiplier(state.combo) : 'Points ×' + frameMult();
+      rt = state.combo >= 2 ? 'Combo ' + state.combo + ' · ×' + Logic.comboMultiplier(state.combo) : left ? left + ' bubbles to clear' : 'Clear!';
       meterR.classList.toggle('cmb', state.combo >= 2);
       meterEl.classList.toggle('ready', ready);
     } else {
