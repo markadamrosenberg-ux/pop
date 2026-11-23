@@ -1646,12 +1646,25 @@ const Sound = (() => {
       plip(t + 0.012, 950 * v, 0.04, 0.025, pan);
       noise(t + 0.03, { type: 'lowpass', f: 900, f2: 300, q: 0.4, peak: 0.02 * k, attack: 0.01, decay: 0.16, pan: -pan * 0.5 });
     },
-    // Fizzy pop: a soda-can hiss with a rush of tiny bubble plips
+    // Fizzy: a soda can cracking open ("pssht"), a sizzling tail and a long crackle of tiny bubbles bursting
     fizz(I = 1) {
       if (!ok()) return; const t = ac.currentTime;
-      if (t - (this._fz || 0) < 0.05) return; this._fz = t;
-      noise(t, { type: 'highpass', f: 5200, f2: 3200, q: 0.6, peak: 0.035 * Math.min(1.6, I), attack: 0.004, decay: 0.45, pan: R(-0.4, 0.4) });
-      for (let k = 0; k < 9; k++) plip(t + 0.02 + Math.random() * 0.4, R(1400, 3200), 0.012, 0.012, R(-0.6, 0.6));
+      if (t - (this._fz || 0) < 0.12) return; this._fz = t;
+      const k = Math.min(1.6, I);
+      noise(t, { type: 'bandpass', f: 5200, f2: 2600, q: 0.7, peak: 0.07 * k, attack: 0.004, decay: 0.28, pan: R(-0.3, 0.3) });
+      noise(t + 0.02, { type: 'highpass', f: 7500, f2: 6000, q: 0.5, peak: 0.028 * k, attack: 0.03, decay: 1.3 * Math.min(1.3, k), pan: R(-0.3, 0.3) });
+      const n = Math.round(34 * k);
+      for (let i = 0; i < n; i++) {
+        const at = t + 0.03 + 1.4 * Math.pow(Math.random(), 1.8);   // thick at first, thinning out
+        noise(at, { type: 'bandpass', f: R(3500, 9500), q: 4, peak: R(0.012, 0.03), attack: 0.0005, decay: R(0.004, 0.012), pan: R(-0.8, 0.8) });
+      }
+      for (let i = 0; i < 10; i++) plip(t + 0.05 + Math.random() * 0.9, R(2600, 5200), 0.014, 0.007, R(-0.7, 0.7));
+    },
+    // a little sizzle when a Fizzy piece lands
+    sizzle() {
+      if (!ok()) return; const t = ac.currentTime;
+      noise(t, { type: 'highpass', f: 6500, q: 0.5, peak: 0.018, attack: 0.01, decay: 0.45 });
+      for (let i = 0; i < 12; i++) noise(t + 0.6 * Math.pow(Math.random(), 1.6), { type: 'bandpass', f: R(4000, 9000), q: 4, peak: R(0.008, 0.018), attack: 0.0005, decay: 0.006, pan: R(-0.7, 0.7) });
     },
     // Faces: a firework's crackle and fizz
     crackle() {
@@ -4198,6 +4211,7 @@ function playResult(res, pointerGesture) {
     if (d <= 2) FX.settle.set(i, { t0: now + d * 70, amp: CONFIG.feel.neighbourAmp / d });
   }
   Sound.place(res.piece.shape.cells.length);
+  if (skin().fizz) Sound.sizzle();
   if (CONFIG.haptics.place) Haptics.pulse(CONFIG.haptics.place);
 
   let endAt = now;
