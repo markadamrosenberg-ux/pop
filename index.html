@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 22:16</div>
+        <div class="ver" id="buildVer">Version 23 Nov 22:19</div>
       </div>
     </div>
   </div>
@@ -742,6 +742,9 @@ const SHAPE_DEFS = [
   ['8h',['########'],0.1,1],['8v',['#','#','#','#','#','#','#','#'],0.1,1],
   // giant 6 x 2 slabs, flat and upright
   ['6x2h',['######','######'],0.25,1],['6x2v',['##','##','##','##','##','##'],0.25,1],
+  // giant corners: 6 long and 6 deep, two thick, to fill a corner in one go
+  ['bigL1',['######','######','##....','##....','##....','##....'],0.2,1],['bigL2',['######','######','....##','....##','....##','....##'],0.2,1],['bigL3',['....##','....##','....##','....##','######','######'],0.2,1],['bigL4',['##....','##....','##....','##....','######','######'],0.2,1],
+  ['4x4',['####','####','####','####'],0.2,1],
 ];
 const SHAPES = SHAPE_DEFS.map(([id, rows, weight, special]) => {
   const cells = [];
@@ -2749,6 +2752,7 @@ function refillTray(animate = true) {
   // difficulty you've asked for: each step harder deals as if you were 2 frames further on (and vice versa)
   const eff = Math.max(0, state.boardClears + Store.get('diffLevel', 0) * 2);
   state.tray = Logic.newTray(state.grid, skin().colours.length, eff);
+  if (state.tray.some(p => p && p.shape && p.shape.special && p.shape.cells.length >= 12)) setTimeout(() => { try { UI.toast('💥 Giant piece! Find it a big space'); Sound.whoosh && Sound.whoosh(); } catch (_) {} }, 350);
   if (state.mysteryPending) { state.tray[Math.floor(Math.random() * 3)] = makeMystery(state.mysteryPending === 'frame'); state.mysteryPending = false; }
   dealGaps();   // pieces owed from this frame's starter board
   const now = performance.now();
