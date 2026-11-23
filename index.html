@@ -2532,7 +2532,6 @@ const Backdrops = (() => {
     { id: 'moonrise', name: 'Moonrise', need: 0 },
     { id: 'starfall', name: 'Shooting Stars', need: 0 },
     { id: 'waterfall', name: 'Waterfall', need: 0 },
-    { id: 'hourglass', name: 'Sand Timer', need: 0 },
     { id: 'cells', name: 'Microscope', need: 0 },
     { id: 'grass', name: 'Growing Grass', need: 0 },
     { id: 'rain', name: 'Rain', need: 0 },
@@ -2549,7 +2548,7 @@ const Backdrops = (() => {
     LIST,
     unlocked,
     isOpen: id => unlocked().includes(id),
-    choice: () => Store.get('backdrop', 'auto'),
+    choice: () => { const c = Store.get('backdrop', 'auto'); return c === 'auto' || LIST.some(b => b.id === c) ? c : 'auto'; },
     current() {
       const c = Store.get('backdrop', 'auto'), open = unlocked();
       if (c !== 'auto' && open.includes(c)) return c;
@@ -4053,7 +4052,7 @@ const BG = (() => {
     const bd = Backdrops.current();
     const SC = { sky: drawSky, meadow: drawMeadow, ocean: drawOcean, sunset: drawSunset, candy: drawCandy, space: drawSpace,
       tank: drawTank, beach: drawBeach, fizzy: drawFizzy, jungle: drawJungle, desert: drawDesert, sunrise: drawSunrise, moonrise: drawMoonrise,
-      starfall: drawStarfall, waterfall: drawWaterfall, hourglass: drawHourglass, cells: drawCells, grass: drawGrass, rain: drawRain, storm: drawStorm,
+      starfall: drawStarfall, waterfall: drawWaterfall, cells: drawCells, grass: drawGrass, rain: drawRain, storm: drawStorm,
       balloons: drawBalloons, harbour: drawHarbour, city: drawCity };
     if (SC[bd]) {
       SC[bd](t, dt); pulse = Math.max(0, pulse - dt * 1.6);
