@@ -559,7 +559,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 24 Nov 08:25</div>
+        <div class="ver" id="buildVer">Version 24 Nov 08:35</div>
       </div>
     </div>
   </div>
@@ -2740,6 +2740,14 @@ const NEW_SKINS = [
       ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.ellipse(-r * 0.6, -r * 0.1, r * 0.06, r * 0.28, 0.25, 0, Math.PI * 2); ctx.fill();
     },
   },
+  { name: 'People', colours: NEW_COLS, squish: 1.4, face: true, human: true,
+    // little human faces, all different: they watch your piece, scream when their line goes, and the rest laugh at them
+    draw(ctx, s, c, i) {
+      const r = s * 0.45;
+      ctx.fillStyle = nlFill(ctx, r, c, 0.5, 0.38);
+      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+    },
+  },
 ];
 if (CONFIG.newLooks) SKINS.push(...NEW_SKINS);
 for (const nm of CONFIG.dropLooks || []) { const k = SKINS.findIndex(x => x.name === nm); if (k >= 0) SKINS.splice(k, 1); }   // looks taken out   // trying out the new looks
@@ -3653,6 +3661,142 @@ function drawFace(cx, cy, size, sx, sy, alpha, seed, now, g2 = null) {
   }
   ctx.restore();
 }
+// People: little human faces, each one different (skin, hair, eyes, nose, mouth, glasses, freckles, beards).
+// They watch the piece you're dragging, panic when their line is about to go, scream and burst,
+// and everyone left on the board laughs at them.
+let faceLaugh = { from: 0, to: 0 };
+function laughFaces(delayMs) { const t = performance.now() + delayMs; faceLaugh = { from: t, to: t + 1900 }; }
+const HUMAN = {
+  skin: ['#ffe3cc', '#f8cba8', '#ebb48c', '#d99c6c', '#c0814f', '#9a613d', '#74462c', '#553222'],
+  hair: ['#1a120e', '#2e1c12', '#4a2d1a', '#6e4326', '#8f5a32', '#b5652e', '#c9893a', '#e0b65a', '#efd590', '#b8b8c0', '#e9e9ee', '#1a120e', '#2e1c12', '#ff5fa2', '#5a7dff'],
+  iris: ['#5a3a1e', '#3d2a18', '#3f7bd9', '#4aa36b', '#7a8a5a', '#2a6fb0', '#8a5a2a', '#5a8aa0'],
+};
+function drawHuman(cx, cy, size, sx, sy, alpha, seed, now, colour, g2 = null) {
+  const ctx = g2 || window._mainCtx, r = size * 0.45, t = now / 1000, m = faceMood;
+  let k0 = Math.floor(Math.abs(seed * 7919 + colour * 104729 + 12345)) % 2147483646 + 1;
+  const rnd = () => (k0 = (k0 * 16807) % 2147483647) / 2147483647, pick = a => a[Math.floor(rnd() * a.length)];
+  const skinC = pick(HUMAN.skin), hairC = pick(HUMAN.hair), irisC = pick(HUMAN.iris);
+  const style = Math.floor(rnd() * 11), glasses = rnd() < 0.2, freckles = rnd() < 0.22, beard = rnd(), brow = 0.7 + rnd() * 0.7, noseT = Math.floor(rnd() * 3), lipC = rnd() < 0.3 ? '#d0506a' : mix(skinC, '#8a2030', 0.45), eyeW = 0.9 + rnd() * 0.3, mouthW = 0.85 + rnd() * 0.35;
+  const laughing = !g2 && m === 0 && now >= faceLaugh.from && now < faceLaugh.to;
+  const lp = laughing ? Math.min(1, (now - faceLaugh.from) / 150, (faceLaugh.to - now) / 300) : 0;
+  const shake = m > 0.8 && !settings.reduced ? r * 0.05 : 0, hop = laughing && !settings.reduced ? Math.abs(Math.sin(t * 22 + seed)) * r * 0.08 * lp : 0;
+  ctx.save(); ctx.translate(cx + (shake ? Math.sin(t * 90 + seed) * shake : 0), cy - hop + (shake ? Math.cos(t * 77 + seed) * shake : 0)); ctx.scale(sx, sy); ctx.globalAlpha = alpha;
+  if (laughing) ctx.rotate(Math.sin(t * 11 + seed) * 0.08 * lp);
+  ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r * 0.99, 0, Math.PI * 2); ctx.clip();
+  const h = r * 0.8, hy = r * 0.06, dark = mix(hairC, '#000000', 0.35);
+  // hair that sits behind the head: long hair, afros, pigtails
+  ctx.fillStyle = hairC;
+  if (style === 2 || style === 9) { ctx.beginPath(); ctx.ellipse(0, hy + h * 0.25, h * 1.12, h * 1.15, 0, 0, Math.PI * 2); ctx.fill(); }
+  if (style === 1) { for (let a = 0; a < 14; a++) { const ang = a / 14 * Math.PI * 2; ctx.beginPath(); ctx.arc(Math.cos(ang) * h * 0.95, hy - h * 0.12 + Math.sin(ang) * h * 0.92, h * 0.36, 0, Math.PI * 2); ctx.fill(); } }
+  if (style === 7) { for (const sg of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sg * h * 1.05, hy + h * 0.15, h * 0.3, h * 0.42, sg * 0.3, 0, Math.PI * 2); ctx.fill(); } }
+  if (style === 5) { ctx.beginPath(); ctx.arc(0, hy - h * 1.02, h * 0.34, 0, Math.PI * 2); ctx.fill(); }
+  // ears, neck and head
+  ctx.fillStyle = mix(skinC, '#7a3a20', 0.18);
+  for (const sg of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sg * h * 0.97, hy + h * 0.06, h * 0.16, h * 0.22, 0, 0, Math.PI * 2); ctx.fill(); }
+  const sg0 = ctx.createRadialGradient(-h * 0.3, hy - h * 0.35, h * 0.1, 0, hy, h * 1.05);
+  sg0.addColorStop(0, mix(skinC, '#ffffff', 0.25)); sg0.addColorStop(0.6, skinC); sg0.addColorStop(1, mix(skinC, '#5a2a18', 0.3));
+  ctx.fillStyle = sg0; ctx.beginPath(); ctx.ellipse(0, hy, h * 0.92, h, 0, 0, Math.PI * 2); ctx.fill();
+  // hair on top of the head
+  ctx.fillStyle = hairC;
+  const cap = (f, R = h * 1.04) => { ctx.beginPath(); for (let i = 0; i <= 24; i++) { const x = -R + i / 24 * 2 * R; const y = hy + f(x / h) * h; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.arc(0, hy, R, 0, Math.PI, true); ctx.closePath(); ctx.fill(); };
+  if (style === 0) cap(u => -0.5 + u * u * 0.35);                                                    // short crop
+  else if (style === 1) cap(u => -0.42 + u * u * 0.3 + Math.sin(u * 14) * 0.04);                   // afro hairline
+  else if (style === 2) cap(u => -0.28 + Math.abs(Math.sin(u * 9)) * 0.08);                          // long hair with a fringe
+  else if (style === 3) { cap(u => -0.48 + u * u * 0.3); ctx.beginPath(); for (let i = 0; i < 6; i++) { const x = -h * 0.75 + i * h * 0.3; ctx.moveTo(x - h * 0.17, hy - h * 0.78); ctx.lineTo(x + h * 0.02, hy - h * 1.3 - (i % 2) * h * 0.1); ctx.lineTo(x + h * 0.2, hy - h * 0.8); } ctx.fill(); }   // spikes
+  else if (style === 4) { ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.ellipse(-h * 0.3, hy - h * 0.72, h * 0.25, h * 0.1, -0.4, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = hairC; for (const sg of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sg * h * 0.86, hy - h * 0.15, h * 0.12, h * 0.28, 0, 0, Math.PI * 2); ctx.fill(); } }   // bald and shiny
+  else if (style === 5) cap(u => -0.55 + u * u * 0.4);                                                // bun
+  else if (style === 6) cap(u => -0.5 + (u + 1) * (u + 1) * 0.12 + (u > 0.1 ? 0.12 : 0));          // side part
+  else if (style === 7) cap(u => -0.4 + u * u * 0.2 + (Math.abs(u) < 0.05 ? -0.2 : 0));             // pigtails, middle part
+  else if (style === 8) { ctx.beginPath(); ctx.moveTo(-h * 0.2, hy - h * 0.6); for (let i = 0; i <= 6; i++) ctx.lineTo(-h * 0.2 + i * h * 0.067, hy - h * (1.15 + (i % 2) * 0.22)); ctx.lineTo(h * 0.2, hy - h * 0.6); ctx.fill(); }   // mohawk
+  else if (style === 9) cap(u => -0.4 + (u - 0.2) * (u - 0.2) * 0.3 + Math.sin(u * 5) * 0.05);        // wavy long
+  else cap(u => -0.56 + u * u * 0.28 + Math.sin(u * 22) * 0.05, h * 1.08);                            // curly
+  // strands of shine on the hair
+  if (style !== 4) { ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = h * 0.06; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(-h * 0.1, hy - h * 0.1, h * 0.78, -2.5, -1.9); ctx.stroke(); }
+  // where to look
+  const dp = !g2 && typeof Input !== 'undefined' && Input.dragPoint ? Input.dragPoint() : null;
+  let gx, gy;
+  if (dp) { gx = dp.x - cx; gy = dp.y - cy; } else { const k = Math.floor(t * 0.4 + seed * 0.37); gx = Math.sin(k * 12.9898 + seed) * 10; gy = Math.cos(k * 78.233 + seed) * 6; }
+  const gl = Math.hypot(gx, gy) || 1, look = Math.min(1, gl / (r * 0.8)), ox = gx / gl * look, oy = gy / gl * look;
+  const blink = m < 0.3 && ((t * 0.3 + seed * 0.618) % 1) < 0.035;
+  const ey = hy - h * 0.08, ew = h * 0.17 * eyeW * (1 + 0.35 * m), eh = ew * (0.72 + 0.45 * m);
+  ctx.lineCap = 'round';
+  for (const sg of [-1, 1]) {
+    const ex = sg * h * 0.36;
+    if (laughing) {   // squeezed shut, happy arcs, tears of joy
+      ctx.strokeStyle = '#2a1410'; ctx.lineWidth = h * 0.07; ctx.beginPath(); ctx.arc(ex, ey + ew * 0.35, ew * 0.85, -Math.PI * 0.85, -Math.PI * 0.15); ctx.stroke();
+      ctx.fillStyle = 'rgba(150,215,255,0.9)'; const dy = ((t * 1.6 + seed * 0.3 + (sg > 0 ? 0.5 : 0)) % 1) * h * 0.4;
+      ctx.beginPath(); ctx.ellipse(ex + sg * ew * 1.05, ey + h * 0.05 + dy, h * 0.05, h * 0.075, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (blink) { ctx.strokeStyle = '#2a1410'; ctx.lineWidth = h * 0.05; ctx.beginPath(); ctx.moveTo(ex - ew, ey); ctx.quadraticCurveTo(ex, ey + eh * 0.5, ex + ew, ey); ctx.stroke(); }
+    else {
+      ctx.fillStyle = '#fbf8f4'; ctx.beginPath(); ctx.ellipse(ex, ey, ew, eh, 0, 0, Math.PI * 2); ctx.fill();
+      const ir = Math.min(ew, eh) * (0.78 - 0.25 * m), ix = ex + ox * (ew - ir) * 0.8, iy = ey + oy * (eh - ir) * 0.6;
+      ctx.save(); ctx.beginPath(); ctx.ellipse(ex, ey, ew, eh, 0, 0, Math.PI * 2); ctx.clip();
+      ctx.fillStyle = irisC; ctx.beginPath(); ctx.arc(ix, iy, ir, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#0c0606'; ctx.beginPath(); ctx.arc(ix, iy, ir * 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ix - ir * 0.3, iy - ir * 0.32, ir * 0.25, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.strokeStyle = '#2a1410'; ctx.lineWidth = h * 0.045; ctx.beginPath(); ctx.ellipse(ex, ey, ew, eh, 0, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();   // upper lid line
+    }
+    // eyebrows: relaxed, worried, or shot right up
+    ctx.strokeStyle = dark; ctx.lineWidth = h * 0.07 * brow;
+    const by = ey - eh - h * (0.1 + 0.16 * m) - (laughing ? h * 0.06 : 0), tilt = m > 0.3 ? h * 0.08 : 0;
+    ctx.beginPath(); ctx.moveTo(ex - sg * ew * 0.95, by + (m > 0.3 ? -tilt : h * 0.02)); ctx.quadraticCurveTo(ex, by - h * 0.06, ex + sg * ew * 0.95, by + tilt * 0.6); ctx.stroke();
+  }
+  if (glasses) {
+    ctx.strokeStyle = '#1c1c24'; ctx.lineWidth = h * 0.05;
+    for (const sg of [-1, 1]) { ctx.beginPath(); ctx.arc(sg * h * 0.36, ey, h * 0.24, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(-h * 0.12, ey - h * 0.03); ctx.quadraticCurveTo(0, ey - h * 0.1, h * 0.12, ey - h * 0.03); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.18)'; for (const sg of [-1, 1]) { ctx.beginPath(); ctx.arc(sg * h * 0.36 - h * 0.06, ey - h * 0.07, h * 0.08, 0, Math.PI * 2); ctx.fill(); }
+  }
+  // nose
+  const nshade = mix(skinC, '#6a2a18', 0.35);
+  ctx.strokeStyle = nshade; ctx.lineWidth = h * 0.045; ctx.beginPath();
+  if (noseT === 0) { ctx.moveTo(-h * 0.04, hy + h * 0.02); ctx.quadraticCurveTo(-h * 0.13, hy + h * 0.22, h * 0.02, hy + h * 0.24); }
+  else if (noseT === 1) { ctx.arc(0, hy + h * 0.17, h * 0.1, 0.15 * Math.PI, 0.85 * Math.PI); }
+  else { ctx.moveTo(h * 0.03, hy - h * 0.02); ctx.lineTo(h * 0.1, hy + h * 0.2); ctx.lineTo(-h * 0.03, hy + h * 0.22); }
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.ellipse(h * 0.02, hy + h * 0.12, h * 0.03, h * 0.05, 0, 0, Math.PI * 2); ctx.fill();
+  // cheeks and freckles
+  if (m < 0.3) { ctx.fillStyle = `rgba(255,110,120,${laughing ? 0.4 : 0.22})`; for (const sg of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sg * h * 0.55, hy + h * 0.25, h * 0.15, h * 0.09, 0, 0, Math.PI * 2); ctx.fill(); } }
+  if (freckles) { ctx.fillStyle = mix(skinC, '#6a3010', 0.45); for (let i = 0; i < 8; i++) { const sg = i < 4 ? -1 : 1, q = i % 4; ctx.beginPath(); ctx.arc(sg * h * (0.38 + q * 0.07), hy + h * (0.13 + (q % 2) * 0.06), h * 0.022, 0, Math.PI * 2); ctx.fill(); } }
+  // beard and moustache (bald heads and short crops, sometimes)
+  const hasBeard = (style === 4 || style === 0 || style === 6 || style === 3) && beard < 0.45;
+  if (hasBeard) {
+    ctx.fillStyle = hairC; ctx.beginPath(); ctx.moveTo(-h * 0.88, hy + h * 0.05);
+    ctx.quadraticCurveTo(-h * 0.8, hy + h * 1.05, 0, hy + h * 1.08); ctx.quadraticCurveTo(h * 0.8, hy + h * 1.05, h * 0.88, hy + h * 0.05);
+    ctx.quadraticCurveTo(h * 0.6, hy + h * 0.55, 0, hy + h * 0.48); ctx.quadraticCurveTo(-h * 0.6, hy + h * 0.55, -h * 0.88, hy + h * 0.05); ctx.fill();
+  }
+  // mouth: smile, wobbly worry, screaming O, or a big open laugh
+  const my = hy + h * 0.47, mw = h * 0.3 * mouthW;
+  if (laughing) {
+    const open = h * (0.2 + 0.08 * Math.abs(Math.sin(t * 22 + seed))) * lp;
+    ctx.fillStyle = '#4a0e14'; ctx.beginPath(); ctx.moveTo(-mw * 1.2, my - h * 0.04); ctx.quadraticCurveTo(0, my + open * 2.2, mw * 1.2, my - h * 0.04); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(-mw * 1.05, my - h * 0.03); ctx.lineTo(mw * 1.05, my - h * 0.03); ctx.lineTo(mw * 0.9, my + h * 0.04); ctx.lineTo(-mw * 0.9, my + h * 0.04); ctx.fill();
+    ctx.fillStyle = '#ff6b80'; ctx.beginPath(); ctx.ellipse(0, my + open * 0.85, mw * 0.5, open * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+  } else if (m < 0.3) {
+    ctx.strokeStyle = lipC; ctx.lineWidth = h * 0.07; ctx.beginPath(); ctx.moveTo(-mw, my - h * 0.02); ctx.quadraticCurveTo(0, my + h * 0.16, mw, my - h * 0.02); ctx.stroke();
+  } else if (m < 0.8) {
+    ctx.strokeStyle = lipC; ctx.lineWidth = h * 0.06; ctx.beginPath();
+    for (let k = 0; k <= 8; k++) { const xx = -mw + k / 8 * mw * 2, yy = my + h * 0.04 + Math.sin(k * 1.6 + t * 12) * h * 0.035; k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(160,220,255,0.9)'; ctx.beginPath(); ctx.ellipse(h * 0.75, hy - h * 0.4, h * 0.07, h * 0.11, 0, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.fillStyle = '#3a0010'; ctx.beginPath(); ctx.ellipse(0, my + h * 0.05, mw * 0.6, h * 0.27, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#ff6b8a'; ctx.beginPath(); ctx.ellipse(0, my + h * 0.2, mw * 0.38, h * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  if (hasBeard && beard < 0.3) { ctx.fillStyle = hairC; ctx.beginPath(); ctx.ellipse(-mw * 0.55, my - h * 0.09, mw * 0.6, h * 0.07, 0.15, 0, Math.PI * 2); ctx.ellipse(mw * 0.55, my - h * 0.09, mw * 0.6, h * 0.07, -0.15, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+  // a glossy bubble skin over the whole face
+  ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.ellipse(-r * 0.42, -r * 0.55, r * 0.22, r * 0.11, -0.6, 0, Math.PI * 2); ctx.fill();
+  // "ha!" floats up off some of them while they laugh
+  if (laughing && seed % 3 === 0) {
+    const q = ((now - faceLaugh.from) / 900 + (seed % 5) * 0.13) % 1;
+    ctx.globalAlpha = alpha * (1 - q) * lp; ctx.fillStyle = '#fff'; ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = r * 0.08;
+    ctx.font = `800 ${Math.round(r * 0.55)}px system-ui,sans-serif`; ctx.textAlign = 'center';
+    ctx.strokeText(seed % 2 ? 'ha!' : 'ha ha', r * 0.5, -r * 0.9 - q * r * 0.9); ctx.fillText(seed % 2 ? 'ha!' : 'ha ha', r * 0.5, -r * 0.9 - q * r * 0.9);
+  }
+  ctx.restore();
+}
 // Eyeballs: iris and pupil follow the piece you're dragging, lids blink, lashes flutter; wide-eyed when about to burst
 function drawEye(cx, cy, size, sx, sy, alpha, seed, now, colour, g2 = null) {
   const ctx = g2 || window._mainCtx, r = size * 0.45, t = now / 1000, m = faceMood;
@@ -3724,7 +3868,7 @@ function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, se
     window._animPos = [cx, cy];
     sk.anim(ctx, size, sk.fixedColours ? sk.colours[colour % sk.colours.length] : vivid(sk.colours[colour % sk.colours.length]), colour, now / 1000, seed); ctx.restore();
   }
-  if (sk.face && size > 10) drawFace(cx, cy, size, sx, sy, alpha, seed, now);
+  if (sk.face && size > 10) { if (sk.human) drawHuman(cx, cy, size, sx, sy, alpha, seed, now, colour); else drawFace(cx, cy, size, sx, sy, alpha, seed, now); }
   if (sk.eye && size > 10) drawEye(cx, cy, size, sx, sy, alpha, seed, now, vivid(sk.colours[colour % sk.colours.length]));
   if (sk.water && CONFIG.feel.water && !settings.reduced && size > 14) drawWater(cx, cy + (1 - sy) * size * 0.3, size, sx, sy, alpha, seed, now);
   if (sk.diamond && !settings.reduced && size > 14) drawDiamondFire(cx, cy, size, sx, sy, alpha, seed, now);
@@ -5101,7 +5245,8 @@ function playResult(res, pointerGesture) {
     for (const [x, y] of res.piece.shape.cells) d = Math.min(d, Math.max(Math.abs(gx - res.gx - x), Math.abs(gy - res.gy - y)));
     if (d <= 2) FX.settle.set(i, { t0: now + d * 70, amp: CONFIG.feel.neighbourAmp / d });
   }
-  if (skin().hit) { Sound.hit(skin().hit); if (skin().hit === 'bowling') Sound.preload(); } else Sound.place(res.piece.shape.cells.length);
+  if (skin().hit === 'tennis') Sound.pickup();   // tennis: the same soft click as picking the piece up
+  else if (skin().hit) { Sound.hit(skin().hit); if (skin().hit === 'bowling') Sound.preload(); } else Sound.place(res.piece.shape.cells.length);
   if (CONFIG.haptics.place) Haptics.pulse(CONFIG.haptics.place);
 
   let endAt = now;
@@ -5116,6 +5261,7 @@ function playResult(res, pointerGesture) {
     // Faces: a moment of terror (and a scream) before they burst
     const faceShock = SKINS[state.skin % SKINS.length].face && !settings.reduced ? 450 : 0;
     if (faceShock) Sound.scream(Math.min(3, res.cleared.length));
+    if (faceShock && SKINS[state.skin % SKINS.length].human) laughFaces(faceShock + 120);
     const sq = (settings.reduced ? 30 : T.squashMs) / 1000 + faceShock / 1000;
     if (SKINS[state.skin % SKINS.length].hit && SKINS[state.skin % SKINS.length].hit !== 'bowling') setTimeout(() => Sound.rally(SKINS[state.skin % SKINS.length].hit, res.lines), sq * 1000);
     if (SKINS[state.skin % SKINS.length].hit === 'cricket' && res.lines) setTimeout(() => Sound.howzat(res.lines), sq * 1000 + 150);
@@ -5211,7 +5357,7 @@ function updateFX(now, dt) {
     if (!g.burst && now >= g.t0 + CONFIG.pin.swellMs) {
       g.burst = true;
       const [x, y] = cellCentre(g.gx, g.gy), sk = SKINS[g.skin % SKINS.length], col = sk.colours[g.colour % sk.colours.length];
-      if (SKINS[g.skin % SKINS.length].face) { fireworkBurst(x, y, 2.2); } else if (SKINS[g.skin % SKINS.length].fizz) { fizzBurst(x, y, col, 2.4, 0); } else {
+      if (SKINS[g.skin % SKINS.length].face) { fireworkBurst(x, y, 2.2); if (SKINS[g.skin % SKINS.length].human) laughFaces(60); } else if (SKINS[g.skin % SKINS.length].fizz) { fizzBurst(x, y, col, 2.4, 0); } else {
       spawnSplash(x, y, col, 2.8, 0); spawnSplash(x, y, '#ffffff', 1.2, 0);
       spawnGoo(x, y, col);
       }
@@ -6608,7 +6754,7 @@ const UI = (() => {
         if (got) {
           const sp = sprite(i, col), kk = size / sp.size, w = sp.box * kk;
           g.drawImage(sp.canvas, cx - w / 2, cy - w / 2, w, w);
-          if (sk.face) drawFace(cx, cy, size, 1, 1, 1, k * 3, performance.now(), g);
+          if (sk.face) { if (sk.human) drawHuman(cx, cy, size, 1, 1, 1, k * 3 + 1, performance.now(), col, g); else drawFace(cx, cy, size, 1, 1, 1, k * 3, performance.now(), g); }
           if (sk.eye) drawEye(cx, cy, size, 1, 1, 1, k * 3, 0, vivid(sk.colours[col % sk.colours.length]), g);
         } else {
           g.fillStyle = 'rgba(255,255,255,0.1)'; g.beginPath(); g.arc(cx, cy, size * 0.45, 0, Math.PI * 2); g.fill();
