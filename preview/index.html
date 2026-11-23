@@ -1698,6 +1698,26 @@ const Sound = (() => {
         tone(t, { f: 320, f2: 110, type: 'sine', peak: 0.08 * k, attack: 0.004, decay: 0.12, pan });
       }
     },
+    // cricket: an appeal of "Howzat!" and the crowd roaring
+    howzat(lines = 1) {
+      if (!ok()) return; const t = ac.currentTime, k = Math.min(1.5, 0.8 + lines * 0.25);
+      try {
+        if (window.speechSynthesis) {
+          speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance('Howzaaat!');
+          const vs = speechSynthesis.getVoices(), v = vs.find(q => /en[-_]AU/i.test(q.lang)) || vs.find(q => /en[-_]GB/i.test(q.lang)) || vs.find(q => /^en/i.test(q.lang));
+          if (v) u.voice = v; u.rate = 1.05; u.pitch = 1.25; u.volume = Math.min(1, settings.sfx / 100 + 0.2);
+          speechSynthesis.speak(u);
+        }
+      } catch (_) {}
+      // the crowd: many voices as layers of filtered noise that swell, hold and fade, with a few whistles
+      const dur = 2.4;
+      [[420, 1.2, 0.07], [900, 1.4, 0.06], [1700, 1.6, 0.045], [2800, 2, 0.025]].forEach(([f, q, pk], i) => {
+        for (let j = 0; j < 3; j++) noise(t + 0.15 + j * 0.25 + i * 0.03, { type: 'bandpass', f: f * R(0.9, 1.1), f2: f * R(1.05, 1.25), q, peak: pk * k, attack: 0.45, decay: dur - j * 0.4, pan: R(-0.8, 0.8) });
+      });
+      for (let i = 0; i < 3; i++) { const at = t + 0.5 + Math.random() * 1.2, f = R(1900, 2600); tone(at, { f, f2: f * R(1.15, 1.35), type: 'sine', peak: 0.025 * k, attack: 0.03, decay: 0.35, pan: R(-0.9, 0.9) }); }
+      for (let i = 0; i < 14; i++) noise(t + 0.4 + Math.random() * 1.6, { type: 'bandpass', f: R(2500, 4500), q: 3, peak: 0.02 * k, attack: 0.002, decay: 0.02, pan: R(-0.9, 0.9) });   // claps
+    },
     // when a line of them pops: a rally of hits (a ping-pong ball bounces away, getting faster)
     rally(kind, n = 3) {
       if (!ok()) return;
@@ -4891,6 +4911,7 @@ function playResult(res, pointerGesture) {
     if (faceShock) Sound.scream(Math.min(3, res.cleared.length));
     const sq = (settings.reduced ? 30 : T.squashMs) / 1000 + faceShock / 1000;
     if (SKINS[state.skin % SKINS.length].hit) setTimeout(() => Sound.rally(SKINS[state.skin % SKINS.length].hit, res.lines), sq * 1000);
+    if (SKINS[state.skin % SKINS.length].hit === 'cricket' && res.lines) setTimeout(() => Sound.howzat(res.lines), sq * 1000 + 150);
     Sound.splat(sq, intensity, Math.max(-0.6, Math.min(0.6, (ox - 3.5) / 3.5 * 0.6)));
     const level = (res.lines - 1) + (res.combo - 1);
     if (level >= 1) Sound.rush(sq + 0.06, level);
