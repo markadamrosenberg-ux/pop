@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 23:33</div>
+        <div class="ver" id="buildVer">Version 23 Nov 23:39</div>
       </div>
     </div>
   </div>
@@ -2354,11 +2354,16 @@ const NEW_SKINS = [
       for (let k = 0; k <= 48; k++) { const a = k / 48 * Math.PI * 2, w = r * (0.86 + Math.sin(a * 6 + i) * 0.05 + Math.sin(a * 11) * 0.02); k ? ctx.lineTo(Math.cos(a) * w, Math.sin(a) * w) : ctx.moveTo(Math.cos(a) * w, Math.sin(a) * w); }
       ctx.closePath(); ctx.arc(0, 0, hole * 1.25, 0, Math.PI * 2, true);
       ctx.fillStyle = nlFill(ctx, r, c, 0.5, 0.3); ctx.fill('evenodd');
-      const sp = ['#ffffff', '#ffe14a', '#4fb8ff', '#8fe03a', '#ff7aa8', '#b45cff'];
-      for (let k = 0; k < 14; k++) {
-        const a = rnd() * Math.PI * 2, d = r * (0.5 + rnd() * 0.3);
-        ctx.save(); ctx.translate(Math.cos(a) * d, Math.sin(a) * d); ctx.rotate(rnd() * 3);
-        ctx.fillStyle = sp[k % sp.length]; ctx.beginPath(); ctx.roundRect(-r * 0.07, -r * 0.025, r * 0.14, r * 0.05, r * 0.025); ctx.fill(); ctx.restore();
+      // lots of big, glossy rainbow sprinkles scattered all round the icing
+      const sp = ['#ffffff', '#ffe14a', '#2f9bff', '#5fd62a', '#ff3d7f', '#9b4dff', '#ff8a1f'];
+      for (let k = 0; k < 28; k++) {
+        const a = (k / 28) * Math.PI * 2 + (rnd() - 0.5) * 0.35, d = r * (0.46 + rnd() * 0.32);
+        ctx.save(); ctx.translate(Math.cos(a) * d, Math.sin(a) * d); ctx.rotate(rnd() * Math.PI);
+        const L = r * 0.2, T = r * 0.075, col = sp[Math.floor(rnd() * sp.length)];
+        ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.beginPath(); ctx.roundRect(-L / 2 + T * 0.15, -T / 2 + T * 0.25, L, T, T / 2); ctx.fill();   // tiny shadow
+        ctx.fillStyle = col; ctx.beginPath(); ctx.roundRect(-L / 2, -T / 2, L, T, T / 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.roundRect(-L * 0.35, -T * 0.35, L * 0.5, T * 0.25, T * 0.12); ctx.fill();
+        ctx.restore();
       }
       ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = r * 0.07; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.arc(0, 0, r * 0.68, Math.PI * 1.1, Math.PI * 1.45); ctx.stroke();
