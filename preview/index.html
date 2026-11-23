@@ -4348,57 +4348,161 @@ const BG = (() => {
     x.drawImage(fg, 0, 0, W, H);
   }
 
-  // ---- Outer Space: a banded gas giant with rings and a moon, a nebula, drifting stars ----
-  function planetBands(R) {
-    return layer('bands', R * 4, R * 2, (g, w, h) => {
-      const r = rng(88), cols = ['#e8c89a', '#c99a6b', '#f2dcb8', '#a8714c', '#e0b483', '#8e5a3c', '#f6e6cc'];
-      let y = 0; while (y < h) { const bh = h * (0.02 + r() * 0.07); g.fillStyle = cols[Math.floor(r() * cols.length)]; g.fillRect(0, y, w, bh + 1); y += bh; }
-      for (let i = 0; i < 260; i++) { const px = r() * w, py = r() * h, ww = w * (0.02 + r() * 0.08); g.fillStyle = `rgba(${r() < 0.5 ? '255,240,215' : '110,60,35'},0.14)`; g.beginPath(); g.ellipse(px, py, ww, h * 0.006 + r() * h * 0.01, 0, 0, TAU); g.fill(); }
-      g.fillStyle = 'rgba(200,90,60,0.85)'; g.beginPath(); g.ellipse(w * 0.3, h * 0.62, w * 0.05, h * 0.045, 0, 0, TAU); g.fill();
-      g.fillStyle = 'rgba(240,170,130,0.6)'; g.beginPath(); g.ellipse(w * 0.3, h * 0.62, w * 0.03, h * 0.025, 0, 0, TAU); g.fill();
-    });
-  }
+  // ================= Outer Space, painted pixel by pixel =================
+  // Planets are real lit spheres: every pixel works out its spot on the globe, samples a noise-made surface
+  // (clouds, bands, craters, sun granules) and is shaded by the light. Done once, then cached.
+  const P3 = (() => {
+    const perm = new Uint8Array(512); { const r = rng(1234); const p = [...Array(256).keys()]; for (let i = 255; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [p[i], p[j]] = [p[j], p[i]]; } for (let i = 0; i < 512; i++) perm[i] = p[i & 255]; }
+    const fade = t => t * t * (3 - 2 * t), hv = (i, j, k) => perm[perm[perm[i & 255] + (j & 255)] + (k & 255)] / 255;
+    function n3(x2, y2, z2) {
+      const xi = Math.floor(x2), yi = Math.floor(y2), zi = Math.floor(z2), xf = fade(x2 - xi), yf = fade(y2 - yi), zf = fade(z2 - zi);
+      const a = lerp(lerp(hv(xi, yi, zi), hv(xi + 1, yi, zi), xf), lerp(hv(xi, yi + 1, zi), hv(xi + 1, yi + 1, zi), xf), yf);
+      const b = lerp(lerp(hv(xi, yi, zi + 1), hv(xi + 1, yi, zi + 1), xf), lerp(hv(xi, yi + 1, zi + 1), hv(xi + 1, yi + 1, zi + 1), xf), yf);
+      return lerp(a, b, zf);
+    }
+    function fbm(x2, y2, z2, oct = 5) { let s = 0, a = 0.5, f = 1, n = 0; for (let i = 0; i < oct; i++) { s += a * n3(x2 * f, y2 * f, z2 * f); n += a; a *= 0.5; f *= 2.03; } return s / n; }
+    const ramp = (stops, v) => { v = Math.max(0, Math.min(1, v)); for (let i = 1; i < stops.length; i++) if (v <= stops[i][0]) { const [a, ca] = stops[i - 1], [b, cb] = stops[i], t2 = (v - a) / (b - a || 1); return [lerp(ca[0], cb[0], t2), lerp(ca[1], cb[1], t2), lerp(ca[2], cb[2], t2)]; } return stops[stops.length - 1][1]; };
+    // a lit sphere; surf(nx,ny,nz) gives [r,g,b,shine]; light is a unit vector; glow adds an atmosphere
+    function sphere(key, R, surf, light = [0.6, -0.5, 0.62], glow = null, emissive = false) {
+      const s = Math.min(2, window.devicePixelRatio || 1), pad = glow ? R * 0.12 : 2;
+      return layer('sph' + key + '|' + Math.round(R), (R + pad) * 2, (R + pad) * 2, (g) => {
+        const D = g.canvas.width, rr = R * s, c = D / 2, img = g.createImageData(D, D), d = img.data;
+        const [lx, ly, lz] = light;
+        for (let py = 0; py < D; py++) for (let px = 0; px < D; px++) {
+          const dx = (px + 0.5 - c) / rr, dy = (py + 0.5 - c) / rr, q = dx * dx + dy * dy, o = (py * D + px) * 4;
+          if (q > 1) {
+            if (glow) { const dist = Math.sqrt(q) - 1, a = Math.max(0, 1 - dist / 0.12); const lit = Math.max(0, (dx * lx + dy * ly) / Math.sqrt(q) * 0.8 + 0.4);
+              d[o] = glow[0]; d[o + 1] = glow[1]; d[o + 2] = glow[2]; d[o + 3] = 255 * a * a * 0.8 * lit; }
+            continue;
+          }
+          const nz = Math.sqrt(1 - q), [r0, g0, b0, sh = 0] = surf(dx, dy, nz);
+          let r1 = r0, g1 = g0, b1 = b0;
+          if (!emissive) {
+            const diff = Math.max(0, dx * lx + dy * ly + nz * lz), lit = 0.06 + 0.94 * Math.pow(diff, 0.85);
+            const hz = lx + 0, hy = ly, hzz = lz + 1, hl = Math.hypot(hz, hy, hzz), spec = sh * Math.pow(Math.max(0, (dx * hz + dy * hy + nz * hzz) / hl), 40);
+            r1 = r0 * lit + 255 * spec; g1 = g0 * lit + 255 * spec; b1 = b0 * lit + 255 * spec;
+            if (glow) { const rim = Math.pow(1 - nz, 3) * Math.max(0, diff * 1.4 + 0.15); r1 += glow[0] * rim; g1 += glow[1] * rim; b1 += glow[2] * rim; }
+          } else { const limb = 0.55 + 0.45 * Math.pow(nz, 0.5); r1 *= limb; g1 *= limb; b1 *= limb; }
+          const edge = Math.min(1, (1 - Math.sqrt(q)) * rr);   // smooth edge
+          d[o] = Math.min(255, r1); d[o + 1] = Math.min(255, g1); d[o + 2] = Math.min(255, b1); d[o + 3] = 255 * Math.max(0, edge);
+        }
+        g.setTransform(1, 0, 0, 1, 0, 0); g.putImageData(img, 0, 0);
+      }, s);
+    }
+    // surfaces
+    const earth = (x2, y2, z2) => {
+      const land = fbm(x2 * 2.2 + 3, y2 * 2.2, z2 * 2.2, 6), cloud = fbm(x2 * 3.5 + 9, y2 * 6, z2 * 3.5, 5), ice = false;
+      let c = land > 0.53 ? ramp([[0.53, [70, 120, 60]], [0.6, [120, 140, 70]], [0.68, [170, 150, 105]], [1, [230, 230, 220]]], land) : ramp([[0, [8, 30, 90]], [0.45, [20, 70, 160]], [0.53, [40, 130, 200]]], land);
+      if (ice) c = [235, 240, 250];
+      const cl = Math.max(0, (cloud - 0.56) * 2.6);
+      return [lerp(c[0], 250, Math.min(1, cl)), lerp(c[1], 252, Math.min(1, cl)), lerp(c[2], 255, Math.min(1, cl)), land > 0.53 || cl > 0.3 ? 0.05 : 0.6];
+    };
+    const jupiter = (x2, y2, z2) => {
+      const turb = fbm(x2 * 3, y2 * 3, z2 * 3, 5), lat = y2 + (turb - 0.5) * 0.18;
+      const band = 0.5 + 0.5 * Math.sin(lat * 26 + Math.sin(lat * 7) * 2);
+      let c = ramp([[0, [150, 90, 55]], [0.35, [205, 150, 100]], [0.6, [235, 215, 185]], [1, [250, 240, 225]]], band * 0.8 + turb * 0.3);
+      const sx = x2 - 0.35, sy = y2 - 0.32, spot = Math.exp(-(sx * sx / 0.012 + sy * sy / 0.004) * 1.4);   // the Great Red Spot
+      c = [lerp(c[0], 200, spot), lerp(c[1], 85, spot), lerp(c[2], 60, spot)];
+      return [c[0], c[1], c[2], 0];
+    };
+    const saturn = (x2, y2, z2) => { const t2 = fbm(x2 * 2, y2 * 2, z2 * 2, 4), b = 0.5 + 0.5 * Math.sin((y2 + (t2 - 0.5) * 0.05) * 18);
+      const c = ramp([[0, [190, 150, 95]], [0.5, [228, 200, 150]], [1, [245, 230, 195]]], b * 0.7 + t2 * 0.4); return [c[0], c[1], c[2], 0]; };
+    const mars = (x2, y2, z2) => { const v = fbm(x2 * 3 + 5, y2 * 3, z2 * 3, 6), c = ramp([[0, [110, 40, 25]], [0.5, [190, 80, 45]], [0.7, [220, 130, 80]], [1, [240, 200, 170]]], v); if (Math.abs(y2) > 0.92) return [240, 235, 230, 0]; return [c[0], c[1], c[2], 0]; };
+    const neptune = (x2, y2, z2) => { const v = fbm(x2 * 2 + 1, y2 * 5, z2 * 2, 5), c = ramp([[0, [20, 60, 170]], [0.5, [50, 110, 220]], [1, [150, 200, 255]]], v + Math.sin(y2 * 9) * 0.08); return [c[0], c[1], c[2], 0.2]; };
+    const moon = (x2, y2, z2) => {
+      let v = fbm(x2 * 4 + 7, y2 * 4, z2 * 4, 6); const cr = n3(x2 * 14, y2 * 14, z2 * 14), crater = cr > 0.74 ? (cr - 0.74) * 3 : 0;
+      v = v - crater * 0.6; const c = ramp([[0, [70, 66, 62]], [0.5, [150, 145, 138]], [1, [220, 215, 205]]], v); return [c[0], c[1], c[2], 0];
+    };
+    const sunSurf = (x2, y2, z2) => { const v = fbm(x2 * 7, y2 * 7, z2 * 7, 5), w = n3(x2 * 22, y2 * 22, z2 * 22); const c = ramp([[0, [200, 60, 10]], [0.45, [250, 140, 20]], [0.7, [255, 210, 80]], [1, [255, 250, 210]]], v * 0.8 + w * 0.35); return [c[0], c[1], c[2], 0]; };
+    // a nebula painted from noise at low resolution and scaled up soft
+    function nebula(w, h) {
+      return layer('nebulaNoise', w, h, (g) => {
+        const sc = 0.5, D = [Math.round(w * sc), Math.round(h * sc)], img = g.createImageData(D[0], D[1]), d = img.data;
+        for (let y = 0; y < D[1]; y++) for (let x2 = 0; x2 < D[0]; x2++) {
+          const u = x2 / D[0] * 3, v = y / D[1] * 3 * h / w, o = (y * D[0] + x2) * 4;
+          const wv = fbm(u * 1.3 + 4, v * 1.3, 1.7, 5), rid = 1 - Math.abs(fbm(u * 2 + wv, v * 2 - wv, 3.1, 6) - 0.5) * 2;   // wispy filaments
+          const fil = Math.pow(Math.max(0, rid), 6), m = fbm(u * 0.9 + 11, v * 0.9 + 2, 5.3, 5), warm = Math.pow(Math.max(0, m - 0.45) * 2.2, 2);
+          const pink = Math.pow(Math.max(0, fbm(u * 1.1 + 21, v * 1.1, 8.2, 4) - 0.5) * 2.4, 2);
+          const r = 6 + fil * 40 + warm * 200 + pink * 170, gg = 8 + fil * 110 + warm * 70 + pink * 30, b = 24 + fil * 200 + warm * 60 + pink * 200;
+          d[o] = Math.min(255, r); d[o + 1] = Math.min(255, gg); d[o + 2] = Math.min(255, b); d[o + 3] = 255;
+        }
+        const tmp = document.createElement('canvas'); tmp.width = D[0]; tmp.height = D[1]; tmp.getContext('2d').putImageData(img, 0, 0);
+        g.imageSmoothingQuality = 'high'; g.drawImage(tmp, 0, 0, w, h);
+        paintStars(g, w, h, Math.round(w * h / 420), 71);
+      }, 1);
+    }
+    return { sphere, earth, jupiter, saturn, mars, neptune, moon, sunSurf, nebula, fbm };
+  })();
+  const rocks = Array.from({ length: 9 }, (_, k) => ({ o: k / 9, v: 0.01 + Math.random() * 0.02, y: 0.3 + Math.random() * 0.4, s: 0.6 + Math.random() * 1.2, spin: (Math.random() - 0.5) * 2, seed: 500 + k }));
+  let comet = null;
   function drawSpace3(t, dt) {
-    vfill([[0, '#020108'], [1, '#07041a']]);
-    const neb = layer('nebula', W * 1.3, H * 1.3, (g, w, h) => {
-      paintGas(g, w, h, 3, 220, ['#ff3d9a', '#7d3dff', '#2a7dff', '#00d0c8', '#ff8a3d'], null);
-      paintStars(g, w, h, Math.round(w * h / 650), 7);
-    });
-    const dx = -W * 0.15 + Math.sin(t * 0.015) * W * 0.05, dy = -H * 0.15 + Math.cos(t * 0.012) * H * 0.04;
-    x.drawImage(neb, dx, dy, W * 1.3, H * 1.3);
-    const near = layer('nearstars', W, H, (g, w, h) => paintStars(g, w, h, Math.round(w * h / 3500), 99));
-    const off = (t * 4 * mv()) % W; x.drawImage(near, -off, 0, W, H); x.drawImage(near, W - off, 0, W, H);
-    // a spiral galaxy far away
-    x.save(); x.translate(W * 0.8, H * 0.12); x.rotate(-0.5 + t * 0.003); x.scale(1, 0.45); x.globalCompositeOperation = 'lighter';
-    for (let i = 0; i < 2; i++) for (let k = 0; k < 40; k++) { const a = k * 0.22 + i * Math.PI, rr = k * 1.1; bloom(Math.cos(a) * rr, Math.sin(a) * rr, 8 - k * 0.12, [[0, 'rgba(200,190,255,0.18)'], [1, 'rgba(200,190,255,0)']]); }
-    bloom(0, 0, 18, [[0, 'rgba(255,240,220,0.8)'], [1, 'rgba(255,240,220,0)']]); x.restore();
-    // the planet, lit from the upper right, rings in front and behind, a moon in orbit
-    const R = Math.min(W, H) * 0.5, cx = W * 0.22, cy = H * 0.86, tilt = -0.32;
-    const moonA = t * 0.12 * mv(), mox = cx + Math.cos(moonA) * R * 1.9, moy = cy + Math.sin(moonA) * R * 0.5 - R * 0.35, behind = Math.sin(moonA) < 0;
-    const drawMoon = () => { const mr = R * 0.12; const g = x.createRadialGradient(mox + mr * 0.4, moy - mr * 0.4, mr * 0.1, mox, moy, mr);
-      g.addColorStop(0, '#e6e9f2'); g.addColorStop(0.6, '#8d93a6'); g.addColorStop(1, '#1d2030'); x.fillStyle = g; x.beginPath(); x.arc(mox, moy, mr, 0, TAU); x.fill(); };
-    const rings = (front) => { x.save(); x.translate(cx, cy); x.rotate(tilt); x.scale(1, 0.24);
-      [[1.35, 0.1, 'rgba(230,205,170,0.55)'], [1.52, 0.06, 'rgba(200,170,135,0.45)'], [1.7, 0.14, 'rgba(240,220,190,0.5)'], [1.9, 0.05, 'rgba(180,150,120,0.35)']].forEach(([rr, wd, c]) => {
-        x.strokeStyle = c; x.lineWidth = R * wd; x.beginPath(); x.arc(0, 0, R * rr, front ? 0 : Math.PI, front ? Math.PI : TAU); x.stroke(); });
+    const M = Math.min(W, H), m = mv();
+    x.fillStyle = '#02030c'; x.fillRect(0, 0, W, H);
+    // nebula and stars, drifting slowly
+    const nb = P3.nebula(W * 1.2, H * 1.2);
+    x.drawImage(nb, -W * 0.1 + Math.sin(t * 0.01) * W * 0.06 * m, -H * 0.1 + Math.cos(t * 0.008) * H * 0.04 * m, W * 1.2, H * 1.2);
+    const near = layer('nearstars', W, H, (g, w, h) => paintStars(g, w, h, Math.round(w * h / 3000), 99));
+    const off = (t * 3 * m) % W; x.drawImage(near, -off, 0, W, H); x.drawImage(near, W - off, 0, W, H);
+    // the sun, top right: a boiling surface, a flickering corona and long rays
+    const sR = M * 0.3, sx = W * 0.98, sy = H * 0.04;
+    x.save(); x.globalCompositeOperation = 'lighter';
+    bloom(sx, sy, sR * 4.5, [[0, 'rgba(255,190,90,0.55)'], [0.25, 'rgba(255,120,40,0.18)'], [1, 'rgba(255,90,20,0)']]);
+    godRays(sx, sy, M * 1.6, 16, '#ffcf80', 0.06, t);
+    x.restore();
+    x.save(); x.translate(sx, sy); x.rotate(t * 0.01 * m);
+    const sun = P3.sphere('sun', sR, P3.sunSurf, [0, 0, 1], null, true); x.drawImage(sun, -sR - 2, -sR - 2, sR * 2 + 4, sR * 2 + 4); x.restore();
+    x.save(); x.globalCompositeOperation = 'lighter';
+    bloom(sx, sy, sR * 1.35, [[0.7, 'rgba(255,230,150,0)'], [0.76, `rgba(255,220,140,${0.5 + 0.15 * Math.sin(t * 3)})`], [1, 'rgba(255,160,60,0)']]);
+    x.restore();
+    const body = (key, fn, R, cx, cy, bob, glow) => {
+      const bx = cx + Math.sin(t * 0.13 + bob) * R * 0.06 * m, by = cy + Math.cos(t * 0.11 + bob) * R * 0.06 * m;
+      const img = P3.sphere(key, R, fn, [0.45, -0.45, 0.77], glow);
+      const pad = glow ? R * 0.12 : 2; x.drawImage(img, bx - R - pad, by - R - pad, (R + pad) * 2, (R + pad) * 2); return [bx, by];
+    };
+    // Saturn with lit rings, behind-half then planet then front-half
+    const saR = M * 0.13, [stx, sty] = [W * 0.2 + Math.sin(t * 0.1) * 4 * m, H * 0.2 + Math.cos(t * 0.09) * 4 * m];
+    const ring = front => { x.save(); x.translate(stx, sty); x.rotate(-0.38); x.scale(1, 0.26);
+      for (let k = 0; k < 26; k++) { const rr = saR * (1.3 + k * 0.035), a = 0.25 + 0.35 * Math.abs(Math.sin(k * 1.7)) * (k % 7 === 3 ? 0.2 : 1);
+        x.strokeStyle = `rgba(${225 - k * 2},${200 - k * 3},${160 - k * 3},${a})`; x.lineWidth = saR * 0.035; x.beginPath(); x.arc(0, 0, rr, front ? 0 : Math.PI, front ? Math.PI : TAU); x.stroke(); }
       x.restore(); };
-    if (behind) drawMoon();
-    rings(false);
-    x.save(); x.beginPath(); x.arc(cx, cy, R, 0, TAU); x.clip();
-    x.save(); x.translate(cx, cy); x.rotate(tilt);
-    const bands = planetBands(R), shift = ((t * 6 * mv()) % (R * 2));
-    x.drawImage(bands, -R * 2 - shift, -R, R * 4, R * 2); x.drawImage(bands, R * 2 - shift, -R, R * 4, R * 2);
-    x.restore();
-    const sh = x.createRadialGradient(cx + R * 0.45, cy - R * 0.45, R * 0.2, cx + R * 0.1, cy - R * 0.1, R * 1.35);
-    sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(0.55, 'rgba(0,0,0,0.35)'); sh.addColorStop(1, 'rgba(2,1,8,0.97)');
-    x.fillStyle = sh; x.fillRect(cx - R, cy - R, R * 2, R * 2);
-    x.restore();
-    x.save(); x.globalCompositeOperation = 'lighter';   // a thin blue atmosphere on the lit edge
-    x.strokeStyle = 'rgba(140,190,255,0.35)'; x.lineWidth = R * 0.03; x.beginPath(); x.arc(cx, cy, R * 1.005, -Math.PI * 0.9, Math.PI * 0.15); x.stroke();
-    bloom(cx + R * 0.55, cy - R * 0.55, R * 0.9, [[0, 'rgba(150,190,255,0.12)'], [1, 'rgba(150,190,255,0)']]); x.restore();
-    rings(true);
-    if (!behind) drawMoon();
-    // a distant star lighting the scene
-    bloom(W * 0.95, H * 0.02, Math.max(W, H) * 0.5, [[0, 'rgba(255,245,230,0.35)'], [0.1, 'rgba(255,230,200,0.1)'], [1, 'rgba(255,230,200,0)']]);
+    ring(false); body('saturn', P3.saturn, saR, stx, sty, 0, null); ring(true);
+    body('mars', P3.mars, M * 0.05, W * 0.58, H * 0.3, 1, null);
+    body('jupiter', P3.jupiter, M * 0.17, W * 0.86, H * 0.5, 2, [255, 200, 150]);
+    body('neptune', P3.neptune, M * 0.065, W * 0.15, H * 0.62, 3, [120, 170, 255]);
+    body('moon', P3.moon, M * 0.075, W * 0.62, H * 0.8, 4, null);
+    // asteroids tumbling past
+    for (const r of rocks) {
+      const u = ((t * r.v * m + r.o) % 1.3) - 0.15, rx = W * (1.1 - u * 1.3), ry = H * (r.y + u * 0.25), rs = M * 0.018 * r.s;
+      const img = P3.sphere('rock' + r.seed, rs, P3.moon, [0.7, -0.5, 0.5]);
+      x.save(); x.translate(rx, ry); x.rotate(t * r.spin); x.scale(1.3, 0.85); x.drawImage(img, -rs - 2, -rs - 2, rs * 2 + 4, rs * 2 + 4); x.restore();
+    }
+    // a comet now and then
+    if (m && !comet && Math.random() < dt * 0.08) comet = { life: 0, x0: W * (0.2 + Math.random() * 0.5), y0: -20, a: 1.9 + Math.random() * 0.5 };
+    if (comet) {
+      comet.life += dt; const q = comet.life / 4, hx = comet.x0 + Math.cos(comet.a) * q * H * 1.4, hy = comet.y0 + Math.sin(comet.a) * q * H * 1.4;
+      x.save(); x.globalCompositeOperation = 'lighter';
+      const tl = M * 0.5, g = x.createLinearGradient(hx, hy, hx - (sx - hx) * 0.0 - Math.cos(comet.a) * tl, hy - Math.sin(comet.a) * tl);
+      g.addColorStop(0, 'rgba(190,240,255,0.8)'); g.addColorStop(1, 'rgba(190,240,255,0)'); x.strokeStyle = g; x.lineWidth = 4; x.lineCap = 'round';
+      x.beginPath(); x.moveTo(hx, hy); x.lineTo(hx - Math.cos(comet.a) * tl, hy - Math.sin(comet.a) * tl); x.stroke();
+      bloom(hx, hy, 16, [[0, 'rgba(255,255,255,1)'], [0.3, 'rgba(190,240,255,0.6)'], [1, 'rgba(190,240,255,0)']]); x.restore();
+      if (q > 1) comet = null;
+    }
+    // Earth's curve across the bottom, with a glowing blue atmosphere
+    const eR = H * 0.9, ex = W * 0.15, ey = H * 0.92 + eR;
+    const earth = layer('earthArc', W, H * 0.26, (g, w, h) => {
+      const s = 1, Dw = g.canvas.width, Dh = g.canvas.height, img = g.createImageData(Dw, Dh), d = img.data, top = H * 0.74;
+      for (let py = 0; py < Dh; py++) for (let px = 0; px < Dw; px++) {
+        const X = px / s, Y = top + py / s, dx = (X - ex) / eR, dy = (Y - ey) / eR, q = dx * dx + dy * dy, o = (py * Dw + px) * 4;
+        if (q > 1) { const dist = Math.sqrt(q) - 1, a = Math.max(0, 1 - dist / 0.035); d[o] = 90; d[o + 1] = 170; d[o + 2] = 255; d[o + 3] = 255 * a * a * 0.9; continue; }
+        const nz = Math.sqrt(1 - q), [r0, g0, b0, sh] = P3.earth(dx * 2.6, (dy + 1) * 7, nz * 2.6);
+        const edge = 1 - Math.sqrt(q), lit = 0.3 + 0.7 * Math.max(0, 0.6 + dx * 0.9), rim = Math.exp(-edge * eR / 6) * 0.9;
+        d[o] = Math.min(255, r0 * lit + 90 * rim); d[o + 1] = Math.min(255, g0 * lit + 170 * rim); d[o + 2] = Math.min(255, b0 * lit + 255 * rim + sh * 30 * lit); d[o + 3] = 255;
+      }
+      g.setTransform(1, 0, 0, 1, 0, 0); g.putImageData(img, 0, 0);
+    }, 1);
+    x.drawImage(earth, 0, H * 0.74, W, H * 0.26);
+    x.save(); x.globalCompositeOperation = 'lighter';
+    bloom(W * 0.1, H * 0.86, M * 0.9, [[0, 'rgba(120,190,255,0.22)'], [1, 'rgba(120,190,255,0)']]); x.restore();
   }
   function draw(now, dt) {
     const t = now / 1000, M = Math.max(W, H);
