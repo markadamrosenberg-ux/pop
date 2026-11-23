@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 24 Nov 00:35</div>
+        <div class="ver" id="buildVer">Version 24 Nov 00:49</div>
       </div>
     </div>
   </div>
@@ -6365,7 +6365,7 @@ const UI = (() => {
       // the bar fills as the board empties: the frame clears when every bubble is gone
       const left = state.grid.filter(Boolean).length, start = Math.max(state.frameStart | 0, left, 1);
       pct = ready ? 100 : (FX.waterfall && !FX.waterfall.skinChanged) ? 100 : Math.max(4, (1 - left / start) * 100);
-      lt = fb ? '★ Frame Bubble ready!' : ready ? '✦ Mystery piece ready!' : 'Frame ' + (state.boardClears + 1);
+      lt = fb ? '★ Frame Bubble ready!' : ready ? '✦ Mystery piece ready!' : 'Frame ' + (state.boardClears + 1) + ' · ' + skin().name;
       rt = state.combo >= 2 ? 'Combo ' + state.combo + ' · ×' + Logic.comboMultiplier(state.combo) : left ? left + ' bubbles to clear' : 'Clear!';
       meterR.classList.toggle('cmb', state.combo >= 2);
       meterEl.classList.toggle('ready', ready);
@@ -6375,7 +6375,7 @@ const UI = (() => {
       pct = wfOn ? 100 : (got / tgt) * 100;
       const fb = state.tray.some(p => p && p.mystery && p.frame) || state.mysteryPending === 'frame';
       const ready = fb || state.tray.some(p => p && p.mystery) || state.mysteryPending;
-      lt = fb ? '★ Frame Bubble ready!' : ready ? '✦ Mystery piece ready!' : 'Frame ' + (state.boardClears + 1);
+      lt = fb ? '★ Frame Bubble ready!' : ready ? '✦ Mystery piece ready!' : 'Frame ' + (state.boardClears + 1) + ' · ' + skin().name;
       rt = state.combo >= 2 ? 'Combo ' + state.combo + ' · ' + got + ' / ' + tgt : got + ' / ' + tgt + ' lines';
       meterR.classList.toggle('cmb', state.combo >= 2);
       meterEl.classList.toggle('ready', !!ready);
