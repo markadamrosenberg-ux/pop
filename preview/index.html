@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 23:27</div>
+        <div class="ver" id="buildVer">Version 23 Nov 23:31</div>
       </div>
     </div>
   </div>
@@ -2804,7 +2804,9 @@ const Backdrops = (() => {
       if (c !== 'auto' && open.includes(c)) return c;
       const order = LIST.map(b => b.id).filter(id => id !== 'night' && open.includes(id));   // the plain background is only used when picked
       // each game starts somewhere different in the list, then moves on one scene per frame
-      return order[((typeof state !== 'undefined' ? (state.boardClears | 0) + (state.bgOffset | 0) : 0)) % order.length];
+      // the scene moves on only once the frame-clear celebration has finished
+      const fr = typeof state === 'undefined' ? 0 : (state.bgFrame != null ? state.bgFrame : state.boardClears) | 0;
+      return order[(fr + (typeof state !== 'undefined' ? state.bgOffset | 0 : 0)) % order.length];
     },
     choose(id) { if (id === 'auto' || unlocked().includes(id)) { Store.set('backdrop', id); boardBgKey = ''; } },
     // call with any score: unlocks any special background it has earned, with a big announcement
@@ -2974,7 +2976,7 @@ function restoreGame() {
   state.tray = (g.tray || [null, null, null]).map(unpackPiece);
   state.mysteryLines = g.mysteryLines | 0; state.mysteryCount = g.mysteryCount | 0; state.mysteryPending = g.mysteryPending || false; state.mysterySinceFrame = g.mysterySinceFrame | 0; state.rescueGiven = !!g.rescueGiven;
   state.score = g.score | 0; state.combo = g.combo | 0; state.sinceClear = g.sinceClear | 0;
-  state.skin = g.skin | 0; state.bgOffset = g.bgOffset | 0; state.tutorial = !!g.tutorial; state.boardClears = g.boardClears | 0; state.frameLines = g.frameLines | 0; state.over = false;
+  state.skin = g.skin | 0; state.bgOffset = g.bgOffset | 0; state.tutorial = !!g.tutorial; state.bgFrame = g.boardClears | 0; state.boardClears = g.boardClears | 0; state.frameLines = g.frameLines | 0; state.over = false;
   applyPalette();
   // older saves have no piece ids: their bubbles are fixed, new placements are tracked normally
   state.pid = validPids(g.pid, state.grid) ? g.pid.slice() : fixedPids(state.grid);
@@ -3043,7 +3045,7 @@ function popClearedFrame(gx, gy) {
   const S = CONFIG.scoring, F = CONFIG.frames;
   const multBefore = frameMult();
   const bonus = S.boardClearBonus * (state.boardClears + 1) + (F.enabled ? F.perfectBonus : 0);
-  state.boardClears++; state.frameLines = 0; state.mysterySinceFrame = 0; state.rescueGiven = false;
+  state.bgFrame = state.boardClears; state.boardClears++; state.frameLines = 0; state.mysterySinceFrame = 0; state.rescueGiven = false;
   state.pid = new Array(N * N).fill(0);
   layStarter();
   const starterCells = state.grid.map((v, i) => v ? i : -1).filter(i => i >= 0);
@@ -3111,7 +3113,7 @@ function newGame() {
   state.golden = null; state.goldenDone = false; state.goldenDue = false; state.frameMoves = 0; rollGolden();
   state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false; state.continues = 0; state.tainted = false;
   Input.cancelRepo(); Input.cancelPin();
-  state.skin = 0; state.lockSkin = null; state.bgOffset = Math.floor(Math.random() * 1000);
+  state.skin = 0; state.lockSkin = null; state.bgFrame = 0; state.bgOffset = Math.floor(Math.random() * 1000);
   if (typeof Library !== 'undefined') Library.see(0);
   applyPalette();
   bestAtStart = Store.get('best', 0);
@@ -3252,7 +3254,7 @@ function move(slot, gx, gy, repo = null) {
     // the waterfall washes whatever is left off the board
     for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) { const v = state.grid[Logic.idx(gx, gy)]; if (v) washed.push({ gx, gy, v }); }
     state.grid = new Array(N * N).fill(0); state.pid = new Array(N * N).fill(0);
-    state.boardClears++; state.frameLines = 0; state.mysterySinceFrame = 0; state.rescueGiven = false;
+    state.bgFrame = state.boardClears; state.boardClears++; state.frameLines = 0; state.mysterySinceFrame = 0; state.rescueGiven = false;
     layStarter(); starterShapes = true;
     starterCells = state.grid.map((v, i) => v ? i : -1).filter(i => i >= 0);
   }
@@ -5155,7 +5157,7 @@ function updateFX(now, dt) {
         onSkin: () => { if (CONFIG.waterfall.changeSkin) { state.skin = state.lockSkin != null ? state.lockSkin : (state.skin + 1) % SKINS.length; Library.see(state.skin); applyPalette(); saveGame(); wf.skinChanged = true; FX.trayIn = state.tray.map((_, i) => performance.now() + 250 + i * 90); } return skin(); },
       });
     }
-    if (t >= wf.dur) { shownTarget += wf.bonus - wf.paid; wf.paid = wf.bonus; FX.waterfall = null; if (state.boardClears === 6 && !state.over && !Store.get('diffAsked', false)) { Store.set('diffAsked', true); setTimeout(() => UI.askDifficulty(), 500); } }
+    if (t >= wf.dur) { shownTarget += wf.bonus - wf.paid; wf.paid = wf.bonus; FX.waterfall = null; state.bgFrame = state.boardClears; boardBgKey = ''; if (state.boardClears === 6 && !state.over && !Store.get('diffAsked', false)) { Store.set('diffAsked', true); setTimeout(() => UI.askDifficulty(), 500); } }
   }
   // when everything's done, make sure the score is exact
   if (!FX.pops.length && !FX.waterfall && !Celebrate.active() && now > FX.busyUntil) shownTarget = state.score;
