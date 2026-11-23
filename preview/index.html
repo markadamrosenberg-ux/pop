@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 23:04</div>
+        <div class="ver" id="buildVer">Version 23 Nov 23:08</div>
       </div>
     </div>
   </div>
@@ -6158,7 +6158,12 @@ const Input = (() => {
     const [tx, ty] = slotCentre(d.slot); ret = { piece: d.piece, fx: tx, fy: ty, fs: trayCell(d.piece), tx, ty, ts: trayCell(d.piece), t0: 0, slot: d.slot };
   }
 
-  cv.addEventListener('pointerdown', down);
+  // a drag can get stuck if the phone swallows the finger lifting (switching apps, a notification):
+  // the piece then hides in its slot and nothing can be picked up. Put it back.
+  const dropStale = () => { if (drag) cancel({ pointerId: drag.pid }); };
+  cv.addEventListener('pointerdown', e => { if (drag && e.pointerId !== drag.pid) dropStale(); down(e); }, true);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) dropStale(); });
+  window.addEventListener('pagehide', dropStale); window.addEventListener('blur', dropStale);
   window.addEventListener('pointermove', moveEv, { passive: false });
   window.addEventListener('pointerup', up);
   window.addEventListener('pointercancel', cancel);
@@ -6192,6 +6197,7 @@ const Input = (() => {
       return { piece: ret.piece, x: ret.fx + (ret.tx - ret.fx) * e, y: ret.fy + (ret.ty - ret.fy) * e, size: ret.fs + (ret.ts - ret.fs) * e };
     },
     isDragging: () => !!drag,
+    dropStale: () => { if (drag) cancel({ pointerId: drag.pid }); },
     dragPiece: () => (drag ? drag.piece : null),
     dragPoint: () => (drag ? { x: drag.x, y: drag.y - (drag.grab ? 0 : liftFor(drag.type, drag.piece)) } : null),
     dragLift: () => (drag ? drag.t0 : 0),
@@ -6318,7 +6324,7 @@ const UI = (() => {
   }
   function placeBonus() {
     const b = $('bonusBtn'), below = L.H - (L.ty + L.T);
-    b.style.top = (below >= 50 ? L.ty + L.T + (below - 40) / 2 : L.ty - 46) + 'px';
+    b.style.top = (below >= 50 ? L.ty + L.T + (below - 40) / 2 : L.ty - 18) + 'px';   // never over the board
   }
   function placeHint() {
     placeBonus();
@@ -6736,7 +6742,7 @@ const UI = (() => {
     state.rescue = false; state.over = true; saveGame(); Sound.gameOver(); FX.gameOverAt = performance.now();
     setTimeout(() => showGameOver(), 500);
   });
-  $('bonusBtn').addEventListener('click', () => { Sound.unlock(); if (!useBonusPiece()) toast('Place a piece first to make room in your tray'); });
+  $('bonusBtn').addEventListener('click', () => { Sound.unlock(); Input.dropStale(); if (!useBonusPiece()) toast(state.tray.some(p => !p) ? 'Try again in a moment' : 'Place a piece first to make room in your tray'); });
   return { update, placeHint, showHint, dismissHint, toast, askDifficulty, showGameOver, hideGameOver, modalOpen: () => document.getElementById('tapStart').classList.contains('show') || go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show') || askEl.classList.contains('show') || mp.classList.contains('show') || pinInfoEl.classList.contains('show') || nc.classList.contains('show') || fc.classList.contains('show') || document.getElementById('diffAsk').classList.contains('show') || document.getElementById('libPick').classList.contains('show') || document.getElementById('bgPick').classList.contains('show'),
     showRescue() { rescueEl.classList.add('show'); },
     pinInfo: n => pinInfo(n),
