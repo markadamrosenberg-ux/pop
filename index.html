@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 22:19</div>
+        <div class="ver" id="buildVer">Version 23 Nov 22:30</div>
       </div>
     </div>
   </div>
@@ -741,10 +741,13 @@ const SHAPE_DEFS = [
   ['circ',['.##.','####','####','.##.'],0.25,1],
   ['8h',['########'],0.1,1],['8v',['#','#','#','#','#','#','#','#'],0.1,1],
   // giant 6 x 2 slabs, flat and upright
-  ['6x2h',['######','######'],0.25,1],['6x2v',['##','##','##','##','##','##'],0.25,1],
+  ['6x2h',['######','######'],0.28,1],['6x2v',['##','##','##','##','##','##'],0.28,1],
   // giant corners: 6 long and 6 deep, two thick, to fill a corner in one go
-  ['bigL1',['######','######','##....','##....','##....','##....'],0.2,1],['bigL2',['######','######','....##','....##','....##','....##'],0.2,1],['bigL3',['....##','....##','....##','....##','######','######'],0.2,1],['bigL4',['##....','##....','##....','##....','######','######'],0.2,1],
-  ['4x4',['####','####','####','####'],0.2,1],
+  ['bigL1',['######','######','##....','##....','##....','##....'],0.26,1],['bigL2',['######','######','....##','....##','....##','....##'],0.26,1],['bigL3',['....##','....##','....##','....##','######','######'],0.26,1],['bigL4',['##....','##....','##....','##....','######','######'],0.26,1],
+  ['4x4',['####','####','####','####'],0.28,1],
+  ['5x3h',['#####','#####','#####'],0.28,1],['5x3v',['###','###','###','###','###'],0.28,1],
+  ['bigT1',['######','######','..##..','..##..','..##..'],0.2,1],['bigT2',['..##..','..##..','..##..','######','######'],0.2,1],
+  ['ring5',['#####','#...#','#...#','#...#','#####'],0.2,1],
 ];
 const SHAPES = SHAPE_DEFS.map(([id, rows, weight, special]) => {
   const cells = [];
@@ -4853,7 +4856,7 @@ function updateFX(now, dt) {
         onSkin: () => { if (CONFIG.waterfall.changeSkin) { state.skin = state.lockSkin != null ? state.lockSkin : (state.skin + 1) % SKINS.length; Library.see(state.skin); applyPalette(); saveGame(); wf.skinChanged = true; FX.trayIn = state.tray.map((_, i) => performance.now() + 250 + i * 90); } return skin(); },
       });
     }
-    if (t >= wf.dur) { shownTarget += wf.bonus - wf.paid; wf.paid = wf.bonus; FX.waterfall = null; if (state.boardClears % 3 === 0 && !state.over) setTimeout(() => UI.askDifficulty(), 500); }
+    if (t >= wf.dur) { shownTarget += wf.bonus - wf.paid; wf.paid = wf.bonus; FX.waterfall = null; if (state.boardClears === 6 && !state.over && !Store.get('diffAsked', false)) { Store.set('diffAsked', true); setTimeout(() => UI.askDifficulty(), 500); } }
   }
   // when everything's done, make sure the score is exact
   if (!FX.pops.length && !FX.waterfall && !Celebrate.active() && now > FX.busyUntil) shownTarget = state.score;
