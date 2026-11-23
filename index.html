@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 23:59</div>
+        <div class="ver" id="buildVer">Version 24 Nov 00:01</div>
       </div>
     </div>
   </div>
@@ -748,6 +748,7 @@ const SHAPE_DEFS = [
   ['5x3h',['#####','#####','#####'],0.28,1],['5x3v',['###','###','###','###','###'],0.28,1],
   ['bigT1',['######','######','..##..','..##..','..##..'],0.2,1],['bigT2',['..##..','..##..','..##..','######','######'],0.2,1],
   ['ring5',['#####','#...#','#...#','#...#','#####'],0.2,1],
+  ['6x3h',['######','######','######'],0.24,1],['6x3v',['###','###','###','###','###','###'],0.24,1],['7x2h',['#######','#######'],0.22,1],['7x2v',['##','##','##','##','##','##','##'],0.22,1],['7x3h',['#######','#######','#######'],0.18,1],['7x3v',['###','###','###','###','###','###','###'],0.18,1],['8x4h',['########','########','########','########'],0.06,1],['8x4v',['####','####','####','####','####','####','####','####'],0.06,1],
 ];
 const SHAPES = SHAPE_DEFS.map(([id, rows, weight, special]) => {
   const cells = [];
