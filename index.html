@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 22:35</div>
+        <div class="ver" id="buildVer">Version 23 Nov 22:37</div>
       </div>
     </div>
   </div>
@@ -1667,9 +1667,12 @@ const Sound = (() => {
     },
     // the real thing: a racket on a tennis ball, a bat on a cricket ball, a paddle on a ping-pong ball, a squishy eyeball
     hit(kind, k = 1) {
-      if (!ok()) return; const t = ac.currentTime, pan = R(-0.3, 0.3);
-      if (kind === 'tennis') {   // racket on ball: a sharp click, the ball's hollow "pock" ringing at its resonances, the string bed's twang and a low body thud
-        const v = R(0.96, 1.05);
+      if (!ok()) return; let t = ac.currentTime; const pan = R(-0.3, 0.3);
+      if (kind === 'tennis') {   // the racket swing "whoosh", then the hit: a sharp click, the ball's hollow "pock", the strings' twang and a low thud
+        const v = R(0.96, 1.05), sw = 0.11;
+        noise(t, { type: 'bandpass', f: 350, f2: 1900, q: 1.6, peak: 0.09 * k, attack: sw, decay: 0.04, pan: pan - 0.3 });
+        noise(t + 0.03, { type: 'bandpass', f: 700, f2: 3200, q: 2.5, peak: 0.04 * k, attack: sw - 0.03, decay: 0.03, pan: pan - 0.2 });
+        t += sw;
         noise(t, { type: 'highpass', f: 3500, q: 0.5, peak: 0.12 * k, attack: 0.0003, decay: 0.006, pan });
         noise(t, { type: 'bandpass', f: 1180 * v, q: 14, peak: 0.55 * k, attack: 0.0008, decay: 0.07, pan });
         noise(t, { type: 'bandpass', f: 2350 * v, q: 10, peak: 0.22 * k, attack: 0.0005, decay: 0.035, pan });
