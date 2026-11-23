@@ -5927,8 +5927,19 @@ function frame(now) {
   const dt = Math.max(0, Math.min(0.05, (now - last) / 1000)); last = now;
   try { step(now, dt); } catch (e) { console.error(e); }
 }
+// Safety net: if the board has emptied by any route during a frame (after at least one move) and nothing is
+// animating, clear the frame. An empty board must always finish the frame.
+let emptySince = 0;
+function checkEmptyBoard(now) {
+  const quiet = !state.over && (state.frameMoves | 0) > 0 && !FX.waterfall && !FX.pops.length && !FX.goo.length && !Celebrate.active()
+    && !(Input.partyMode && Input.partyMode()) && state.grid.every(v => !v);
+  if (!quiet) { emptySince = 0; return; }
+  if (!emptySince) emptySince = now;
+  if (now - emptySince > 700) { emptySince = 0; popClearedFrame(3, 3); }
+}
 function step(now, dt) {
   Input.tick(now);
+  checkEmptyBoard(now);
   updateFX(now, dt);
   const diff = shownTarget - shownScore;
   shownScore = Math.abs(diff) < 0.5 ? shownTarget : shownScore + diff * Math.min(1, dt * 14);
