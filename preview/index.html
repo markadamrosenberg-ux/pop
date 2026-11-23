@@ -1676,11 +1676,16 @@ const Sound = (() => {
         noise(t, { type: 'bandpass', f: 540 * v, q: 9, peak: 0.3 * k, attack: 0.001, decay: 0.09, pan });
         tone(t, { f: 1180 * v, f2: 1120 * v, type: 'sine', peak: 0.06 * k, attack: 0.0008, decay: 0.05, pan });
         tone(t, { f: 110, f2: 70, type: 'sine', peak: 0.16 * k, attack: 0.001, decay: 0.05, pan });
-      } else if (kind === 'cricket') {   // the hard "tock" off the middle of the bat: a sharp crack and a woody ring
-        noise(t, { type: 'highpass', f: 2600, q: 0.7, peak: 0.22 * k, attack: 0.0005, decay: 0.018, pan });
-        tone(t, { f: 1450, f2: 1350, type: 'sine', peak: 0.12 * k, attack: 0.0005, decay: 0.11, pan });
-        tone(t, { f: 720, f2: 690, type: 'sine', peak: 0.09 * k, attack: 0.0005, decay: 0.15, pan });
-        tone(t, { f: 260, f2: 180, type: 'sine', peak: 0.1 * k, attack: 0.001, decay: 0.06, pan });
+      } else if (kind === 'cricket') {   // leather on willow: a hard crack, then the bat's wooden modes ringing briefly, and a deep solid thock
+        const v = R(0.97, 1.04);
+        noise(t, { type: 'highpass', f: 1800, q: 0.6, peak: 0.3 * k, attack: 0.0003, decay: 0.009, pan });
+        noise(t, { type: 'bandpass', f: 2900 * v, q: 6, peak: 0.16 * k, attack: 0.0004, decay: 0.022, pan });
+        noise(t, { type: 'bandpass', f: 1650 * v, q: 11, peak: 0.32 * k, attack: 0.0005, decay: 0.05, pan });
+        noise(t, { type: 'bandpass', f: 980 * v, q: 13, peak: 0.42 * k, attack: 0.0006, decay: 0.075, pan });
+        noise(t, { type: 'bandpass', f: 430 * v, q: 10, peak: 0.42 * k, attack: 0.0008, decay: 0.1, pan });
+        noise(t, { type: 'bandpass', f: 175 * v, q: 6, peak: 0.35 * k, attack: 0.001, decay: 0.12, pan });
+        tone(t, { f: 980 * v, f2: 960 * v, type: 'sine', peak: 0.05 * k, attack: 0.0005, decay: 0.07, pan });
+        tone(t, { f: 90, f2: 60, type: 'sine', peak: 0.2 * k, attack: 0.001, decay: 0.06, pan });
       } else if (kind === 'pingpong') {   // the hollow "pok"
         tone(t, { f: 3100, f2: 2600, type: 'sine', peak: 0.1 * k, attack: 0.0005, decay: 0.035, pan });
         noise(t, { type: 'bandpass', f: 5200, q: 2, peak: 0.08 * k, attack: 0.0003, decay: 0.01, pan });
