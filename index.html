@@ -2504,6 +2504,8 @@ const Coach = (() => {
   }
   return {
     tick(now) {
+      // tips are only for a beginner's first (guided) game; never again after that
+      if (!state.tutorial) { if (cur) hide(false); return; }
       const blocked = !!document.querySelector('.overlay.show');
       if (cur && blocked) { hide(false); return; }
       if (cur) {   // the tip goes away once its moment has passed (but counts as seen)
