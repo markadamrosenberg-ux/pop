@@ -362,9 +362,19 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <span class="cost" id="undoCost"></span><span class="count" id="undoN"></span>
       </button>
       <button class="iconbtn pinbtn" id="pinBtn" aria-label="Pin: pop up to 3 bubbles">
-        <svg viewBox="0 0 32 32" aria-hidden="true"><defs><radialGradient id="pinG" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff6c8"/><stop offset=".4" stop-color="#ffd23f"/><stop offset="1" stop-color="#b77a00"/></radialGradient></defs>
-          <path d="M16 20.5 L13.2 29.5 L16 30.5 L18.8 29.5 Z" fill="#cfd6e4" stroke="#7d8596" stroke-width=".8"/>
-          <circle cx="16" cy="12" r="9" fill="url(#pinG)"/><ellipse cx="12.6" cy="8.6" rx="3" ry="1.7" fill="#fff" opacity=".85" transform="rotate(-30 12.6 8.6)"/></svg>
+        <svg viewBox="0 0 32 32" aria-hidden="true"><defs>
+<linearGradient id="pinH" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff8cc6"/><stop offset=".35" stop-color="#ff3d9a"/><stop offset="1" stop-color="#a8125f"/></linearGradient>
+<linearGradient id="pinS" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ffffff"/><stop offset=".5" stop-color="#c3cad8"/><stop offset="1" stop-color="#6b7385"/></linearGradient>
+<radialGradient id="pinP" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fffbe0"/><stop offset=".55" stop-color="#ffd23f"/><stop offset="1" stop-color="#ff9a3c"/></radialGradient></defs>
+<path d="M7.5 18.5l2.3 3.6 4-1.6-1.4 4 4 1.4-4 1.6 1.2 3.9-3.8-2-2.3 3.6-.9-4.2-4.2.6 2.6-3.4-3.4-2.6 4.2-.6z" fill="url(#pinP)" stroke="#fff" stroke-width=".7" stroke-linejoin="round" transform="translate(0 -1.6)"/>
+<g fill="#7ff3ea"><circle cx="2.6" cy="15.6" r="1.3"/><circle cx="15.8" cy="29" r="1.2"/><circle cx="4.4" cy="11.8" r=".8"/></g>
+<g transform="rotate(45 16 16) translate(1.2 -1.6)">
+<path d="M15.4 17.5h1.2l-.4 11.5h-.4z" fill="url(#pinS)"/>
+<path d="M9.5 15.2c0-1.2 1-1.8 2.2-1.8h8.6c1.2 0 2.2.6 2.2 1.8s-1 1.9-2.2 1.9h-8.6c-1.2 0-2.2-.7-2.2-1.9z" fill="url(#pinH)"/>
+<path d="M13 13.6l.6-6.4h4.8l.6 6.4z" fill="url(#pinH)"/>
+<rect x="10.5" y="2.6" width="11" height="5" rx="2.5" fill="url(#pinH)"/>
+<rect x="12" y="3.4" width="3.2" height="1.5" rx=".75" fill="#fff" opacity=".85"/>
+<path d="M14 8.4h1.1l-.4 4.6h-.9z" fill="#fff" opacity=".45"/></g></svg>
         <span class="pcount" id="pinN"></span>
       </button>
       <button class="iconbtn repo" id="repoBtn" aria-label="Reposition a placed piece">
@@ -549,7 +559,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 24 Nov 08:20</div>
+        <div class="ver" id="buildVer">Version 24 Nov 08:25</div>
       </div>
     </div>
   </div>
