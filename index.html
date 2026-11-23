@@ -1364,7 +1364,7 @@ const SKINS = [
       dot(ctx, -r * 0.52, -r * 0.4, r * 0.07, 0.95);
     } },
   // Polished precious metals with a mirror finish and real sparkle (twinkles drawn live).
-  { name: 'Cupcakes', colours: ['#ff3d9a', '#ff8a3d', '#4fb8ff', '#a45cff', '#3fd17a', '#ff5a5a', '#ffc93c'],
+  { name: 'Cupcakes', anim: animIcing, colours: ['#ff3d9a', '#ff8a3d', '#4fb8ff', '#a45cff', '#3fd17a', '#ff5a5a', '#ffc93c'],
     // a round cake ball: creamy sponge, glossy icing in the bubble's colour oozing down in drips,
     // sprinkles, and a juicy cherry on top with a bead of moisture
     draw(ctx, s, c, i) {
@@ -1394,11 +1394,6 @@ const SKINS = [
       // shine down each drip
       ctx.fillStyle = 'rgba(255,255,255,0.55)';
       for (const [x, d, w] of drips) { ctx.beginPath(); ctx.ellipse((x - w * 0.35) * r, (d - w * 0.9) * r, w * 0.18 * r, w * 0.75 * r, 0, 0, Math.PI * 2); ctx.fill(); }
-      // a drop that has fallen off the middle drip
-      const md = drips[1], dx = md[0] * r, dy = Math.min(r * 0.8, (md[1] + 0.2) * r);
-      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(dx, dy - r * 0.14); ctx.bezierCurveTo(dx + r * 0.1, dy - r * 0.02, dx + r * 0.08, dy + r * 0.07, dx, dy + r * 0.07);
-      ctx.bezierCurveTo(dx - r * 0.08, dy + r * 0.07, dx - r * 0.1, dy - r * 0.02, dx, dy - r * 0.14); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.beginPath(); ctx.ellipse(dx - r * 0.025, dy - r * 0.01, r * 0.018, r * 0.03, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
       // big gloss on the icing
       ctx.fillStyle = 'rgba(255,255,255,0.9)';
@@ -1898,6 +1893,31 @@ function animGlitter(n) {
     }
     ctx.globalAlpha = 1;
   };
+}
+// cupcake icing slowly runs down each drip, swells into a bead and drops off the cake
+function animIcing(ctx, s, c, i, t, seed) {
+  const r = s * 0.45, rnd = (k => () => (k = (k * 16807) % 2147483647) / 2147483647)(4321 + i * 613);
+  const drips = [[-0.62, 0.32, 0.17], [-0.05, 0.62, 0.2], [0.55, 0.4, 0.17]].map(([x, d, w]) => [x + (rnd() - 0.5) * 0.08, d + (rnd() - 0.5) * 0.08, w]);
+  const hi = mix(c, '#ffffff', 0.5);
+  drips.forEach(([dx0, d, w], k) => {
+    const per = 2.4 + k * 0.7, ph = ((t + seed * 0.37 + k * 1.3) / per) % 1;
+    const X = dx0 * r, W = w * r, tip = d * r - W * 0.3;
+    // the drip creeps longer and its bead swells
+    const grow = Math.min(1, ph / 0.65), len = grow * grow * (3 - 2 * grow) * r * 0.2, bead = W * (0.85 + 0.35 * grow);
+    ctx.fillStyle = c;
+    ctx.beginPath(); ctx.moveTo(X - W * 0.9, tip); ctx.lineTo(X - W * 0.75, tip + len); ctx.lineTo(X + W * 0.75, tip + len); ctx.lineTo(X + W * 0.9, tip); ctx.closePath(); ctx.fill();
+    if (ph < 0.7) { ctx.beginPath(); ctx.arc(X, tip + len, bead * (ph > 0.6 ? 1 - (ph - 0.6) * 4 : 1), 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.ellipse(X - W * 0.35, tip + len * 0.6, W * 0.15, Math.max(W * 0.2, len * 0.4 + W * 0.3), 0, 0, Math.PI * 2); ctx.fill();
+    // then a drop lets go and falls off the cake
+    if (ph >= 0.62) {
+      const q = (ph - 0.62) / 0.38, fy = tip + len + bead * 0.6 + q * q * r * 1.1, dr = bead * 0.75;
+      ctx.globalAlpha = Math.max(0, 1 - Math.max(0, q - 0.7) / 0.3);
+      ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(X, fy - dr * 1.8);
+      ctx.bezierCurveTo(X + dr * 0.9, fy - dr * 0.4, X + dr, fy + dr, X, fy + dr); ctx.bezierCurveTo(X - dr, fy + dr, X - dr * 0.9, fy - dr * 0.4, X, fy - dr * 1.8); ctx.fill();
+      ctx.fillStyle = hi; ctx.beginPath(); ctx.ellipse(X - dr * 0.35, fy, dr * 0.2, dr * 0.35, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+  });
 }
 // streams of tiny bubbles racing up inside the ball, a few escaping out of the top; more on a combo
 function animFizz(ctx, s, c, i, t, seed) {
@@ -3286,7 +3306,7 @@ function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, se
   } else drawBall(skinIdx, colour, cx, cy, size, sx, sy, alpha);
   if (sk.anim && !settings.reduced && size > 14) {
     ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy); ctx.globalAlpha = alpha;
-    sk.anim(ctx, size, sk.colours[colour % sk.colours.length], colour, now / 1000, seed); ctx.restore();
+    sk.anim(ctx, size, sk.fixedColours ? sk.colours[colour % sk.colours.length] : vivid(sk.colours[colour % sk.colours.length]), colour, now / 1000, seed); ctx.restore();
   }
   if (sk.face && size > 10) drawFace(cx, cy, size, sx, sy, alpha, seed, now);
   if (sk.water && CONFIG.feel.water && !settings.reduced && size > 14) drawWater(cx, cy + (1 - sy) * size * 0.3, size, sx, sy, alpha, seed, now);
