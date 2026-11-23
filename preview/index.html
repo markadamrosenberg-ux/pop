@@ -539,7 +539,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 24 Nov 01:21</div>
+        <div class="ver" id="buildVer">Version 24 Nov 01:22</div>
       </div>
     </div>
   </div>
@@ -1620,9 +1620,14 @@ const Sound = (() => {
       try { ac = new AC(); } catch (e) { return null; }
       setTimeout(() => { try { Object.keys(SAMPLES).forEach(sample); } catch (_) {} }, 0);
       const comp = ac.createDynamicsCompressor();
-      comp.threshold.value = -16; comp.knee.value = 12; comp.ratio.value = 4; comp.attack.value = 0.002; comp.release.value = 0.12;
+      comp.threshold.value = -20; comp.knee.value = 18; comp.ratio.value = 3; comp.attack.value = 0.006; comp.release.value = 0.2;
       comp.connect(ac.destination);
-      out = ac.createGain(); out.gain.value = CONFIG.audio.masterVolume * settings.sfx; out.connect(comp);
+      // ear-candy finish on every sound: roll off the harsh top end, warm the lows a touch, and keep peaks gentle
+      const warm = ac.createBiquadFilter(); warm.type = 'lowpass'; warm.frequency.value = 6000; warm.Q.value = 0.5;
+      const shelf = ac.createBiquadFilter(); shelf.type = 'highshelf'; shelf.frequency.value = 3200; shelf.gain.value = -5;
+      const body = ac.createBiquadFilter(); body.type = 'lowshelf'; body.frequency.value = 220; body.gain.value = 2;
+      warm.connect(shelf); shelf.connect(body); body.connect(comp);
+      out = ac.createGain(); out.gain.value = CONFIG.audio.masterVolume * settings.sfx * 0.85; out.connect(warm);
       noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
       const d = noiseBuf.getChannelData(0);
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -1675,7 +1680,7 @@ const Sound = (() => {
     },
     setVolumes() {
       if (!ac) { this.unlock(); return; }
-      out.gain.setTargetAtTime(CONFIG.audio.masterVolume * settings.sfx, ac.currentTime, 0.05);
+      out.gain.setTargetAtTime(CONFIG.audio.masterVolume * settings.sfx * 0.85, ac.currentTime, 0.05);
     },
     // Setting a piece down: a soft springy "plop", then the pick-up pop once per bubble.
     place(cells = 1) {
