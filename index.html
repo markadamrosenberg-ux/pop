@@ -246,6 +246,9 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 .coach{position:absolute;z-index:6;left:50%;width:min(86%,360px);transform:translateX(-50%) scale(.9);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;
   background:rgba(16,18,40,.96);border:2px solid #ffd23f;border-radius:18px;padding:12px 14px;color:#fff;font-size:15px;line-height:1.4;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.coachpt{position:absolute;z-index:7;font-size:44px;line-height:1;pointer-events:none;display:none;filter:drop-shadow(0 3px 6px rgba(0,0,0,.6));transform:translate(-50%,0)}
+.coachpt.up{animation:ptUp .8s ease-in-out infinite}.coachpt.down{animation:ptDown .8s ease-in-out infinite}
+@keyframes ptUp{50%{margin-top:10px}}@keyframes ptDown{50%{margin-top:-10px}}
 .coach.show{opacity:1;transform:translateX(-50%) scale(1);pointer-events:auto}
 .coach b{color:#ffd23f}
 .coach button{display:block;margin:10px 0 0 auto;font:inherit;font-weight:800;font-size:14px;color:#1a1020;background:#ffd23f;border:0;border-radius:12px;padding:7px 16px;cursor:pointer}
@@ -386,6 +389,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
     <canvas id="cv"></canvas>
     <div class="hint hide" id="hint">Drag a piece onto the grid.<br>Fill a <b>row</b> or <b>column</b> and the bubbles pop.<br><b>Empty the board</b> to clear the frame.</div>
     <div class="coach" id="coach"><div id="coachText"></div><button id="coachOk">Got it</button></div>
+    <div class="coachpt" id="coachPt"></div>
     <div class="toast" id="toast"></div>
     <div class="debug" id="debug"></div>
     <button class="bonusbtn" id="bonusBtn" aria-label="Use bonus piece">★ Use bonus piece <span id="bonusN"></span></button>
@@ -2400,6 +2404,11 @@ const Coach = (() => {
   const cellRect = i => { const r = document.getElementById('cv').getBoundingClientRect(), [x, y] = cellCentre(i % N, Math.floor(i / N)); return { x: r.left + x, y: r.top + y, w: L.c, h: L.c }; };
   const elRect = id => { const e = document.getElementById(id); if (!e || e.offsetParent === null) return null; const b = e.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2, w: b.width, h: b.height, el: e }; };
   const traySlot = pred => { const k = state.tray.findIndex(p => p && pred(p)); if (k < 0) return null; const r = document.getElementById('cv').getBoundingClientRect(), sw = L.W / 3; return { x: r.left + sw * (k + 0.5), y: r.top + L.ty + L.T / 2, w: sw * 0.7, h: L.T * 0.7 }; };
+  // a sensible bubble to suggest popping: a stray one, in the row and column with the fewest bubbles
+  const pinTarget = () => { let best = -1, bs = 99;
+    for (let i = 0; i < N * N; i++) { if (!state.grid[i]) continue; const x = i % N, y = Math.floor(i / N);
+      let sc = 0; for (let k = 0; k < N; k++) sc += (state.grid[y * N + k] ? 1 : 0) + (state.grid[k * N + x] ? 1 : 0);
+      if (sc < bs) { bs = sc; best = i; } } return best; };
   const TIPS = [
     { id: 'golden', when: () => state.golden, at: () => cellRect(state.golden.i),
       text: () => `✨ <b>Golden bubble!</b> Clear its row or column within <b>${state.golden.left} moves</b> to win a <b>Frame Bubble</b>.` },
@@ -2409,8 +2418,10 @@ const Coach = (() => {
       text: () => `❓ <b>Mystery piece</b>: pick it up to reveal a special shape, then place it like any piece.` },
     { id: 'party', when: () => Input.partyMode && Input.partyMode(), at: () => null,
       text: () => `🎉 <b>Pop Party</b>: tap bubbles to pop them for points. Pick the ones that open up lines. Picking up a piece ends it.` },
-    { id: 'pin', when: () => (Store.get('pins', 0) + Store.get('pinSpare', 0)) > 0 && (state.frameMoves | 0) >= 3 && state.grid.filter(Boolean).length >= 5, at: () => elRect('pinBtn'),
-      text: () => `📍 <b>Pin</b>: tap it, then tap any bubble to pop it. Use it on the bubble that's <b>stopping a line</b>.` },
+    { id: 'pin', when: () => (Store.get('pins', 0) + Store.get('pinSpare', 0)) > 0 && !Input.pinShots() && (state.frameMoves | 0) >= 3 && state.grid.filter(Boolean).length >= 5, at: () => elRect('pinBtn'),
+      point: 'up', text: () => `📍 <b>Pin</b>: tap the Pin up here to pick it up. Then tap a bubble to pop it.` },
+    { id: 'pinTap', when: () => Input.pinShots() > 0 && !(Input.partyMode && Input.partyMode()) && state.grid.some(Boolean), at: () => cellRect(pinTarget()),
+      point: 'down', text: () => `👇 Now <b>tap a bubble</b> to pop it, like this one. Pick bubbles that are <b>in the way</b> of filling a line.` },
     { id: 'combo', when: () => (state.combo | 0) >= 2, at: () => elRect('combo'),
       text: () => `🔥 <b>Combo!</b> Clear lines on back-to-back moves and your points multiply.` },
     { id: 'bonus', when: () => Store.get('bonusPieces', 0) > 0 && (state.frameMoves | 0) >= 7, at: () => elRect('bonusBtn'),
@@ -2423,7 +2434,7 @@ const Coach = (() => {
   function hide(markSeen = true) {
     if (!cur) return; if (markSeen) Store.set('tipsSeen', seen().concat(cur.id));
     if (cur.ring) cur.ring.classList.remove('coachring');
-    el().classList.remove('show'); cur = null; lastHide = performance.now();
+    el().classList.remove('show'); document.getElementById('coachPt').style.display = 'none'; cur = null; lastHide = performance.now();
   }
   function show(t) {
     const box = el(), at = t.at(), sr = (box.offsetParent || box.parentElement).getBoundingClientRect();
@@ -2444,6 +2455,17 @@ const Coach = (() => {
       box.appendChild(arr);
     }
     box.style.top = Math.max(8, Math.min(sr.height - h - 8, top)) + 'px';
+    const pt = document.getElementById('coachPt');
+    if (at && t.point) {
+      pt.textContent = t.point === 'up' ? '👆' : '👇'; pt.className = 'coachpt ' + t.point; pt.style.display = 'block';
+      pt.style.left = (at.x - sr.left) + 'px';
+      pt.style.top = (t.point === 'up' ? at.y - sr.top + at.h / 2 + 2 : at.y - sr.top - at.h / 2 - 50) + 'px';
+      // the card sits clear of the pointer
+      if (t.point === 'up') box.style.top = Math.max(8, at.y - sr.top + at.h / 2 + 58) + 'px';
+      else { const above = at.y - sr.top - at.h / 2 - 60 - h;   // above the finger if there's room, otherwise under the bubble
+        box.style.top = (above >= 8 ? above : Math.min(sr.height - h - 8, at.y - sr.top + at.h / 2 + 14)) + 'px'; }
+      box.querySelectorAll('.arr').forEach(a => a.remove());
+    } else pt.style.display = 'none';
     cur = { id: t.id, ring: at && at.el ? at.el : null, since: performance.now() };
     if (cur.ring) cur.ring.classList.add('coachring');
   }
@@ -2453,10 +2475,10 @@ const Coach = (() => {
       if (cur && blocked) { hide(false); return; }
       if (cur) {   // the tip goes away once its moment has passed (but counts as seen)
         const t = TIPS.find(q => q.id === cur.id);
-        if (t && !t.when() && now - cur.since > 1500) hide(true);
+        if (t && (!t.when() || (t.id === 'pinTap' && FX.goo.length)) && (now - cur.since > 1500 || t.id === 'pin' || t.id === 'pinTap')) hide(true);
         return;
       }
-      if (now - lastHide < 1200 || blocked || state.over || UI.modalOpen() || FX.waterfall || Celebrate.active() || Input.dragPiece()) return;
+      if ((now - lastHide < 1200 && !(Input.pinShots() > 0 && !seen().includes('pinTap'))) || blocked || state.over || UI.modalOpen() || FX.waterfall || Celebrate.active() || Input.dragPiece()) return;
       const s = seen(); const t = TIPS.find(q => !s.includes(q.id) && q.when()); if (t) show(t);
     },
     hide,
