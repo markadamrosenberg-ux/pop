@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 22:30</div>
+        <div class="ver" id="buildVer">Version 23 Nov 22:33</div>
       </div>
     </div>
   </div>
@@ -1665,6 +1665,33 @@ const Sound = (() => {
       }
       for (let i = 0; i < 10; i++) plip(t + 0.05 + Math.random() * 0.9, R(2600, 5200), 0.014, 0.007, R(-0.7, 0.7));
     },
+    // the real thing: a racket on a tennis ball, a bat on a cricket ball, a paddle on a ping-pong ball, a squishy eyeball
+    hit(kind, k = 1) {
+      if (!ok()) return; const t = ac.currentTime, pan = R(-0.3, 0.3);
+      if (kind === 'tennis') {   // felt "thwock": a dull thump plus the ping of the strings
+        noise(t, { type: 'bandpass', f: 1100, f2: 700, q: 1.2, peak: 0.16 * k, attack: 0.001, decay: 0.045, pan });
+        tone(t, { f: 210, f2: 120, type: 'sine', peak: 0.2 * k, attack: 0.001, decay: 0.07, pan });
+        tone(t + 0.003, { f: 1250, f2: 1180, type: 'triangle', peak: 0.035 * k, attack: 0.001, decay: 0.09, pan });
+      } else if (kind === 'cricket') {   // the hard "tock" off the middle of the bat: a sharp crack and a woody ring
+        noise(t, { type: 'highpass', f: 2600, q: 0.7, peak: 0.22 * k, attack: 0.0005, decay: 0.018, pan });
+        tone(t, { f: 1450, f2: 1350, type: 'sine', peak: 0.12 * k, attack: 0.0005, decay: 0.11, pan });
+        tone(t, { f: 720, f2: 690, type: 'sine', peak: 0.09 * k, attack: 0.0005, decay: 0.15, pan });
+        tone(t, { f: 260, f2: 180, type: 'sine', peak: 0.1 * k, attack: 0.001, decay: 0.06, pan });
+      } else if (kind === 'pingpong') {   // the hollow "pok"
+        tone(t, { f: 3100, f2: 2600, type: 'sine', peak: 0.1 * k, attack: 0.0005, decay: 0.035, pan });
+        noise(t, { type: 'bandpass', f: 5200, q: 2, peak: 0.08 * k, attack: 0.0003, decay: 0.01, pan });
+        tone(t, { f: 1500, f2: 1400, type: 'triangle', peak: 0.03 * k, attack: 0.0005, decay: 0.03, pan });
+      } else if (kind === 'squish') {   // a wet little squelch
+        noise(t, { type: 'lowpass', f: 900, f2: 250, q: 4, peak: 0.12 * k, attack: 0.005, decay: 0.12, pan });
+        tone(t, { f: 320, f2: 110, type: 'sine', peak: 0.08 * k, attack: 0.004, decay: 0.12, pan });
+      }
+    },
+    // when a line of them pops: a rally of hits (a ping-pong ball bounces away, getting faster)
+    rally(kind, n = 3) {
+      if (!ok()) return;
+      if (kind === 'pingpong') { let at = 0, gap = 0.22; for (let k = 0; k < 7; k++) { setTimeout(() => this.hit('pingpong', 1 - k * 0.12), at * 1000); at += gap; gap *= 0.72; } return; }
+      for (let k = 0; k < Math.min(4, n); k++) setTimeout(() => this.hit(kind, 1 - k * 0.15), k * 90);
+    },
     // a little sizzle when a Fizzy piece lands
     sizzle() {
       if (!ok()) return; const t = ac.currentTime;
@@ -2081,6 +2108,72 @@ const NEW_SKINS = [
       ctx.fillStyle = nlFill(ctx, r, c, 0.5, 0.38);
       ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
       nlGloss(ctx, r, 0.75);
+    },
+  },
+  { name: 'Tennis Balls', hit: 'tennis', squish: 2.2, fixedColours: true, colours: ['#d8f03a', '#ff6fb1', '#ff9a3c', '#9be84a', '#5ad1ff', '#c78bff', '#f4f4ee'],
+    // felt ball: fuzzy speckles, a soft rim and the white curved seam
+    draw(ctx, s, c, i) {
+      const r = s * 0.45, rnd = (k => () => (k = (k * 16807) % 2147483647) / 2147483647)(777 + i * 97);
+      const g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.1, 0, 0, r * 1.05);
+      g.addColorStop(0, mix(c, '#ffffff', 0.35)); g.addColorStop(0.6, c); g.addColorStop(1, mix(c, '#1e2400', 0.45));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+      for (let k = 0; k < 260; k++) { const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * r; ctx.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,0.18)' : 'rgba(60,70,0,0.16)'; ctx.fillRect(Math.cos(a) * d, Math.sin(a) * d, s * 0.012, s * 0.012); }
+      ctx.strokeStyle = 'rgba(255,255,255,0.95)'; ctx.lineWidth = s * 0.055; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(-r * 1.08, 0, r * 0.78, -1.05, 1.05); ctx.stroke();
+      ctx.beginPath(); ctx.arc(r * 1.08, 0, r * 0.78, Math.PI - 1.05, Math.PI + 1.05); ctx.stroke();
+      ctx.restore();
+      // fuzzy halo
+      ctx.strokeStyle = rgba(c, 0.35); ctx.lineWidth = s * 0.03; ctx.setLineDash([s * 0.012, s * 0.02]); ctx.beginPath(); ctx.arc(0, 0, r * 1.01, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.ellipse(-r * 0.4, -r * 0.45, r * 0.25, r * 0.13, -0.6, 0, Math.PI * 2); ctx.fill();
+    },
+  },
+  { name: 'Cricket Balls', hit: 'cricket', squish: 1.4, fixedColours: true, colours: ['#b3121b', '#f1ece0', '#ff4f9a', '#9a0e16', '#c9171f', '#e8e2d2', '#ff6aa8'],
+    // polished leather with a raised seam and six rows of stitching
+    draw(ctx, s, c, i) {
+      const r = s * 0.45, light = hexToRgb(c).reduce((a, v) => a + v, 0) > 600;
+      const g = ctx.createRadialGradient(-r * 0.3, -r * 0.38, r * 0.05, 0, 0, r * 1.05);
+      g.addColorStop(0, mix(c, '#ffffff', 0.45)); g.addColorStop(0.45, c); g.addColorStop(1, mix(c, '#1a0004', light ? 0.35 : 0.6));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+      ctx.rotate(-0.35);
+      // the raised seam band
+      ctx.fillStyle = mix(c, light ? '#c9b99a' : '#ff9a8a', 0.25); ctx.beginPath(); ctx.ellipse(0, 0, r * 0.16, r * 1.05, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = mix(c, '#000000', 0.35); ctx.lineWidth = s * 0.012; ctx.beginPath(); ctx.ellipse(0, 0, r * 0.16, r * 1.05, 0, 0, Math.PI * 2); ctx.stroke();
+      // six rows of stitches: three each side of the seam
+      const stitch = light ? '#b3121b' : '#f6f1e2'; ctx.strokeStyle = stitch; ctx.lineWidth = s * 0.014; ctx.lineCap = 'round';
+      for (const row of [-0.29, -0.22, -0.15, 0.15, 0.22, 0.29]) {
+        for (let k = -6; k <= 6; k++) { const y = k * r * 0.14, bend = Math.sqrt(Math.max(0, 1 - (y / r) ** 2)), xx = row * r * bend;
+          ctx.beginPath(); ctx.moveTo(xx - Math.sign(row) * r * 0.025, y - r * 0.03); ctx.lineTo(xx + Math.sign(row) * r * 0.025, y + r * 0.03); ctx.stroke(); }
+      }
+      ctx.restore();
+      // polished shine
+      ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.ellipse(-r * 0.4, -r * 0.5, r * 0.24, r * 0.11, -0.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.ellipse(r * 0.35, r * 0.55, r * 0.15, r * 0.05, -0.6, 0, Math.PI * 2); ctx.fill();
+    },
+  },
+  { name: 'Ping-Pong Balls', hit: 'pingpong', squish: 1.2, fixedColours: true, colours: ['#f8f8f4', '#ff8a1f', '#f8f8f4', '#ff8a1f', '#f8f8f4', '#ff8a1f', '#f8f8f4'],
+    // smooth matte celluloid, a faint equator seam and a tiny printed star
+    draw(ctx, s, c, i) {
+      const r = s * 0.45, g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.05, 0, 0, r * 1.05);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.55, c); g.addColorStop(1, mix(c, '#3a2a10', 0.35));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = s * 0.012; ctx.beginPath(); ctx.ellipse(0, r * 0.05, r * 0.98, r * 0.28, 0.12, 0, Math.PI); ctx.stroke();
+      ctx.fillStyle = 'rgba(30,30,30,0.55)'; ctx.font = `700 ${Math.round(r * 0.32)}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('★★★', r * 0.15, -r * 0.05);
+      ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(-r * 0.38, -r * 0.48, r * 0.28, r * 0.14, -0.6, 0, Math.PI * 2); ctx.fill();
+    },
+  },
+  { name: 'Eyeballs', eye: true, hit: 'squish', squish: 2, colours: NEW_COLS,
+    // a glossy eyeball: the iris (in the bubble's colour), lids and lashes are drawn live so they can look and blink
+    draw(ctx, s, c, i) {
+      const r = s * 0.45, g = ctx.createRadialGradient(-r * 0.25, -r * 0.3, r * 0.1, 0, 0, r * 1.05);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.7, '#f4efea'); g.addColorStop(1, '#d9b9b4');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      const rnd = (k => () => (k = (k * 16807) % 2147483647) / 2147483647)(55 + i * 31);
+      ctx.strokeStyle = 'rgba(200,40,50,0.45)'; ctx.lineWidth = s * 0.01;
+      for (let k = 0; k < 7; k++) { let a = rnd() * Math.PI * 2, x2 = Math.cos(a) * r * 0.97, y2 = Math.sin(a) * r * 0.97; ctx.beginPath(); ctx.moveTo(x2, y2);
+        for (let j = 0; j < 4; j++) { x2 -= Math.cos(a) * r * 0.1 + (rnd() - 0.5) * r * 0.12; y2 -= Math.sin(a) * r * 0.1 + (rnd() - 0.5) * r * 0.12; ctx.lineTo(x2, y2); } ctx.stroke(); }
     },
   },
   { name: 'Happy Jellies', colours: NEW_COLS,
@@ -3306,6 +3399,44 @@ function drawFace(cx, cy, size, sx, sy, alpha, seed, now, g2 = null) {
   }
   ctx.restore();
 }
+// Eyeballs: iris and pupil follow the piece you're dragging, lids blink, lashes flutter; wide-eyed when about to burst
+function drawEye(cx, cy, size, sx, sy, alpha, seed, now, colour, g2 = null) {
+  const ctx = g2 || window._mainCtx, r = size * 0.45, t = now / 1000, m = faceMood;
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy); ctx.globalAlpha = alpha;
+  const dp = !g2 && typeof Input !== 'undefined' && Input.dragPoint ? Input.dragPoint() : null;
+  let gx, gy;
+  if (dp) { gx = dp.x - cx; gy = dp.y - cy; } else { const k = Math.floor(t * 0.35 + seed * 0.29); gx = Math.sin(k * 12.9898 + seed) * 10; gy = Math.cos(k * 78.233 + seed) * 8; }
+  const gl = Math.hypot(gx, gy) || 1, look = Math.min(1, gl / (r * 0.7)), ox = gx / gl * look * r * 0.36, oy = gy / gl * look * r * 0.3;
+  ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r * 0.99, 0, Math.PI * 2); ctx.clip();
+  const ir = r * 0.5, ig = ctx.createRadialGradient(ox, oy, ir * 0.15, ox, oy, ir);
+  ig.addColorStop(0, mix(colour, '#ffffff', 0.35)); ig.addColorStop(0.65, colour); ig.addColorStop(1, mix(colour, '#000000', 0.55));
+  ctx.fillStyle = ig; ctx.beginPath(); ctx.ellipse(ox, oy, ir * (1 - Math.abs(ox) / r * 0.3), ir * (1 - Math.abs(oy) / r * 0.3), 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+  ctx.lineWidth = r * 0.02; for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2; ctx.beginPath(); ctx.moveTo(ox + Math.cos(a) * ir * 0.35, oy + Math.sin(a) * ir * 0.35); ctx.lineTo(ox + Math.cos(a) * ir * 0.9, oy + Math.sin(a) * ir * 0.9); ctx.stroke(); }
+  const pr = ir * (0.45 - 0.25 * m + 0.05 * Math.sin(t * 0.7 + seed));
+  ctx.fillStyle = '#05030a'; ctx.beginPath(); ctx.arc(ox, oy, pr, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(ox - ir * 0.3, oy - ir * 0.32, ir * 0.16, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(ox + ir * 0.25, oy + ir * 0.2, ir * 0.06, 0, Math.PI * 2); ctx.fill();
+  // eyelids: a quick blink every few seconds (eyes stay wide open when scared)
+  const bp = ((t * 0.27 + seed * 0.618) % 1), blink = m < 0.3 && bp < 0.05 ? Math.sin(bp / 0.05 * Math.PI) : 0;
+  const open = 1 - blink, lidTop = -r * (0.62 + 0.5 * m) + (r * 1.7) * (1 - open) * 0.5, lidBot = r * (0.72 + 0.4 * m) - (r * 1.7) * (1 - open) * 0.5;
+  const skinC = '#f2b8a0', lg = ctx.createLinearGradient(0, -r, 0, lidTop);
+  lg.addColorStop(0, '#d98e78'); lg.addColorStop(1, skinC);
+  ctx.fillStyle = lg; ctx.beginPath(); ctx.moveTo(-r * 1.1, -r * 1.1); ctx.lineTo(r * 1.1, -r * 1.1); ctx.lineTo(r * 1.1, lidTop + r * 0.25);
+  ctx.quadraticCurveTo(0, lidTop - r * 0.18, -r * 1.1, lidTop + r * 0.25); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = skinC; ctx.beginPath(); ctx.moveTo(-r * 1.1, r * 1.1); ctx.lineTo(r * 1.1, r * 1.1); ctx.lineTo(r * 1.1, lidBot - r * 0.2);
+  ctx.quadraticCurveTo(0, lidBot + r * 0.12, -r * 1.1, lidBot - r * 0.2); ctx.closePath(); ctx.fill();
+  ctx.restore();
+  // lashes along the top lid
+  ctx.strokeStyle = '#1a0f12'; ctx.lineWidth = Math.max(1, r * 0.06); ctx.lineCap = 'round';
+  for (let k = -3; k <= 3; k++) {
+    const u = k / 3.6, lx = u * r * 0.95, ly = lidTop + r * 0.25 - (1 - u * u) * r * 0.43 + r * 0.02;
+    if (lx * lx + ly * ly > r * r * 1.05) continue;
+    const ang = -Math.PI / 2 + u * 0.9;
+    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.quadraticCurveTo(lx + Math.cos(ang) * r * 0.12, ly + Math.sin(ang) * r * 0.16, lx + Math.cos(ang + u * 0.3) * r * 0.24, ly + Math.sin(ang) * r * 0.24); ctx.stroke();
+  }
+  ctx.restore();
+}
 function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, seed = 0, now = performance.now()) {
   const sk = SKINS[skinIdx % SKINS.length];
   if (!settings.reduced) {
@@ -3322,6 +3453,7 @@ function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, se
     sk.anim(ctx, size, sk.fixedColours ? sk.colours[colour % sk.colours.length] : vivid(sk.colours[colour % sk.colours.length]), colour, now / 1000, seed); ctx.restore();
   }
   if (sk.face && size > 10) drawFace(cx, cy, size, sx, sy, alpha, seed, now);
+  if (sk.eye && size > 10) drawEye(cx, cy, size, sx, sy, alpha, seed, now, vivid(sk.colours[colour % sk.colours.length]));
   if (sk.water && CONFIG.feel.water && !settings.reduced && size > 14) drawWater(cx, cy + (1 - sy) * size * 0.3, size, sx, sy, alpha, seed, now);
   if (sk.diamond && !settings.reduced && size > 14) drawDiamondFire(cx, cy, size, sx, sy, alpha, seed, now);
   if (sk.sparkle && !sk.diamond && !settings.reduced && size > 14) {
@@ -4697,7 +4829,7 @@ function playResult(res, pointerGesture) {
     for (const [x, y] of res.piece.shape.cells) d = Math.min(d, Math.max(Math.abs(gx - res.gx - x), Math.abs(gy - res.gy - y)));
     if (d <= 2) FX.settle.set(i, { t0: now + d * 70, amp: CONFIG.feel.neighbourAmp / d });
   }
-  Sound.place(res.piece.shape.cells.length);
+  if (skin().hit) Sound.hit(skin().hit); else Sound.place(res.piece.shape.cells.length);
   if (skin().fizz) Sound.sizzle();
   if (CONFIG.haptics.place) Haptics.pulse(CONFIG.haptics.place);
 
@@ -4714,6 +4846,7 @@ function playResult(res, pointerGesture) {
     const faceShock = SKINS[state.skin % SKINS.length].face && !settings.reduced ? 450 : 0;
     if (faceShock) Sound.scream(Math.min(3, res.cleared.length));
     const sq = (settings.reduced ? 30 : T.squashMs) / 1000 + faceShock / 1000;
+    if (SKINS[state.skin % SKINS.length].hit) setTimeout(() => Sound.rally(SKINS[state.skin % SKINS.length].hit, res.lines), sq * 1000);
     Sound.splat(sq, intensity, Math.max(-0.6, Math.min(0.6, (ox - 3.5) / 3.5 * 0.6)));
     const level = (res.lines - 1) + (res.combo - 1);
     if (level >= 1) Sound.rush(sq + 0.06, level);
@@ -6159,6 +6292,7 @@ const UI = (() => {
           const sp = sprite(i, col), kk = size / sp.size, w = sp.box * kk;
           g.drawImage(sp.canvas, cx - w / 2, cy - w / 2, w, w);
           if (sk.face) drawFace(cx, cy, size, 1, 1, 1, k * 3, performance.now(), g);
+          if (sk.eye) drawEye(cx, cy, size, 1, 1, 1, k * 3, 0, vivid(sk.colours[col % sk.colours.length]), g);
         } else {
           g.fillStyle = 'rgba(255,255,255,0.1)'; g.beginPath(); g.arc(cx, cy, size * 0.45, 0, Math.PI * 2); g.fill();
           g.fillStyle = 'rgba(255,255,255,0.35)'; g.font = '700 18px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', cx, cy + 1);
