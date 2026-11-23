@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 23:24</div>
+        <div class="ver" id="buildVer">Version 23 Nov 23:27</div>
       </div>
     </div>
   </div>
@@ -1771,7 +1771,8 @@ const Sound = (() => {
     // when a line of them pops: a rally of hits (a ping-pong ball bounces away, getting faster)
     rally(kind, n = 3) {
       if (!ok()) return;
-      if (kind === 'boing') { playSample('boing', 0.2, 1, 0.9) || this.hit('boing'); return; }   // one big boing for the whole clear, as the balls hit the bounce
+      if (kind === 'boing') {   // a calm boing... boing... boing, each softer, like one ball settling
+        [[0.2, 0.9], [0.58, 0.5], [0.86, 0.26]].forEach(([at, gn]) => playSample('boing', at, gn, 0.95)); return; }
       if (kind === 'pingpong') { let at = 0, gap = 0.22; for (let k = 0; k < 7; k++) { setTimeout(() => this.hit('pingpong', 1 - k * 0.12), at * 1000); at += gap; gap *= 0.72; } return; }
       for (let k = 0; k < Math.min(4, n); k++) setTimeout(() => this.hit(kind, 1 - k * 0.15), k * 90);
     },
@@ -5007,9 +5008,9 @@ function playResult(res, pointerGesture) {
     if (SKINS[state.skin % SKINS.length].hit && SKINS[state.skin % SKINS.length].hit !== 'bowling') setTimeout(() => Sound.rally(SKINS[state.skin % SKINS.length].hit, res.lines), sq * 1000);
     if (SKINS[state.skin % SKINS.length].hit === 'cricket' && res.lines) setTimeout(() => Sound.howzat(res.lines), sq * 1000 + 150);
     if (SKINS[state.skin % SKINS.length].hit === 'bowling' && res.lines) Sound.strike(res.lines, sq);
-    Sound.splat(sq, intensity, Math.max(-0.6, Math.min(0.6, (ox - 3.5) / 3.5 * 0.6)));
+    if (!SKINS[state.skin % SKINS.length].bounce) Sound.splat(sq, intensity, Math.max(-0.6, Math.min(0.6, (ox - 3.5) / 3.5 * 0.6)));
     const level = (res.lines - 1) + (res.combo - 1);
-    if (level >= 1) Sound.rush(sq + 0.06, level);
+    if (level >= 1 && !SKINS[state.skin % SKINS.length].bounce) Sound.rush(sq + 0.06, level);
     const sk0 = SKINS[state.skin % SKINS.length];
     BG.pulse(sk0.colours[(res.piece.color) % sk0.colours.length], 0.35 * intensity);
     const n = res.cleared.length;
@@ -5117,7 +5118,7 @@ function updateFX(now, dt) {
       else if (sk.bounce && !settings.reduced) FX.particles.push({ k: 'ball', x, y, vx: ((p.gx - 3.5) / 3.5 + (Math.random() - 0.5)) * L.c * 4, vy: -L.c * (7 + Math.random() * 4), skin: p.skin, colour: p.colour, life: 0, max: 2.2, spin: (Math.random() - 0.5) * 8, floor: L.by + L.B + L.c * 0.2, bounces: 0 });
       else if (sk.fizz) fizzBurst(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);
       else spawnSplash(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);
-      Sound.pop(p.rank, p.combo, ((p.gx - 3.5) / 3.5) * 0.65);
+      if (!sk.bounce) Sound.pop(p.rank, p.combo, ((p.gx - 3.5) / 3.5) * 0.65);   // basketballs stay quiet: the boings say it all
       shownTarget += p.share;
     }
   }
