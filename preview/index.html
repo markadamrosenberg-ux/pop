@@ -244,6 +244,14 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .meter .txt{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 12px;
   font-size:13px;font-weight:600;letter-spacing:.3px;text-shadow:0 1px 3px rgba(0,0,0,.6)}
 canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.coach{position:absolute;z-index:6;left:50%;width:min(86%,360px);transform:translateX(-50%) scale(.9);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;
+  background:rgba(16,18,40,.96);border:2px solid #ffd23f;border-radius:18px;padding:12px 14px;color:#fff;font-size:15px;line-height:1.4;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+.coach.show{opacity:1;transform:translateX(-50%) scale(1);pointer-events:auto}
+.coach b{color:#ffd23f}
+.coach button{display:block;margin:10px 0 0 auto;font:inherit;font-weight:800;font-size:14px;color:#1a1020;background:#ffd23f;border:0;border-radius:12px;padding:7px 16px;cursor:pointer}
+.coach .arr{position:absolute;width:16px;height:16px;background:rgba(16,18,40,.96);border:2px solid #ffd23f;transform:rotate(45deg)}
+.coachring{animation:coachPulse 1s ease-in-out infinite;box-shadow:0 0 0 3px #ffd23f}
+@keyframes coachPulse{50%{box-shadow:0 0 0 8px rgba(255,210,63,.35)}}
 .hint{position:absolute;left:50%;transform:translateX(-50%);max-width:min(92%,420px);padding:10px 16px;border-radius:16px;
   background:rgba(16,17,28,.9);border:1px solid var(--line);color:var(--ink);font-size:15px;font-weight:500;text-align:center;
   line-height:1.35;pointer-events:none;transition:opacity .4s;box-shadow:0 6px 24px rgba(0,0,0,.25)}
@@ -376,7 +384,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
   <div class="meter" id="meter" aria-label="Frame progress"><div class="fill" id="meterFill"></div><div class="txt"><span id="meterL">Frame 1</span><span id="meterR">0 / 10 lines</span></div></div>
   <div id="stage">
     <canvas id="cv"></canvas>
-    <div class="hint hide" id="hint">Drag a piece onto the grid.<br>Fill a <b>row</b> or <b>column</b> and the bubbles pop.</div>
+    <div class="hint hide" id="hint">Drag a piece onto the grid.<br>Fill a <b>row</b> or <b>column</b> and the bubbles pop.<br><b>Empty the board</b> to clear the frame.</div>
+    <div class="coach" id="coach"><div id="coachText"></div><button id="coachOk">Got it</button></div>
     <div class="toast" id="toast"></div>
     <div class="debug" id="debug"></div>
     <button class="bonusbtn" id="bonusBtn" aria-label="Use bonus piece">★ Use bonus piece <span id="bonusN"></span></button>
@@ -2383,6 +2392,78 @@ const theme = () => withScene(themeFor(skin()));
 // are unlocked with your best score and then join the rotation. You can also pin one in Settings.
 // Ball library: every look you've reached in a game is collected for good. A new game always starts on the
 // first look and moves on one per frame, so getting further into a game is how you collect them all.
+// Coach: one-time tips that pop up the first time each extra turns up, pointing at it
+const Coach = (() => {
+  let cur = null, lastHide = 0;
+  const seen = () => Store.get('tipsSeen', []);
+  const el = () => document.getElementById('coach');
+  const cellRect = i => { const r = document.getElementById('cv').getBoundingClientRect(), [x, y] = cellCentre(i % N, Math.floor(i / N)); return { x: r.left + x, y: r.top + y, w: L.c, h: L.c }; };
+  const elRect = id => { const e = document.getElementById(id); if (!e || e.offsetParent === null) return null; const b = e.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2, w: b.width, h: b.height, el: e }; };
+  const traySlot = pred => { const k = state.tray.findIndex(p => p && pred(p)); if (k < 0) return null; const r = document.getElementById('cv').getBoundingClientRect(), sw = L.W / 3; return { x: r.left + sw * (k + 0.5), y: r.top + L.ty + L.T / 2, w: sw * 0.7, h: L.T * 0.7 }; };
+  const TIPS = [
+    { id: 'golden', when: () => state.golden, at: () => cellRect(state.golden.i),
+      text: () => `✨ <b>Golden bubble!</b> Clear its row or column within <b>${state.golden.left} moves</b> to win a <b>Frame Bubble</b>.` },
+    { id: 'frameBubble', when: () => state.tray.some(p => p && p.mystery && p.frame), at: () => traySlot(p => p.mystery && p.frame),
+      text: () => `🌟 <b>Frame Bubble</b>: drop it anywhere to pop the <b>whole board</b> and clear the frame. Best saved for a crowded board.` },
+    { id: 'mystery', when: () => state.tray.some(p => p && p.mystery && !p.frame), at: () => traySlot(p => p.mystery && !p.frame),
+      text: () => `❓ <b>Mystery piece</b>: pick it up to reveal a special shape, then place it like any piece.` },
+    { id: 'party', when: () => Input.partyMode && Input.partyMode(), at: () => null,
+      text: () => `🎉 <b>Pop Party</b>: tap bubbles to pop them for points. Pick the ones that open up lines. Picking up a piece ends it.` },
+    { id: 'pin', when: () => (Store.get('pins', 0) + Store.get('pinSpare', 0)) > 0 && (state.frameMoves | 0) >= 3 && state.grid.filter(Boolean).length >= 5, at: () => elRect('pinBtn'),
+      text: () => `📍 <b>Pin</b>: tap it, then tap any bubble to pop it. Use it on the bubble that's <b>stopping a line</b>.` },
+    { id: 'combo', when: () => (state.combo | 0) >= 2, at: () => elRect('combo'),
+      text: () => `🔥 <b>Combo!</b> Clear lines on back-to-back moves and your points multiply.` },
+    { id: 'bonus', when: () => Store.get('bonusPieces', 0) > 0 && (state.frameMoves | 0) >= 7, at: () => elRect('bonusBtn'),
+      text: () => `★ <b>Bonus piece</b>: tap this when you're stuck to get an extra piece.` },
+    { id: 'undo', when: () => { const b = document.getElementById('undoBtn'); return b && !b.disabled && (state.frameMoves | 0) >= 9; }, at: () => elRect('undoBtn'),
+      text: () => `↩️ <b>Undo</b> takes back your last move. It costs 10% of your score, so save it for a real mistake.` },
+    { id: 'frame', when: () => (state.boardClears | 0) >= 1 && (state.frameMoves | 0) === 0, at: () => null,
+      text: () => `🏆 <b>Frame cleared!</b> Each frame brings new balls, a new scene and a <b>bigger points multiplier</b>. Collect every ball in Settings → Ball library.` },
+  ];
+  function hide(markSeen = true) {
+    if (!cur) return; if (markSeen) Store.set('tipsSeen', seen().concat(cur.id));
+    if (cur.ring) cur.ring.classList.remove('coachring');
+    el().classList.remove('show'); cur = null; lastHide = performance.now();
+  }
+  function show(t) {
+    const box = el(), at = t.at(), sr = (box.offsetParent || box.parentElement).getBoundingClientRect();
+    document.getElementById('coachText').innerHTML = t.text();
+    document.getElementById('hint').classList.add('hide');
+    box.querySelectorAll('.arr').forEach(a => a.remove());
+    box.classList.add('show');
+    const h = box.offsetHeight;
+    let top;
+    if (!at) top = sr.height * 0.42 - h / 2;
+    else {
+      const ay = at.y - sr.top, below = ay < sr.height * 0.45;
+      top = below ? ay + at.h / 2 + 14 : ay - at.h / 2 - 14 - h;
+      const arr = document.createElement('div'); arr.className = 'arr';
+      arr.style.left = Math.max(14, Math.min(box.offsetWidth - 30, at.x - sr.left - (sr.width / 2 - box.offsetWidth / 2) - 8)) + 'px';
+      if (below) { arr.style.top = '-10px'; arr.style.borderRight = arr.style.borderBottom = '0'; }
+      else { arr.style.bottom = '-10px'; arr.style.borderLeft = arr.style.borderTop = '0'; }
+      box.appendChild(arr);
+    }
+    box.style.top = Math.max(8, Math.min(sr.height - h - 8, top)) + 'px';
+    cur = { id: t.id, ring: at && at.el ? at.el : null, since: performance.now() };
+    if (cur.ring) cur.ring.classList.add('coachring');
+  }
+  return {
+    tick(now) {
+      const blocked = !!document.querySelector('.overlay.show');
+      if (cur && blocked) { hide(false); return; }
+      if (cur) {   // the tip goes away once its moment has passed (but counts as seen)
+        const t = TIPS.find(q => q.id === cur.id);
+        if (t && !t.when() && now - cur.since > 1500) hide(true);
+        return;
+      }
+      if (now - lastHide < 1200 || blocked || state.over || UI.modalOpen() || FX.waterfall || Celebrate.active() || Input.dragPiece()) return;
+      const s = seen(); const t = TIPS.find(q => !s.includes(q.id) && q.when()); if (t) show(t);
+    },
+    hide,
+    reset() { Store.set('tipsSeen', []); Store.set('tutNext', true); },
+  };
+})();
+document.addEventListener('DOMContentLoaded', () => {});
 const Library = (() => {
   const seen = () => Store.get('skinsSeen', []);
   return {
@@ -2520,6 +2601,7 @@ function dealGaps() {
 // Does this frame hide a golden bubble, and on which move?
 function rollGolden() {
   const G = CONFIG.golden;
+  if (state.tutorial && (state.boardClears | 0) === 0) { state.goldenAt = 5; return; }
   state.goldenAt = Math.random() < G.chance ? G.minMoves + Math.floor(Math.random() * (G.maxMoves - G.minMoves + 1)) : 0;
 }
 // The golden bubble goes in the fullest unfinished line, so it can be won in a few moves
@@ -2598,7 +2680,7 @@ function serialise() {
   return { grid: state.grid, tray: state.tray.map(packPiece),
     score: state.score, combo: state.combo, sinceClear: state.sinceClear, skin: state.skin, boardClears: state.boardClears, frameLines: state.frameLines,
     mysteryLines: state.mysteryLines, mysteryCount: state.mysteryCount, mysteryPending: state.mysteryPending, mysterySinceFrame: state.mysterySinceFrame, rescueGiven: !!state.rescueGiven,
-    pid: state.pid, nextPid: state.nextPid, golden: state.golden || null, goldenDone: !!state.goldenDone, goldenDue: !!state.goldenDue, frameMoves: state.frameMoves | 0, goldenAt: state.goldenAt | 0, gapQueue: state.gapQueue || [], puzzlePure: !!state.puzzlePure, frameStart: state.frameStart | 0, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted, bgOffset: state.bgOffset | 0 };
+    pid: state.pid, nextPid: state.nextPid, golden: state.golden || null, goldenDone: !!state.goldenDone, goldenDue: !!state.goldenDue, frameMoves: state.frameMoves | 0, goldenAt: state.goldenAt | 0, gapQueue: state.gapQueue || [], puzzlePure: !!state.puzzlePure, frameStart: state.frameStart | 0, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted, bgOffset: state.bgOffset | 0, tutorial: !!state.tutorial };
 }
 function saveGame() { if (state.over) Store.set('game', null); else Store.set('game', serialise()); }
 function restoreGame() {
@@ -2608,7 +2690,7 @@ function restoreGame() {
   state.tray = (g.tray || [null, null, null]).map(unpackPiece);
   state.mysteryLines = g.mysteryLines | 0; state.mysteryCount = g.mysteryCount | 0; state.mysteryPending = g.mysteryPending || false; state.mysterySinceFrame = g.mysterySinceFrame | 0; state.rescueGiven = !!g.rescueGiven;
   state.score = g.score | 0; state.combo = g.combo | 0; state.sinceClear = g.sinceClear | 0;
-  state.skin = g.skin | 0; state.bgOffset = g.bgOffset | 0; state.boardClears = g.boardClears | 0; state.frameLines = g.frameLines | 0; state.over = false;
+  state.skin = g.skin | 0; state.bgOffset = g.bgOffset | 0; state.tutorial = !!g.tutorial; state.boardClears = g.boardClears | 0; state.frameLines = g.frameLines | 0; state.over = false;
   applyPalette();
   // older saves have no piece ids: their bubbles are fixed, new placements are tracked normally
   state.pid = validPids(g.pid, state.grid) ? g.pid.slice() : fixedPids(state.grid);
@@ -2753,6 +2835,14 @@ function newGame() {
   // hand out undos: free in your first few games, then one every few games
   const games = Store.get('games', 0) + 1; Store.set('games', games);
   if (!Store.get('pinStarter', false)) { Store.set('pinStarter', true); for (let i = 0; i < CONFIG.pin.starter; i++) grantPin(); }
+  // the first game is a guided one: every extra turns up early in frame 1 so the tips can show how it works
+  state.tutorial = (games <= 1 && !navigator.webdriver) || Store.get('tutNext', false);
+  if (state.tutorial) {
+    Store.set('tutNext', false);
+    if (Store.get('pins', 0) + Store.get('pinSpare', 0) < 1) grantPin();
+    if (Store.get('bonusPieces', 0) < 1) Store.set('bonusPieces', 1);
+    state.goldenAt = 5;
+  }
   const U = CONFIG.undo;
   if (games <= U.starterGames) { if (undoTokens() < 1) grantUndo(); }
   else if (games % U.everyGames === 0) grantUndo('Free undo for this game');
@@ -2929,6 +3019,8 @@ function move(slot, gx, gy, repo = null) {
     let earned = false;
     for (let i = 0; i < lines && !earned; i++)
       if (state.mysteryLines >= MY.minLines && (Math.random() < MY.chancePerLine || state.mysteryLines >= MY.maxLines)) earned = true;
+    const tutFirst = state.tutorial && state.mysteryCount === 0;
+    if (tutFirst) earned = true;
     const RS = MY.rescue, f = state.boardClears;
     const rescueAt = RS && RS.enabled ? RS.base + RS.perFrame * f + Math.max(0, f - RS.lateFrom) * RS.latePerFrame : Infinity;
     const rescue = !state.rescueGiven && state.frameLines >= rescueAt && !state.tray.some(p => p && p.mystery && p.frame);
@@ -2941,7 +3033,8 @@ function move(slot, gx, gy, repo = null) {
       if (isFrame) state.mysterySinceFrame = 0; else state.mysterySinceFrame++;
       mysteryGranted = isFrame ? 'frame' : true;
       const RP = CONFIG.reposition;
-      if (RP.enabled && !isFrame && state.repo < RP.maxCharges && Math.random() < RP.rewardShare) {
+      if (tutFirst) { /* the guided game's first reward is always a plain mystery piece */ }
+      else if (RP.enabled && !isFrame && state.repo < RP.maxCharges && Math.random() < RP.rewardShare) {
         state.repo += 1; mysteryGranted = 'repo';        // a Reposition charge, saved for later
       } else if (!isFrame && MY.party && MY.party.enabled && !waterfall && Math.random() < MY.party.share && state.grid.filter(Boolean).length >= 4) {
         // Pop Party: never enough to empty the board on its own
@@ -5940,6 +6033,7 @@ function checkEmptyBoard(now) {
 function step(now, dt) {
   Input.tick(now);
   checkEmptyBoard(now);
+  try { Coach.tick(now); } catch (_) {}
   updateFX(now, dt);
   const diff = shownTarget - shownScore;
   shownScore = Math.abs(diff) < 0.5 ? shownTarget : shownScore + diff * Math.min(1, dt * 14);
@@ -5981,6 +6075,9 @@ window.addEventListener('pageshow', () => { refit(); setTimeout(() => { fitViewp
 ['touchend', 'pointerup', 'click', 'keydown'].forEach(ev => window.addEventListener(ev, () => Sound.unlock(), { passive: true }));
 layout();
 if (!restoreGame()) newGame();
+// ?tutorial=1 replays the guided first game and all the tips
+if (new URLSearchParams(location.search).get('tutorial')) { Coach.reset(); newGame(); history.replaceState(null, '', location.pathname); }
+document.getElementById('coachOk').addEventListener('click', () => Coach.hide(true));
 // test link: ?look=faces starts a practice game on that look (doesn't count for the ladder)
 (() => { const q = new URLSearchParams(location.search).get('look'); if (!q) return;
   const i = SKINS.findIndex(k => k.name.toLowerCase().replace(/\s+/g, '') === q.toLowerCase().replace(/\s+/g, '')); if (i < 0) return;
