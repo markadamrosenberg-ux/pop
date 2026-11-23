@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 22:37</div>
+        <div class="ver" id="buildVer">Version 23 Nov 22:39</div>
       </div>
     </div>
   </div>
@@ -1679,16 +1679,16 @@ const Sound = (() => {
         noise(t, { type: 'bandpass', f: 540 * v, q: 9, peak: 0.3 * k, attack: 0.001, decay: 0.09, pan });
         tone(t, { f: 1180 * v, f2: 1120 * v, type: 'sine', peak: 0.06 * k, attack: 0.0008, decay: 0.05, pan });
         tone(t, { f: 110, f2: 70, type: 'sine', peak: 0.16 * k, attack: 0.001, decay: 0.05, pan });
-      } else if (kind === 'cricket') {   // leather on willow: a hard crack, then the bat's wooden modes ringing briefly, and a deep solid thock
+      } else if (kind === 'cricket') {   // leather on willow: a very sharp crack, a tight high wooden "tock" and only a short body
         const v = R(0.97, 1.04);
-        noise(t, { type: 'highpass', f: 1800, q: 0.6, peak: 0.3 * k, attack: 0.0003, decay: 0.009, pan });
-        noise(t, { type: 'bandpass', f: 2900 * v, q: 6, peak: 0.16 * k, attack: 0.0004, decay: 0.022, pan });
-        noise(t, { type: 'bandpass', f: 1650 * v, q: 11, peak: 0.32 * k, attack: 0.0005, decay: 0.05, pan });
-        noise(t, { type: 'bandpass', f: 980 * v, q: 13, peak: 0.42 * k, attack: 0.0006, decay: 0.075, pan });
-        noise(t, { type: 'bandpass', f: 430 * v, q: 10, peak: 0.42 * k, attack: 0.0008, decay: 0.1, pan });
-        noise(t, { type: 'bandpass', f: 175 * v, q: 6, peak: 0.35 * k, attack: 0.001, decay: 0.12, pan });
-        tone(t, { f: 980 * v, f2: 960 * v, type: 'sine', peak: 0.05 * k, attack: 0.0005, decay: 0.07, pan });
-        tone(t, { f: 90, f2: 60, type: 'sine', peak: 0.2 * k, attack: 0.001, decay: 0.06, pan });
+        noise(t, { type: 'highpass', f: 1200, q: 0.5, peak: 0.45 * k, attack: 0.0002, decay: 0.005, pan });
+        noise(t + 0.002, { type: 'highpass', f: 2500, q: 0.7, peak: 0.18 * k, attack: 0.0002, decay: 0.006, pan });
+        noise(t, { type: 'bandpass', f: 3200 * v, q: 6, peak: 0.22 * k, attack: 0.0003, decay: 0.02, pan });
+        noise(t, { type: 'bandpass', f: 1900 * v, q: 9, peak: 0.36 * k, attack: 0.0004, decay: 0.035, pan });
+        noise(t, { type: 'bandpass', f: 1120 * v, q: 8, peak: 0.42 * k, attack: 0.0005, decay: 0.045, pan });
+        noise(t, { type: 'bandpass', f: 650 * v, q: 7, peak: 0.28 * k, attack: 0.0006, decay: 0.055, pan });
+        tone(t, { f: 1120 * v, f2: 1090 * v, type: 'sine', peak: 0.05 * k, attack: 0.0004, decay: 0.045, pan });
+        tone(t, { f: 140, f2: 90, type: 'sine', peak: 0.1 * k, attack: 0.0008, decay: 0.035, pan });
       } else if (kind === 'pingpong') {   // the hollow "pok"
         tone(t, { f: 3100, f2: 2600, type: 'sine', peak: 0.1 * k, attack: 0.0005, decay: 0.035, pan });
         noise(t, { type: 'bandpass', f: 5200, q: 2, peak: 0.08 * k, attack: 0.0003, decay: 0.01, pan });
@@ -2148,17 +2148,32 @@ const NEW_SKINS = [
       g.addColorStop(0, mix(c, '#ffffff', 0.45)); g.addColorStop(0.45, c); g.addColorStop(1, mix(c, '#1a0004', light ? 0.35 : 0.6));
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
       ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
-      ctx.rotate(-0.35);
-      // the raised seam band
-      ctx.fillStyle = mix(c, light ? '#c9b99a' : '#ff9a8a', 0.25); ctx.beginPath(); ctx.ellipse(0, 0, r * 0.16, r * 1.05, 0, 0, Math.PI * 2); ctx.fill();
-      ctx.strokeStyle = mix(c, '#000000', 0.35); ctx.lineWidth = s * 0.012; ctx.beginPath(); ctx.ellipse(0, 0, r * 0.16, r * 1.05, 0, 0, Math.PI * 2); ctx.stroke();
-      // six rows of stitches: three each side of the seam
-      const stitch = light ? '#b3121b' : '#f6f1e2'; ctx.strokeStyle = stitch; ctx.lineWidth = s * 0.014; ctx.lineCap = 'round';
-      for (const row of [-0.29, -0.22, -0.15, 0.15, 0.22, 0.29]) {
-        for (let k = -6; k <= 6; k++) { const y = k * r * 0.14, bend = Math.sqrt(Math.max(0, 1 - (y / r) ** 2)), xx = row * r * bend;
-          ctx.beginPath(); ctx.moveTo(xx - Math.sign(row) * r * 0.025, y - r * 0.03); ctx.lineTo(xx + Math.sign(row) * r * 0.025, y + r * 0.03); ctx.stroke(); }
+      ctx.rotate(-0.3);
+      const dark = mix(c, '#000000', 0.4), stitch = light ? '#c0141e' : '#f7f2e4';
+      // faint quarter seam across the other way
+      ctx.strokeStyle = mix(c, '#000000', 0.25); ctx.lineWidth = s * 0.008; ctx.beginPath(); ctx.ellipse(0, 0, r * 0.98, r * 0.2, 0, Math.PI * 0.05, Math.PI * 0.95); ctx.stroke();
+      // the raised main seam: a straight ridge seen edge-on, shaded like it stands proud of the leather
+      const sw = r * 0.075, rg = ctx.createLinearGradient(-sw, 0, sw, 0);
+      rg.addColorStop(0, dark); rg.addColorStop(0.35, mix(c, '#ffffff', 0.18)); rg.addColorStop(0.65, c); rg.addColorStop(1, dark);
+      ctx.fillStyle = rg; ctx.fillRect(-sw, -r, sw * 2, r * 2);
+      // six rows of stitches, three each side, evenly spaced around the ball (so they bunch towards the edges like a real sphere)
+      ctx.strokeStyle = stitch; ctx.lineCap = 'round';
+      const rows = [0.13, 0.2, 0.27], n = 17;
+      for (const side of [-1, 1]) for (const rx of rows) for (let k = 0; k < n; k++) {
+        const th = -1.45 + 2.9 * k / (n - 1), y = Math.sin(th) * r * 0.99, f = Math.cos(th);
+        if (f < 0.12) continue;
+        const len = r * 0.055 * Math.max(0.35, f), xx = side * rx * r;
+        ctx.lineWidth = Math.max(0.6, s * 0.016 * Math.max(0.5, f));
+        ctx.beginPath(); ctx.moveTo(xx - side * len * 0.35, y - len * 0.5 * f); ctx.lineTo(xx + side * len * 0.35, y + len * 0.5 * f); ctx.stroke();
       }
+      // tiny stitch holes along the ridge edges
+      ctx.fillStyle = 'rgba(0,0,0,0.25)';
+      for (let k = 0; k < n; k++) { const th = -1.45 + 2.9 * k / (n - 1), y = Math.sin(th) * r * 0.99, f = Math.cos(th); if (f < 0.15) continue;
+        for (const side of [-1, 1]) { ctx.beginPath(); ctx.arc(side * sw * 1.05, y, s * 0.006 * f + 0.3, 0, Math.PI * 2); ctx.fill(); } }
       ctx.restore();
+      // lacquer: a darker rim so it reads as a hard, round ball
+      const rimG = ctx.createRadialGradient(0, 0, r * 0.75, 0, 0, r); rimG.addColorStop(0, 'rgba(0,0,0,0)'); rimG.addColorStop(1, 'rgba(20,0,4,0.35)');
+      ctx.fillStyle = rimG; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
       // polished shine
       ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.ellipse(-r * 0.4, -r * 0.5, r * 0.24, r * 0.11, -0.6, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.ellipse(r * 0.35, r * 0.55, r * 0.15, r * 0.05, -0.6, 0, Math.PI * 2); ctx.fill();
