@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 24 Nov 00:01</div>
+        <div class="ver" id="buildVer">Version 24 Nov 00:04</div>
       </div>
     </div>
   </div>
@@ -6885,8 +6885,24 @@ function checkEmptyBoard(now) {
   if (!emptySince) emptySince = now;
   if (now - emptySince > 700) { emptySince = 0; popClearedFrame(3, 3); }
 }
+// Fishbowls: swing a piece around and water sloshes out over the rims
+let slosh = null;
+function sloshWater(now, dt) {
+  const dp = Input.dragPoint && Input.dragPoint(), piece = Input.dragPiece && Input.dragPiece();
+  if (!dp || !piece || !piece.shape || skin().name !== 'Fishbowls' || settings.reduced) { slosh = null; return; }
+  if (!slosh) { slosh = { x: dp.x, y: dp.y }; return; }
+  const vx = (dp.x - slosh.x) / Math.max(dt, 0.008), vy = (dp.y - slosh.y) / Math.max(dt, 0.008); slosh.x = dp.x; slosh.y = dp.y;
+  const sp = Math.hypot(vx, vy), c = L.c; if (sp < c * 4 || FX.particles.length > 500) return;
+  const sh = piece.shape, chance = Math.min(1, (sp - c * 4) / (c * 18));
+  for (const [gx, gy] of sh.cells) {
+    if (Math.random() > chance) continue;
+    const x = dp.x + (gx - (sh.w - 1) / 2) * c + (Math.random() - 0.5) * c * 0.5, y = dp.y + (gy - (sh.h - 1) / 2) * c - c * 0.38;
+    FX.particles.push({ k: 'drop', x, y, vx: -vx * 0.35 + (Math.random() - 0.5) * c * 2, vy: -Math.abs(vy) * 0.2 - c * (1.5 + Math.random() * 2.5), r: c * (0.06 + Math.random() * 0.06), life: 0, max: 0.7 + Math.random() * 0.3, tint: null });
+  }
+}
 function step(now, dt) {
   Input.tick(now);
+  try { sloshWater(now, dt); } catch (_) {}
   checkEmptyBoard(now);
   try { Coach.tick(now); } catch (_) {}
   updateFX(now, dt);
