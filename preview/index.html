@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 24 Nov 00:27</div>
+        <div class="ver" id="buildVer">Version 24 Nov 00:29</div>
       </div>
     </div>
   </div>
@@ -1675,7 +1675,7 @@ const Sound = (() => {
     fizz(I = 1) {
       if (!ok()) return; const t = ac.currentTime;
       if (t - (this._fz || 0) < 0.12) return; this._fz = t;
-      if (t - (this._fzS || 0) > 0.6 && playSample('fizz', 0, 0.75, R(0.9, 0.97))) { this._fzS = t; return; }   // the recorded fizz, once per clear
+      if (t - (this._fzS || 0) > 0.6 && playSample('fizz', 0, 0.32, R(0.9, 0.97))) { this._fzS = t; return; }   // the recorded fizz, once per clear
       if (sample('fizz')) return;   // recorded fizz already playing: don't pile synth on top
       const k = Math.min(1.6, I);
       noise(t, { type: 'bandpass', f: 5200, f2: 2600, q: 0.7, peak: 0.07 * k, attack: 0.004, decay: 0.28, pan: R(-0.3, 0.3) });
@@ -5039,7 +5039,6 @@ function playResult(res, pointerGesture) {
     if (d <= 2) FX.settle.set(i, { t0: now + d * 70, amp: CONFIG.feel.neighbourAmp / d });
   }
   if (skin().hit) { Sound.hit(skin().hit); if (skin().hit === 'bowling') Sound.preload(); } else Sound.place(res.piece.shape.cells.length);
-  if (skin().fizz) Sound.sizzle();
   if (CONFIG.haptics.place) Haptics.pulse(CONFIG.haptics.place);
 
   let endAt = now;
