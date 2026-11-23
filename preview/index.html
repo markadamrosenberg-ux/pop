@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 22:41</div>
+        <div class="ver" id="buildVer">Version 23 Nov 22:44</div>
       </div>
     </div>
   </div>
@@ -1693,10 +1693,33 @@ const Sound = (() => {
         tone(t, { f: 3100, f2: 2600, type: 'sine', peak: 0.1 * k, attack: 0.0005, decay: 0.035, pan });
         noise(t, { type: 'bandpass', f: 5200, q: 2, peak: 0.08 * k, attack: 0.0003, decay: 0.01, pan });
         tone(t, { f: 1500, f2: 1400, type: 'triangle', peak: 0.03 * k, attack: 0.0005, decay: 0.03, pan });
+      } else if (kind === 'bowling') {   // a heavy ball landing on the lane: a deep thunk and a short roll
+        tone(t, { f: 75, f2: 48, type: 'sine', peak: 0.32 * k, attack: 0.002, decay: 0.16, pan });
+        noise(t, { type: 'lowpass', f: 500, f2: 200, q: 1, peak: 0.22 * k, attack: 0.001, decay: 0.09, pan });
+        noise(t + 0.03, { type: 'lowpass', f: 260, f2: 160, q: 2, peak: 0.07 * k, attack: 0.08, decay: 0.35, pan });
       } else if (kind === 'squish') {   // a wet little squelch
         noise(t, { type: 'lowpass', f: 900, f2: 250, q: 4, peak: 0.12 * k, attack: 0.005, decay: 0.12, pan });
         tone(t, { f: 320, f2: 110, type: 'sine', peak: 0.08 * k, attack: 0.004, decay: 0.12, pan });
       }
+    },
+    // bowling: the ball rumbles down the lane, smashes into the pins, and the pins clatter and tumble
+    strike(lines = 1) {
+      if (!ok()) return; const t = ac.currentTime, k = Math.min(1.4, 0.8 + lines * 0.2);
+      noise(t, { type: 'lowpass', f: 140, f2: 320, q: 1.5, peak: 0.12 * k, attack: 0.25, decay: 0.05 });   // rumble rolling in
+      const hit = t + 0.28;
+      noise(hit, { type: 'highpass', f: 900, q: 0.6, peak: 0.35 * k, attack: 0.0005, decay: 0.02 });       // the impact crack
+      tone(hit, { f: 95, f2: 55, type: 'sine', peak: 0.25 * k, attack: 0.001, decay: 0.12 });
+      const pin = (at, amp) => {   // one pin knocking: hollow maple under plastic, three body modes plus a click
+        const v = R(0.88, 1.15), pan = R(-0.8, 0.8);
+        noise(at, { type: 'bandpass', f: 4200 * v, q: 2, peak: 0.07 * amp, attack: 0.0004, decay: 0.008, pan });
+        noise(at, { type: 'bandpass', f: 1850 * v, q: 14, peak: 0.3 * amp, attack: 0.0006, decay: 0.07, pan });
+        noise(at, { type: 'bandpass', f: 1030 * v, q: 16, peak: 0.38 * amp, attack: 0.0008, decay: 0.11, pan });
+        noise(at, { type: 'bandpass', f: 470 * v, q: 10, peak: 0.25 * amp, attack: 0.001, decay: 0.12, pan });
+      };
+      // a dense burst of pin-on-pin hits, thinning out as they fall and roll on the deck
+      const n = 22 + lines * 6;
+      for (let i = 0; i < n; i++) { const d = Math.pow(Math.random(), 2.2) * 1.1; pin(hit + 0.005 + d, k * (1 - d * 0.6) * R(0.5, 1)); }
+      noise(hit + 0.05, { type: 'bandpass', f: 600, q: 0.8, peak: 0.06 * k, attack: 0.05, decay: 0.9 });    // pins rolling and sliding
     },
     // cricket: an appeal of "Howzat!" and the crowd roaring
     howzat(lines = 1) {
@@ -2209,6 +2232,31 @@ const NEW_SKINS = [
       ctx.fillStyle = 'rgba(30,30,30,0.55)'; ctx.font = `700 ${Math.round(r * 0.32)}px system-ui,sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('★★★', r * 0.15, -r * 0.05);
       ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(-r * 0.38, -r * 0.48, r * 0.28, r * 0.14, -0.6, 0, Math.PI * 2); ctx.fill();
+    },
+  },
+  { name: 'Bowling Balls', hit: 'bowling', squish: 1.1, colours: NEW_COLS,
+    // a glossy reactive-resin ball: deep marbled swirls, three finger holes and a hard mirror shine
+    draw(ctx, s, c, i) {
+      const r = s * 0.45, rnd = (k => () => (k = (k * 16807) % 2147483647) / 2147483647)(901 + i * 53);
+      const g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.05, 0, 0, r * 1.05);
+      g.addColorStop(0, mix(c, '#ffffff', 0.3)); g.addColorStop(0.5, c); g.addColorStop(1, mix(c, '#05000a', 0.7));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
+      for (let k = 0; k < 14; k++) {   // soft marbled swirls in the resin
+        const light2 = k % 3 === 0; ctx.strokeStyle = light2 ? 'rgba(255,255,255,0.13)' : 'rgba(0,0,0,0.16)';
+        ctx.lineWidth = s * (0.05 + rnd() * 0.09); ctx.lineCap = 'round'; ctx.beginPath();
+        const a0 = rnd() * Math.PI * 2, rr = r * (0.3 + rnd() * 0.9), cx2 = (rnd() - 0.5) * r, cy2 = (rnd() - 0.5) * r;
+        ctx.arc(cx2, cy2, rr, a0, a0 + 1.2 + rnd() * 2); ctx.stroke();
+      }
+      ctx.restore();
+      // three finger holes with depth
+      [[-0.22, -0.16, 0.15], [0.18, -0.24, 0.15], [0.02, 0.26, 0.18]].forEach(([hx, hy, hr]) => {
+        const hg = ctx.createRadialGradient(hx * r - hr * r * 0.3, hy * r - hr * r * 0.3, 0, hx * r, hy * r, hr * r);
+        hg.addColorStop(0, '#000000'); hg.addColorStop(0.7, '#0a0410'); hg.addColorStop(1, 'rgba(255,255,255,0.35)');
+        ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(hx * r, hy * r, hr * r, 0, Math.PI * 2); ctx.fill();
+      });
+      ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.beginPath(); ctx.ellipse(-r * 0.42, -r * 0.5, r * 0.2, r * 0.09, -0.6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.arc(-r * 0.62, -r * 0.22, r * 0.05, 0, Math.PI * 2); ctx.fill();
     },
   },
   { name: 'Eyeballs', eye: true, hit: 'squish', squish: 2, colours: NEW_COLS,
@@ -4910,8 +4958,9 @@ function playResult(res, pointerGesture) {
     const faceShock = SKINS[state.skin % SKINS.length].face && !settings.reduced ? 450 : 0;
     if (faceShock) Sound.scream(Math.min(3, res.cleared.length));
     const sq = (settings.reduced ? 30 : T.squashMs) / 1000 + faceShock / 1000;
-    if (SKINS[state.skin % SKINS.length].hit) setTimeout(() => Sound.rally(SKINS[state.skin % SKINS.length].hit, res.lines), sq * 1000);
+    if (SKINS[state.skin % SKINS.length].hit && SKINS[state.skin % SKINS.length].hit !== 'bowling') setTimeout(() => Sound.rally(SKINS[state.skin % SKINS.length].hit, res.lines), sq * 1000);
     if (SKINS[state.skin % SKINS.length].hit === 'cricket' && res.lines) setTimeout(() => Sound.howzat(res.lines), sq * 1000 + 150);
+    if (SKINS[state.skin % SKINS.length].hit === 'bowling' && res.lines) Sound.strike(res.lines);
     Sound.splat(sq, intensity, Math.max(-0.6, Math.min(0.6, (ox - 3.5) / 3.5 * 0.6)));
     const level = (res.lines - 1) + (res.combo - 1);
     if (level >= 1) Sound.rush(sq + 0.06, level);
