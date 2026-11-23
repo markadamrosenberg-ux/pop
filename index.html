@@ -559,7 +559,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 24 Nov 08:35</div>
+        <div class="ver" id="buildVer">Version 24 Nov 08:40</div>
       </div>
     </div>
   </div>
@@ -2740,13 +2740,9 @@ const NEW_SKINS = [
       ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.ellipse(-r * 0.6, -r * 0.1, r * 0.06, r * 0.28, 0.25, 0, Math.PI * 2); ctx.fill();
     },
   },
-  { name: 'People', colours: NEW_COLS, squish: 1.4, face: true, human: true,
+  { name: 'People', colours: NEW_COLS, squish: 1.4, face: true, human: true, noBall: true,
     // little human faces, all different: they watch your piece, scream when their line goes, and the rest laugh at them
-    draw(ctx, s, c, i) {
-      const r = s * 0.45;
-      ctx.fillStyle = nlFill(ctx, r, c, 0.5, 0.38);
-      ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-    },
+    draw(ctx, s, c, i) {},   // no bubble: just the head
   },
 ];
 if (CONFIG.newLooks) SKINS.push(...NEW_SKINS);
@@ -3532,11 +3528,11 @@ function sprite(skinIdx, colour) {
     x.fillStyle = g; x.beginPath(); x.arc(0, size * 0.09, size * 0.56, 0, Math.PI * 2); x.fill();
   }
   sk.draw(x, size, sk.fixedColours ? sk.colours[colour % sk.colours.length] : vivid(sk.colours[colour % sk.colours.length]), colour, sk.colours);
-  if (onScene()) {       // a crisp dark outline so every ball pops off a busy or bright background
+  if (onScene() && !sk.noBall) {       // a crisp dark outline so every ball pops off a busy or bright background
     x.strokeStyle = 'rgba(8,6,24,0.7)'; x.lineWidth = Math.max(1.2, size * 0.035);
     x.beginPath(); x.arc(0, 0, size * 0.462, 0, Math.PI * 2); x.stroke();
   }
-  if (th.ballRim) {      // fine cool rim so a dark edge never melts into the background
+  if (th.ballRim && !sk.noBall) {      // fine cool rim so a dark edge never melts into the background
     x.strokeStyle = th.ballRim; x.lineWidth = Math.max(0.8, size * 0.022);
     x.beginPath(); x.arc(0, 0, size * 0.447, 0, Math.PI * 2); x.stroke();
     const hl = x.createLinearGradient(0, -size * 0.45, 0, size * 0.1);
@@ -3682,8 +3678,8 @@ function drawHuman(cx, cy, size, sx, sy, alpha, seed, now, colour, g2 = null) {
   const shake = m > 0.8 && !settings.reduced ? r * 0.05 : 0, hop = laughing && !settings.reduced ? Math.abs(Math.sin(t * 22 + seed)) * r * 0.08 * lp : 0;
   ctx.save(); ctx.translate(cx + (shake ? Math.sin(t * 90 + seed) * shake : 0), cy - hop + (shake ? Math.cos(t * 77 + seed) * shake : 0)); ctx.scale(sx, sy); ctx.globalAlpha = alpha;
   if (laughing) ctx.rotate(Math.sin(t * 11 + seed) * 0.08 * lp);
-  ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r * 0.99, 0, Math.PI * 2); ctx.clip();
-  const h = r * 0.8, hy = r * 0.06, dark = mix(hairC, '#000000', 0.35);
+  ctx.save();
+  const h = r * 0.9, hy = r * 0.08, dark = mix(hairC, '#000000', 0.35);
   // hair that sits behind the head: long hair, afros, pigtails
   ctx.fillStyle = hairC;
   if (style === 2 || style === 9) { ctx.beginPath(); ctx.ellipse(0, hy + h * 0.25, h * 1.12, h * 1.15, 0, 0, Math.PI * 2); ctx.fill(); }
@@ -3695,7 +3691,7 @@ function drawHuman(cx, cy, size, sx, sy, alpha, seed, now, colour, g2 = null) {
   for (const sg of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sg * h * 0.97, hy + h * 0.06, h * 0.16, h * 0.22, 0, 0, Math.PI * 2); ctx.fill(); }
   const sg0 = ctx.createRadialGradient(-h * 0.3, hy - h * 0.35, h * 0.1, 0, hy, h * 1.05);
   sg0.addColorStop(0, mix(skinC, '#ffffff', 0.25)); sg0.addColorStop(0.6, skinC); sg0.addColorStop(1, mix(skinC, '#5a2a18', 0.3));
-  ctx.fillStyle = sg0; ctx.beginPath(); ctx.ellipse(0, hy, h * 0.92, h, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = sg0; ctx.beginPath(); ctx.ellipse(0, hy, h * 0.92, h, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'rgba(20,8,10,0.35)'; ctx.lineWidth = Math.max(0.8, h * 0.03); ctx.stroke();
   // hair on top of the head
   ctx.fillStyle = hairC;
   const cap = (f, R = h * 1.04) => { ctx.beginPath(); for (let i = 0; i <= 24; i++) { const x = -R + i / 24 * 2 * R; const y = hy + f(x / h) * h; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.arc(0, hy, R, 0, Math.PI, true); ctx.closePath(); ctx.fill(); };
@@ -3786,8 +3782,6 @@ function drawHuman(cx, cy, size, sx, sy, alpha, seed, now, colour, g2 = null) {
   }
   if (hasBeard && beard < 0.3) { ctx.fillStyle = hairC; ctx.beginPath(); ctx.ellipse(-mw * 0.55, my - h * 0.09, mw * 0.6, h * 0.07, 0.15, 0, Math.PI * 2); ctx.ellipse(mw * 0.55, my - h * 0.09, mw * 0.6, h * 0.07, -0.15, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
-  // a glossy bubble skin over the whole face
-  ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.beginPath(); ctx.ellipse(-r * 0.42, -r * 0.55, r * 0.22, r * 0.11, -0.6, 0, Math.PI * 2); ctx.fill();
   // "ha!" floats up off some of them while they laugh
   if (laughing && seed % 3 === 0) {
     const q = ((now - faceLaugh.from) / 900 + (seed % 5) * 0.13) % 1;
