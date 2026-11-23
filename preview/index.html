@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 23:57</div>
+        <div class="ver" id="buildVer">Version 23 Nov 23:59</div>
       </div>
     </div>
   </div>
@@ -2100,8 +2100,13 @@ function animSnow(ctx, s, c, i, t, seed) {
 }
 // the fish swims to and fro, blinks, blows bubbles, and the water sloshes
 function animFish(ctx, s, c, i, t, seed) {
-  const r = s * 0.45, sw = Math.sin(t * 0.9 + seed), dir = Math.cos(t * 0.9 + seed) >= 0 ? 1 : -1;
-  const fx = sw * r * 0.25, fy = r * 0.2 + Math.sin(t * 2.1 + seed) * r * 0.06, fl = r * 0.38;
+  const r = s * 0.45, sw = Math.sin(t * 0.9 + seed);
+  const fx = sw * r * 0.14, fy = r * 0.18 + Math.sin(t * 2.1 + seed) * r * 0.05, fl = r * 0.52;
+  // where's the piece? the fish turns to face it and its eyes follow it
+  const pos = window._animPos, dp = pos && typeof Input !== 'undefined' && Input.dragPoint ? Input.dragPoint() : null;
+  let tx, ty;
+  if (dp) { tx = (dp.x - pos[0]) - fx; ty = (dp.y - pos[1]) - fy; } else { const k = Math.floor(t * 0.35 + seed * 0.3); tx = Math.sin(k * 12.9898 + seed) * 10 + Math.cos(t * 0.9 + seed) * 6; ty = Math.cos(k * 78.233 + seed) * 6; }
+  const dir = dp ? (tx >= 0 ? 1 : -1) : (Math.cos(t * 0.9 + seed) >= 0 ? 1 : -1);
   // water surface sloshing
   ctx.save(); ctx.beginPath(); ctx.arc(0, r * 0.03, r * 0.93, 0, Math.PI * 2); ctx.clip();
   ctx.strokeStyle = 'rgba(220,245,255,0.85)'; ctx.lineWidth = r * 0.05; ctx.beginPath();
@@ -2116,11 +2121,16 @@ function animFish(ctx, s, c, i, t, seed) {
   fg.addColorStop(0, mixH(c, '#ffffff', 0.45)); fg.addColorStop(1, c);
   ctx.fillStyle = fg; ctx.beginPath(); ctx.ellipse(0, 0, fl * 0.85, fl * 0.55, 0, 0, Math.PI * 2); ctx.fill();
   const blink = ((t * 0.3 + seed * 0.41) % 1) < 0.04;
-  if (blink) { ctx.strokeStyle = '#14141c'; ctx.lineWidth = fl * 0.08; ctx.beginPath(); ctx.moveTo(fl * 0.28, -fl * 0.12); ctx.lineTo(fl * 0.52, -fl * 0.12); ctx.stroke(); }
-  else {
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(fl * 0.4, -fl * 0.12, fl * 0.17, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#14141c'; ctx.beginPath(); ctx.arc(fl * 0.45, -fl * 0.12, fl * 0.09, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(fl * 0.42, -fl * 0.16, fl * 0.035, 0, Math.PI * 2); ctx.fill();
+  if (blink) { ctx.strokeStyle = '#14141c'; ctx.lineWidth = fl * 0.08; ctx.beginPath(); ctx.moveTo(fl * 0.16, -fl * 0.12); ctx.lineTo(fl * 0.6, -fl * 0.12); ctx.stroke(); }
+  else {   // a big eye with a blue iris that looks where you're dragging
+    const ex = fl * 0.36, ey = -fl * 0.1, er = fl * 0.31, gl = Math.hypot(tx, ty) || 1, lx = tx * dir / gl, ly = ty / gl;
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = fl * 0.03; ctx.stroke();
+    const ix = ex + lx * er * 0.38, iy = ey + ly * er * 0.38, ir = er * 0.62;
+    const ig = ctx.createRadialGradient(ix - ir * 0.2, iy - ir * 0.2, ir * 0.1, ix, iy, ir); ig.addColorStop(0, '#9fdcff'); ig.addColorStop(0.6, '#1f8fe8'); ig.addColorStop(1, '#0a3f8a');
+    ctx.fillStyle = ig; ctx.beginPath(); ctx.arc(ix, iy, ir, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#05070f'; ctx.beginPath(); ctx.arc(ix + lx * ir * 0.15, iy + ly * ir * 0.15, ir * 0.48, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ix - ir * 0.3, iy - ir * 0.35, ir * 0.25, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
   // bubbles rising
@@ -3619,6 +3629,7 @@ function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, se
   } else drawBall(skinIdx, colour, cx, cy, size, sx, sy, alpha);
   if (sk.anim && !settings.reduced && size > 14) {
     ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy); ctx.globalAlpha = alpha;
+    window._animPos = [cx, cy];
     sk.anim(ctx, size, sk.fixedColours ? sk.colours[colour % sk.colours.length] : vivid(sk.colours[colour % sk.colours.length]), colour, now / 1000, seed); ctx.restore();
   }
   if (sk.face && size > 10) drawFace(cx, cy, size, sx, sy, alpha, seed, now);
