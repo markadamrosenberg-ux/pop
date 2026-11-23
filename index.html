@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 22:39</div>
+        <div class="ver" id="buildVer">Version 23 Nov 22:41</div>
       </div>
     </div>
   </div>
@@ -2194,8 +2194,8 @@ const NEW_SKINS = [
   { name: 'Eyeballs', eye: true, hit: 'squish', squish: 2, colours: NEW_COLS,
     // a glossy eyeball: the iris (in the bubble's colour), lids and lashes are drawn live so they can look and blink
     draw(ctx, s, c, i) {
-      const r = s * 0.45, g = ctx.createRadialGradient(-r * 0.25, -r * 0.3, r * 0.1, 0, 0, r * 1.05);
-      g.addColorStop(0, '#ffffff'); g.addColorStop(0.7, '#f4efea'); g.addColorStop(1, '#d9b9b4');
+      const r = s * 0.45, g = ctx.createRadialGradient(-r * 0.22, -r * 0.28, r * 0.05, 0, 0, r * 1.02);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, '#f7f3ef'); g.addColorStop(0.8, '#e3d2cc'); g.addColorStop(1, '#b98f8a');
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
       const rnd = (k => () => (k = (k * 16807) % 2147483647) / 2147483647)(55 + i * 31);
       ctx.strokeStyle = 'rgba(200,40,50,0.45)'; ctx.lineWidth = s * 0.01;
@@ -3433,34 +3433,51 @@ function drawEye(cx, cy, size, sx, sy, alpha, seed, now, colour, g2 = null) {
   const dp = !g2 && typeof Input !== 'undefined' && Input.dragPoint ? Input.dragPoint() : null;
   let gx, gy;
   if (dp) { gx = dp.x - cx; gy = dp.y - cy; } else { const k = Math.floor(t * 0.35 + seed * 0.29); gx = Math.sin(k * 12.9898 + seed) * 10; gy = Math.cos(k * 78.233 + seed) * 8; }
-  const gl = Math.hypot(gx, gy) || 1, look = Math.min(1, gl / (r * 0.7)), ox = gx / gl * look * r * 0.36, oy = gy / gl * look * r * 0.3;
+  const gl = Math.hypot(gx, gy) || 1, look = Math.min(1, gl / (r * 0.7)), ux = gx / gl, uy = gy / gl;
+  // the iris sits on the curve of the eyeball: it slides towards where it's looking and foreshortens
+  const d = look * 0.62, ox = ux * d * r, oy = uy * d * r * 0.85, squash = Math.sqrt(1 - d * d * 0.85), ang = Math.atan2(uy, ux);
   ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r * 0.99, 0, Math.PI * 2); ctx.clip();
-  const ir = r * 0.5, ig = ctx.createRadialGradient(ox, oy, ir * 0.15, ox, oy, ir);
-  ig.addColorStop(0, mix(colour, '#ffffff', 0.35)); ig.addColorStop(0.65, colour); ig.addColorStop(1, mix(colour, '#000000', 0.55));
-  ctx.fillStyle = ig; ctx.beginPath(); ctx.ellipse(ox, oy, ir * (1 - Math.abs(ox) / r * 0.3), ir * (1 - Math.abs(oy) / r * 0.3), 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.28)';
-  ctx.lineWidth = r * 0.02; for (let k = 0; k < 14; k++) { const a = k / 14 * Math.PI * 2; ctx.beginPath(); ctx.moveTo(ox + Math.cos(a) * ir * 0.35, oy + Math.sin(a) * ir * 0.35); ctx.lineTo(ox + Math.cos(a) * ir * 0.9, oy + Math.sin(a) * ir * 0.9); ctx.stroke(); }
-  const pr = ir * (0.45 - 0.25 * m + 0.05 * Math.sin(t * 0.7 + seed));
-  ctx.fillStyle = '#05030a'; ctx.beginPath(); ctx.arc(ox, oy, pr, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,0.9)'; ctx.beginPath(); ctx.arc(ox - ir * 0.3, oy - ir * 0.32, ir * 0.16, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(ox + ir * 0.25, oy + ir * 0.2, ir * 0.06, 0, Math.PI * 2); ctx.fill();
-  // eyelids: a quick blink every few seconds (eyes stay wide open when scared)
+  const ir = r * 0.5;
+  ctx.save(); ctx.translate(ox, oy); ctx.rotate(ang); ctx.scale(squash, 1); ctx.rotate(-ang);
+  // iris: dark limbal ring, two-tone colour, fine fibres
+  const ig = ctx.createRadialGradient(0, 0, ir * 0.1, 0, 0, ir);
+  ig.addColorStop(0, mix(colour, '#ffcf6a', 0.55)); ig.addColorStop(0.3, mix(colour, '#ffffff', 0.15)); ig.addColorStop(0.75, colour); ig.addColorStop(0.92, mix(colour, '#000000', 0.55)); ig.addColorStop(1, 'rgba(20,10,10,0.95)');
+  ctx.fillStyle = ig; ctx.beginPath(); ctx.arc(0, 0, ir, 0, Math.PI * 2); ctx.fill();
+  const rnd = (k => () => (k = (k * 16807) % 2147483647) / 2147483647)(1 + Math.floor(seed * 1000));
+  for (let k = 0; k < 46; k++) { const a = rnd() * Math.PI * 2, r0 = ir * (0.3 + rnd() * 0.1), r1 = ir * (0.7 + rnd() * 0.22);
+    ctx.strokeStyle = rnd() < 0.5 ? 'rgba(255,255,255,0.22)' : 'rgba(0,0,0,0.22)'; ctx.lineWidth = Math.max(0.5, r * 0.012);
+    ctx.beginPath(); ctx.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); ctx.quadraticCurveTo(Math.cos(a + 0.08) * (r0 + r1) / 2, Math.sin(a + 0.08) * (r0 + r1) / 2, Math.cos(a) * r1, Math.sin(a) * r1); ctx.stroke(); }
+  const pr = ir * (0.42 - 0.24 * m + 0.05 * Math.sin(t * 0.7 + seed));
+  const pg = ctx.createRadialGradient(0, 0, 0, 0, 0, pr); pg.addColorStop(0, '#000000'); pg.addColorStop(0.85, '#050208'); pg.addColorStop(1, 'rgba(5,2,8,0.6)');
+  ctx.fillStyle = pg; ctx.beginPath(); ctx.arc(0, 0, pr, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  // shadow cast by the upper lid onto the eyeball
   const bp = ((t * 0.27 + seed * 0.618) % 1), blink = m < 0.3 && bp < 0.05 ? Math.sin(bp / 0.05 * Math.PI) : 0;
-  const open = 1 - blink, lidTop = -r * (0.62 + 0.5 * m) + (r * 1.7) * (1 - open) * 0.5, lidBot = r * (0.72 + 0.4 * m) - (r * 1.7) * (1 - open) * 0.5;
-  const skinC = '#f2b8a0', lg = ctx.createLinearGradient(0, -r, 0, lidTop);
-  lg.addColorStop(0, '#d98e78'); lg.addColorStop(1, skinC);
+  const open = 1 - blink, lidTop = -r * (0.6 + 0.5 * m) + (r * 1.7) * (1 - open) * 0.5, lidBot = r * (0.7 + 0.4 * m) - (r * 1.7) * (1 - open) * 0.5;
+  const sh = ctx.createLinearGradient(0, lidTop + r * 0.1, 0, lidTop + r * 0.5); sh.addColorStop(0, 'rgba(60,20,20,0.45)'); sh.addColorStop(1, 'rgba(60,20,20,0)');
+  ctx.fillStyle = sh; ctx.fillRect(-r, lidTop, r * 2, r * 0.6);
+  // the wet cornea: a window-shaped highlight and a soft second glint
+  ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.beginPath(); ctx.ellipse(-r * 0.22, -r * 0.2, r * 0.13, r * 0.09, -0.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(r * 0.2, r * 0.22, r * 0.06, r * 0.035, -0.5, 0, Math.PI * 2); ctx.fill();
+  // upper lid: rounded skin with a crease, a thick edge; lower lid with a pink waterline
+  const skin = '#efb59c', lg = ctx.createLinearGradient(0, -r, 0, lidTop + r * 0.25);
+  lg.addColorStop(0, '#c98068'); lg.addColorStop(0.55, skin); lg.addColorStop(1, '#f6c8b2');
   ctx.fillStyle = lg; ctx.beginPath(); ctx.moveTo(-r * 1.1, -r * 1.1); ctx.lineTo(r * 1.1, -r * 1.1); ctx.lineTo(r * 1.1, lidTop + r * 0.25);
   ctx.quadraticCurveTo(0, lidTop - r * 0.18, -r * 1.1, lidTop + r * 0.25); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = skinC; ctx.beginPath(); ctx.moveTo(-r * 1.1, r * 1.1); ctx.lineTo(r * 1.1, r * 1.1); ctx.lineTo(r * 1.1, lidBot - r * 0.2);
+  ctx.strokeStyle = 'rgba(120,50,40,0.45)'; ctx.lineWidth = r * 0.04; ctx.beginPath(); ctx.moveTo(-r * 0.9, lidTop - r * 0.05); ctx.quadraticCurveTo(0, lidTop - r * 0.42, r * 0.9, lidTop - r * 0.05); ctx.stroke();   // crease
+  ctx.strokeStyle = '#7a3a30'; ctx.lineWidth = r * 0.05; ctx.beginPath(); ctx.moveTo(-r * 1.1, lidTop + r * 0.25); ctx.quadraticCurveTo(0, lidTop - r * 0.18, r * 1.1, lidTop + r * 0.25); ctx.stroke();
+  const bg = ctx.createLinearGradient(0, lidBot - r * 0.2, 0, r); bg.addColorStop(0, '#e89a8a'); bg.addColorStop(0.15, skin); bg.addColorStop(1, '#c98068');
+  ctx.fillStyle = bg; ctx.beginPath(); ctx.moveTo(-r * 1.1, r * 1.1); ctx.lineTo(r * 1.1, r * 1.1); ctx.lineTo(r * 1.1, lidBot - r * 0.2);
   ctx.quadraticCurveTo(0, lidBot + r * 0.12, -r * 1.1, lidBot - r * 0.2); ctx.closePath(); ctx.fill();
   ctx.restore();
-  // lashes along the top lid
-  ctx.strokeStyle = '#1a0f12'; ctx.lineWidth = Math.max(1, r * 0.06); ctx.lineCap = 'round';
-  for (let k = -3; k <= 3; k++) {
-    const u = k / 3.6, lx = u * r * 0.95, ly = lidTop + r * 0.25 - (1 - u * u) * r * 0.43 + r * 0.02;
-    if (lx * lx + ly * ly > r * r * 1.05) continue;
-    const ang = -Math.PI / 2 + u * 0.9;
-    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.quadraticCurveTo(lx + Math.cos(ang) * r * 0.12, ly + Math.sin(ang) * r * 0.16, lx + Math.cos(ang + u * 0.3) * r * 0.24, ly + Math.sin(ang) * r * 0.24); ctx.stroke();
+  // lashes: thick, curling up and out from the lid edge
+  ctx.strokeStyle = '#140a0c'; ctx.lineCap = 'round';
+  for (let k = -5; k <= 5; k++) {
+    const u = k / 5.6, lx = u * r * 0.92, ly = lidTop + r * 0.25 - (1 - u * u) * r * 0.43 + r * 0.01;
+    if (lx * lx + ly * ly > r * r * 1.08) continue;
+    const L = r * (0.22 + 0.06 * (1 - Math.abs(u))), a0 = -Math.PI / 2 + u * 1.1;
+    ctx.lineWidth = Math.max(0.8, r * 0.05 * (1 - Math.abs(u) * 0.4));
+    ctx.beginPath(); ctx.moveTo(lx, ly); ctx.quadraticCurveTo(lx + Math.cos(a0) * L * 0.7, ly + Math.sin(a0) * L * 0.7, lx + Math.cos(a0 + u * 0.6 + 0.25 * Math.sign(u || 1)) * L, ly + Math.sin(a0) * L * 0.85 - L * 0.1); ctx.stroke();
   }
   ctx.restore();
 }
