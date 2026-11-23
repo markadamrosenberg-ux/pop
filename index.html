@@ -536,7 +536,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 23 Nov 23:17</div>
+        <div class="ver" id="buildVer">Version 23 Nov 23:24</div>
       </div>
     </div>
   </div>
@@ -1771,7 +1771,7 @@ const Sound = (() => {
     // when a line of them pops: a rally of hits (a ping-pong ball bounces away, getting faster)
     rally(kind, n = 3) {
       if (!ok()) return;
-      if (kind === 'boing') { for (let k = 0; k < Math.min(5, 2 + n); k++) playSample('boing', k * 0.11, 0.8 - k * 0.08, 0.9 + k * 0.12) || this.hit('boing'); return; }
+      if (kind === 'boing') { playSample('boing', 0.2, 1, 0.9) || this.hit('boing'); return; }   // one big boing for the whole clear, as the balls hit the bounce
       if (kind === 'pingpong') { let at = 0, gap = 0.22; for (let k = 0; k < 7; k++) { setTimeout(() => this.hit('pingpong', 1 - k * 0.12), at * 1000); at += gap; gap *= 0.72; } return; }
       for (let k = 0; k < Math.min(4, n); k++) setTimeout(() => this.hit(kind, 1 - k * 0.15), k * 90);
     },
@@ -5128,7 +5128,7 @@ function updateFX(now, dt) {
     p.life += dt;
     if (p.k === 'ball') {   // a basketball bouncing away: gravity, a springy bounce off the bottom of the board, then off screen
       p.vy += g * 0.55 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
-      if (p.y > p.floor && p.vy > 0 && p.bounces < 3) { p.y = p.floor; p.vy *= -0.62; p.vx *= 0.9; p.bounces++; p.squashT = p.life; if (p.bounces === 1) try { Sound.hit('boing', 0.5); } catch (_) {} }
+      if (p.y > p.floor && p.vy > 0 && p.bounces < 3) { p.y = p.floor; p.vy *= -0.62; p.vx *= 0.9; p.bounces++; p.squashT = p.life; }
     }
     if (p.k === 'fizz') { p.vx *= 1 - 2.2 * dt; p.vy = p.vy * (1 - 1.6 * dt) - g * 0.06 * dt; p.x += (p.vx + Math.sin(p.life * 14 + p.ph) * L.c * 0.6) * dt; p.y += p.vy * dt; }
     if (p.k === 'drop' || p.k === 'mist' || p.k === 'spark') { p.vy += (p.k === 'mist' ? g * 0.1 : p.k === 'spark' ? g * 0.22 : g) * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
