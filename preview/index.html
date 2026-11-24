@@ -564,7 +564,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 24 Nov 20:50</div>
+        <div class="ver" id="buildVer">Version 24 Nov 20:52</div>
       </div>
     </div>
   </div>
@@ -1936,10 +1936,10 @@ const Sound = (() => {
       o.type = 'triangle'; const f0 = R(300, 360);
       o.frequency.setValueAtTime(f0 * 0.8, t); o.frequency.linearRampToValueAtTime(f0, t + 0.03); o.frequency.exponentialRampToValueAtTime(f0 * 0.42, t + 0.2);
       f.type = 'lowpass'; f.frequency.setValueAtTime(1400, t); f.frequency.exponentialRampToValueAtTime(380, t + 0.2); f.Q.value = 6;
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.025); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.13, t + 0.025); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
       o.connect(f); f.connect(g); if (p) { p.pan.value = pan * 0.6; g.connect(p); p.connect(out); } else g.connect(out);
       o.start(t); o.stop(t + 0.26);
-      noise(t + 0.01, { type: 'lowpass', f: 700, q: 2, peak: 0.02, attack: 0.02, decay: 0.12, pan });
+      noise(t + 0.01, { type: 'lowpass', f: 700, q: 2, peak: 0.035, attack: 0.02, decay: 0.12, pan });
       noise(t + 0.09, { type: 'bandpass', f: R(500, 700), q: 3, peak: 0.008, attack: 0.01, decay: 0.06, pan });
     },
     pickup() { if (!ok()) return; const t = ac.currentTime; plip(t, 820 * R(0.97, 1.03), 0.035, 0.035); },
@@ -6489,10 +6489,10 @@ const Input = (() => {
       if (gx >= 0 && gy >= 0 && gx < N && gy < N) {
         if (state.grid[Logic.idx(gx, gy)]) {
           e.preventDefault(); const now = performance.now();
-          FX.settle.set(Logic.idx(gx, gy), { t0: now, amp: 0.34 * (skin().squish ? Math.min(1.4, skin().squish / 1.5) : 1) });
+          FX.settle.set(Logic.idx(gx, gy), { t0: now, amp: 0.5 * (skin().squish ? Math.min(1.4, skin().squish / 1.5) : 1) });
           for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
             const nx = gx + dx, ny = gy + dy;
-            if (nx >= 0 && ny >= 0 && nx < N && ny < N && state.grid[Logic.idx(nx, ny)] && !FX.settle.has(Logic.idx(nx, ny))) FX.settle.set(Logic.idx(nx, ny), { t0: now + 70, amp: 0.1 });
+            if (nx >= 0 && ny >= 0 && nx < N && ny < N && state.grid[Logic.idx(nx, ny)] && !FX.settle.has(Logic.idx(nx, ny))) FX.settle.set(Logic.idx(nx, ny), { t0: now + 70, amp: 0.16 });
           }
           Sound.squish(((x - L.ix) / (L.c * N)) * 2 - 1); Haptics.pulse(8);
         }
