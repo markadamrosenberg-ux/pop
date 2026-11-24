@@ -247,7 +247,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .coach{position:absolute;z-index:6;left:50%;width:min(86%,360px);transform:translateX(-50%) scale(.9);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;
   background:rgba(16,18,40,.96);border:2px solid #ffd23f;border-radius:18px;padding:12px 14px;color:#fff;font-size:15px;line-height:1.4;box-shadow:0 10px 30px rgba(0,0,0,.5)}
 .coachpt{position:absolute;z-index:7;font-size:44px;line-height:1;pointer-events:none;display:none;filter:drop-shadow(0 3px 6px rgba(0,0,0,.6));transform:translate(-50%,0)}
-.coachpt.up{animation:ptUp .8s ease-in-out infinite}.coachpt.down{animation:ptDown .8s ease-in-out infinite}
+.coachpt.up{animation:ptUp .8s ease-in-out infinite}.coachpt.extra{font-size:32px}.coachpt.down{animation:ptDown .8s ease-in-out infinite}
 @keyframes ptUp{50%{margin-top:10px}}@keyframes ptDown{50%{margin-top:-10px}}
 .coach.show{opacity:1;transform:translateX(-50%) scale(1);pointer-events:auto}
 .coach b{color:#ffd23f}
@@ -559,7 +559,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 24 Nov 11:05</div>
+        <div class="ver" id="buildVer">Version 24 Nov 11:36</div>
       </div>
     </div>
   </div>
@@ -2799,6 +2799,10 @@ const Coach = (() => {
     for (let i = 0; i < N * N; i++) { if (!state.grid[i]) continue; const x = i % N, y = Math.floor(i / N);
       let sc = 0; for (let k = 0; k < N; k++) sc += (state.grid[y * N + k] ? 1 : 0) + (state.grid[k * N + x] ? 1 : 0);
       if (sc < bs) { bs = sc; best = i; } } return best; };
+  const pinsLeft = () => Store.get('pins', 0) + Store.get('pinSpare', 0) + Input.pinShots();
+  const leftIdx = () => { const a = []; for (let i = 0; i < N * N; i++) if (state.grid[i]) a.push(i); return a; };
+  const fewLeft = () => { const n = state.grid.filter(Boolean).length; return n >= 1 && n <= 4 && !(Input.partyMode && Input.partyMode()); };
+  const leftCells = () => leftIdx().map(cellRect);
   const TIPS = [
     { id: 'golden', when: () => state.golden, at: () => cellRect(state.golden.i),
       text: () => `✨ <b>Golden bubble!</b> Clear its row or column within <b>${state.golden.left} moves</b> to win a <b>Frame Bubble</b>.` },
@@ -2808,6 +2812,11 @@ const Coach = (() => {
       text: () => `❓ <b>Mystery piece</b>: pick it up to reveal a special shape, then place it like any piece.` },
     { id: 'party', when: () => Input.partyMode && Input.partyMode(), at: () => null,
       text: () => `🎉 <b>Pop Party</b>: tap bubbles to pop them for points. Pick the ones that open up lines. Picking up a piece ends it.` },
+    // the first time only a few bubbles are left and you have a pin: show how to finish the frame with it
+    { id: 'pinFinish', always: true, when: () => pinsLeft() > 0 && !Input.pinShots() && fewLeft(), at: () => elRect('pinBtn'), point: 'up', extra: leftCells,
+      text: () => `📍 Only <b>${state.grid.filter(Boolean).length} left!</b> Tap the <b>Pin</b> up here, then pop the last bubbles to <b>clear the frame</b>.` },
+    { id: 'pinFinishTap', always: true, when: () => Input.pinShots() > 0 && fewLeft(), at: () => null, card: 'tray', extra: leftCells,
+      text: () => `👇 Now <b>tap each bubble</b> to pop it. Pop them all and the frame is cleared!` },
     { id: 'pin', when: () => (Store.get('pins', 0) + Store.get('pinSpare', 0)) > 0 && !Input.pinShots() && (state.frameMoves | 0) >= 3 && state.grid.filter(Boolean).length >= 5, at: () => elRect('pinBtn'),
       point: 'up', text: () => `📍 <b>Pin</b>: tap the Pin up here to pick it up. Then tap a bubble to pop it.` },
     { id: 'pinTap', when: () => Input.pinShots() > 0 && !(Input.partyMode && Input.partyMode()) && state.grid.some(Boolean), at: () => cellRect(pinTarget()),
@@ -2824,7 +2833,7 @@ const Coach = (() => {
   function hide(markSeen = true) {
     if (!cur) return; if (markSeen) Store.set('tipsSeen', seen().concat(cur.id));
     if (cur.ring) cur.ring.classList.remove('coachring');
-    el().classList.remove('show'); document.getElementById('coachPt').style.display = 'none'; cur = null; lastHide = performance.now();
+    el().classList.remove('show'); document.getElementById('coachPt').style.display = 'none'; document.querySelectorAll('.coachpt.extra').forEach(e => e.remove()); cur = null; lastHide = performance.now();
   }
   function show(t) {
     const box = el(), at = t.at(), sr = (box.offsetParent || box.parentElement).getBoundingClientRect();
@@ -2856,22 +2865,32 @@ const Coach = (() => {
         box.style.top = (above >= 8 ? above : Math.min(sr.height - h - 8, at.y - sr.top + at.h / 2 + 14)) + 'px'; }
       box.querySelectorAll('.arr').forEach(a => a.remove());
     } else pt.style.display = 'none';
+    if (t.card === 'tray') { const cr = document.getElementById('cv').getBoundingClientRect(); box.style.top = Math.min(sr.height - h - 8, cr.top - sr.top + L.ty + 6) + 'px'; }
+    document.querySelectorAll('.coachpt.extra').forEach(e => e.remove());
+    if (t.extra) for (const c of t.extra()) {   // a bouncing finger over every bubble you could pop
+      const e = document.createElement('div'); e.className = 'coachpt down extra'; e.textContent = '👇';
+      e.style.display = 'block'; e.style.left = (c.x - sr.left) + 'px'; e.style.top = (c.y - sr.top - c.h / 2 - 38) + 'px';
+      pt.parentElement.appendChild(e);
+    }
+    if (t.id === 'pinFinishTap' && !seen().includes('pinFinish')) Store.set('tipsSeen', seen().concat('pinFinish'));
     cur = { id: t.id, ring: at && at.el ? at.el : null, since: performance.now() };
     if (cur.ring) cur.ring.classList.add('coachring');
   }
   return {
     tick(now) {
       // tips are only for a beginner's first (guided) game; never again after that
-      if (!state.tutorial) { if (cur) hide(false); return; }
+      // (except the pin-to-finish tip, which shows the first time it's useful in any game)
+      const pool = state.tutorial ? TIPS : TIPS.filter(q => q.always);
+      if (!state.tutorial && cur && !TIPS.find(q => q.id === cur.id && q.always)) { hide(false); return; }
       const blocked = !!document.querySelector('.overlay.show');
       if (cur && blocked) { hide(false); return; }
       if (cur) {   // the tip goes away once its moment has passed (but counts as seen)
         const t = TIPS.find(q => q.id === cur.id);
-        if (t && (!t.when() || (t.id === 'pinTap' && FX.goo.length)) && (now - cur.since > 1500 || t.id === 'pin' || t.id === 'pinTap')) hide(true);
+        if (t && (!t.when() || ((t.id === 'pinTap' || t.id === 'pinFinishTap') && FX.goo.length)) && (now - cur.since > 1500 || /^pin/.test(t.id))) hide(true);
         return;
       }
-      if ((now - lastHide < 1200 && !(Input.pinShots() > 0 && !seen().includes('pinTap'))) || blocked || state.over || UI.modalOpen() || FX.waterfall || Celebrate.active() || Input.dragPiece()) return;
-      const s = seen(); const t = TIPS.find(q => !s.includes(q.id) && q.when()); if (t) show(t);
+      if ((now - lastHide < 1200 && !(Input.pinShots() > 0 && (!seen().includes('pinTap') || !seen().includes('pinFinishTap')))) || blocked || state.over || UI.modalOpen() || FX.waterfall || Celebrate.active() || Input.dragPiece()) return;
+      const s = seen(); const t = pool.find(q => !s.includes(q.id) && q.when()); if (t) show(t);
     },
     hide,
     reset() { Store.set('tipsSeen', []); Store.set('tutNext', true); },
