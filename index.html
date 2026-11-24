@@ -1933,8 +1933,17 @@ const Sound = (() => {
     squish(pan = 0) {
       if (!ok()) return; const t = ac.currentTime; if (t - (this._sq || 0) < 0.06) return; this._sq = t;
       let si; do { si = Math.floor(Math.random() * 13); } while (si === this._lastSponge); this._lastSponge = si;
-      if (playSample('sponge' + si, 0, 0.7, R(0.93, 1.05))) return;   // one of Mark's 13 recorded sponge squishes, never the same twice in a row
-      if (playSample('squishRec', 0, 0.7, R(0.93, 1.05))) return;   // Mark's original recorded squish, while the sponges are still loading
+      // touch-sensitive: the squish starts soft and slow and keeps getting deeper and slower the longer you hold; let go early and it stops short
+      const b = sample('sponge' + si) || sample('squishRec');   // one of Mark's 13 recorded sponge squishes (his original squish while they load)
+      if (b) {
+        if (this._held) this.squishUp();
+        const src = ac.createBufferSource(), g = ac.createGain(), r = R(0.82, 0.9), vol = 0.42;
+        src.buffer = b; src.playbackRate.setValueAtTime(r, t); src.playbackRate.linearRampToValueAtTime(r * 0.7, t + 0.7);
+        g.gain.setValueAtTime(vol * 0.45, t); g.gain.linearRampToValueAtTime(vol, t + 0.2);
+        src.connect(g); g.connect(out); src.start(t);
+        this._held = { src, g, t0: t, vol };
+        return;
+      }
       // a wet, rubbery squelch: a soft tone that sags in pitch, with a little muffled slosh underneath
       const o = ac.createOscillator(), f = ac.createBiquadFilter(), g = ac.createGain(), p = ac.createStereoPanner ? ac.createStereoPanner() : null;
       o.type = 'triangle'; const f0 = R(300, 360);
@@ -1945,6 +1954,13 @@ const Sound = (() => {
       o.start(t); o.stop(t + 0.26);
       noise(t + 0.01, { type: 'lowpass', f: 700, q: 2, peak: 0.035, attack: 0.02, decay: 0.12, pan });
       noise(t + 0.09, { type: 'bandpass', f: R(500, 700), q: 3, peak: 0.008, attack: 0.01, decay: 0.06, pan });
+    },
+    // finger lifted: a quick tap cuts the squish short and light; a long hold has already played it out
+    squishUp() {
+      const h = this._held; this._held = null; if (!h || !ac) return;
+      const t = ac.currentTime, held = t - h.t0; if (held > 0.9) return;
+      const fade = 0.05 + held * 0.35;
+      try { h.g.gain.cancelScheduledValues(t); h.g.gain.setValueAtTime(Math.min(h.vol, h.vol * (0.45 + 0.55 * held / 0.2)), t); h.g.gain.linearRampToValueAtTime(0.0001, t + fade); h.src.stop(t + fade + 0.02); } catch (_) {}
     },
     // letting go of a bubble you pulled: the goo peels off your finger
     unstick(k = 1) { if (!ok()) return; playSample('squishRec', 0, 0.3 * Math.min(1, k), R(1.3, 1.45)); },
@@ -6566,6 +6582,7 @@ const Input = (() => {
     const sh = pokeShape(poke, now);
     poke.rel = { t0: now, sh };
     try { cv.releasePointerCapture(poke.pid); } catch (err) {}
+    Sound.squishUp();
     if (sh.q > 0.25) Sound.unstick(sh.q);
   }
   function gooFor(now) {
