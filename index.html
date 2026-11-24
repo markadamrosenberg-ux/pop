@@ -3211,6 +3211,15 @@ function refillTray(animate = true) {
   FX.trayIn = state.tray.map((_, i) => now + i * 60);
   if (animate) Sound.trayIn();
 }
+// A new frame always starts with a full hand of three: keep any mystery piece, fill every empty slot
+function fillHand() {
+  if (state.tray.every(Boolean)) return;
+  const eff = Math.max(0, state.boardClears + MODES[gameMode()].level * 2);
+  const fresh = Logic.newTray(state.grid, skin().colours.length, eff).filter(Boolean);
+  state.tray = state.tray.map(p => p || fresh.shift() || null);
+  const now = performance.now();
+  FX.trayIn = state.tray.map((_, i) => now + i * 60);
+}
 function isStuck() {
   const left = state.tray.filter(Boolean);
   const stuck = left.length > 0 && !left.some(p => p.mystery || Logic.anyFit(state.grid, p.shape));
@@ -3278,7 +3287,7 @@ function popClearedFrame(gx, gy) {
     Store.set('ladderPending', state.score);
     if (!Net._t) Net._t = setTimeout(() => { Net._t = 0; Net.flush(); }, 15000);
   }
-  if (state.tray.every(p => !p)) refillTray();   // the pieces in hand carry on into the new frame
+  if (state.tray.every(p => !p)) refillTray(); else fillHand();   // pieces in hand carry on, empty slots are topped up to three
   saveGame();
   const res = { waterfall: true, frameBubble: false, boardEmpty: true, washed: [], gx, gy, bonus, frameNo: state.boardClears,
     undoEarned, bonusEarned, pinEarned, multAfter: frameMult(), multBefore, starterCells };
@@ -3576,7 +3585,7 @@ function move(slot, gx, gy, repo = null) {
   const streakNews = touchStreak();
   const result = { repo: !!repo, grantSlot, bonusEarned, undoEarned, pinEarned, streakNews, multBefore, multAfter: frameMult(), skinName: null, frameBubble, mysteryGranted, mysteryPlaced: !!piece.mystery, slot, piece, gx, gy, placePts, linePts, colourPts, colourMatches, starterCells, golden, lines, comboMult, combo: state.combo, bonus, waterfall, boardEmpty, ...res, grid: state.grid, washed, frameNo: state.boardClears };
 
-  if (starterShapes) { const m = state.tray.filter(p => p && p.mystery); state.tray = [null, null, null]; m.forEach((p, i) => state.tray[i] = p); if (state.gapQueue.length) dealGaps(); }
+  if (starterShapes) { const m = state.tray.filter(p => p && p.mystery); state.tray = [null, null, null]; m.forEach((p, i) => state.tray[i] = p); if (state.gapQueue.length) dealGaps(); if (state.tray.some(Boolean)) fillHand(); }
   if (state.tray.every(p => !p)) refillTray();
   state.over = isStuck();
   saveGame();
