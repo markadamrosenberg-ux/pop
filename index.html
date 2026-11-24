@@ -1986,6 +1986,7 @@ const Sound = (() => {
       const src = ac.createBufferSource(), g = ac.createGain();
       src.buffer = b; src.playbackRate.value = R(0.9, 1.06); g.gain.value = SQUISH_VOL;
       src.connect(g); g.connect(out); src.start(t);
+      if (this.onFart) try { this.onFart(Math.max(0, t - ac.currentTime)); } catch (_) {}
     },
     // letting go of a bubble you pulled: the goo peels off your finger
     unstick(k = 1) { if (!ok()) return; playSample('squishRec', 0, SQUISH_VOL * 0.7 * Math.min(1, k), R(1.3, 1.45)); },
@@ -3869,6 +3870,7 @@ function drawLaughMouth(ctx, my, r, ink, hp) {
   ctx.strokeStyle = ink; ctx.lineWidth = r * 0.04; ctx.lineJoin = 'round'; shape(); ctx.stroke();
 }
 let faceLaugh = { from: 0, to: 0 };
+let lastSquishAt = null;   // where the last squish was, so a fart can puff from that bubble
 function laughFaces(delayMs) { const t = performance.now() + delayMs; faceLaugh = { from: t, to: t + 2000 }; }
 function drawEmoji(cx, cy, size, sx, sy, alpha, seed, now, g2 = null) {
   const ctx = g2 || window._mainCtx, r = size * 0.45, t = now / 1000, m = faceMood;
@@ -5404,6 +5406,31 @@ function spawnSplash(x, y, colourHex, I = 1, dir = 0) {
   }
 }
 
+// Squishing a bubble: little water droplets squeezed out of its sides, plus a dribble or two
+function squishDrops(x, y, colourHex, I = 1) {
+  const c = L.c, P = FX.particles;
+  if (settings.reduced || P.length > 480) return;
+  const n = Math.round((6 + Math.random() * 3) * I);
+  for (let i = 0; i < n; i++) {
+    const side = i % 2 ? 1 : -1, a = -Math.PI / 2 + side * (0.75 + Math.random() * 0.65), sp = c * (1.6 + Math.random() * 1.8) * I;
+    P.push({ k: 'drop', x: x + side * c * 0.36, y: y + c * (Math.random() * 0.12 - 0.02), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      r: c * (0.05 + Math.random() * 0.04), life: 0, max: 0.42 + Math.random() * 0.22, tint: Math.random() < 0.6 ? colourHex : null });
+  }
+  for (let i = 0; i < 2; i++)
+    P.push({ k: 'drop', x: x + (Math.random() - 0.5) * c * 0.5, y: y + c * 0.32, vx: (Math.random() - 0.5) * c * 0.5, vy: c * (0.4 + Math.random()), r: c * (0.045 + Math.random() * 0.025), life: 0, max: 0.5 + Math.random() * 0.2 });
+}
+// A fart: a little puff of murky smoke that billows out, drifts up and fades
+function fartPuff(x, y, delay = 0) {
+  const c = L.c, P = FX.particles;
+  if (P.length > 520) return;
+  const n = settings.reduced ? 4 : 9, dir = Math.random() < 0.5 ? -1 : 1;
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + dir * 0.35 + (Math.random() - 0.5) * 1.6, sp = c * (0.5 + Math.random() * 1.1);
+    P.push({ k: 'puff', x: x + (Math.random() - 0.5) * c * 0.3, y: y + c * (0.1 + Math.random() * 0.15), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      r: c * (0.2 + Math.random() * 0.14), life: -delay - i * 0.025, max: 1.2 + Math.random() * 0.5, ph: Math.random() * 6, shade: Math.random() });
+  }
+}
+Sound.onFart = d => { if (lastSquishAt) fartPuff(lastSquishAt.x, lastSquishAt.y, d); };
 /* Thick gooey blobs flung out from a Pin pop: big, slow, wobbly drops in the bubble's colour. */
 // Faces burst into a little firework: a flash, then rings of coloured sparks and a crackle
 function fireworkBurst(x, y, I = 1) {
@@ -5624,6 +5651,7 @@ function updateFX(now, dt) {
       p.vy += g * 0.55 * dt; p.x += p.vx * dt; p.y += p.vy * dt;
       if (p.y > p.floor && p.vy > 0 && p.bounces < 3) { p.y = p.floor; p.vy *= -0.62; p.vx *= 0.9; p.bounces++; p.squashT = p.life; }
     }
+    if (p.k === 'puff') { if (p.life < 0) continue; p.vx *= 1 - 1.8 * dt; p.vy = p.vy * (1 - 1.5 * dt) - L.c * 0.5 * dt; p.x += (p.vx + Math.sin(p.life * 3 + p.ph) * L.c * 0.15) * dt; p.y += p.vy * dt; }
     if (p.k === 'fizz') { p.vx *= 1 - 2.2 * dt; p.vy = p.vy * (1 - 1.6 * dt) - g * 0.06 * dt; p.x += (p.vx + Math.sin(p.life * 14 + p.ph) * L.c * 0.6) * dt; p.y += p.vy * dt; }
     if (p.k === 'drop' || p.k === 'mist' || p.k === 'spark') { p.vy += (p.k === 'mist' ? g * 0.1 : p.k === 'spark' ? g * 0.22 : g) * dt; p.x += p.vx * dt; p.y += p.vy * dt; }
   }
@@ -5932,6 +5960,13 @@ function draw(now) {
       ctx.fillStyle = `rgba(255,255,255,${0.85 * a})`;
       ctx.beginPath(); ctx.arc(-p.r * 0.3, len * 0.35, p.r * 0.35, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
+    } else if (p.k === 'puff') {
+      if (p.life < 0) continue;
+      const q = p.life / p.max, rr = p.r * (0.6 + 1.6 * easeOut(Math.min(1, q * 1.4))), al = Math.min(1, p.life / 0.08) * Math.pow(1 - q, 1.2) * 0.85;
+      const g = ctx.createRadialGradient(p.x - rr * 0.2, p.y - rr * 0.25, rr * 0.1, p.x, p.y, rr);
+      const lt = 190 + Math.round(p.shade * 35);   // soft grey with a faint swampy green tinge
+      g.addColorStop(0, `rgba(${Math.min(255, lt + 25)},${Math.min(255, lt + 35)},${lt + 5},${al})`); g.addColorStop(0.65, `rgba(${lt - 30},${lt - 12},${lt - 50},${al * 0.75})`); g.addColorStop(1, `rgba(${lt - 40},${lt - 25},${lt - 55},0)`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, rr, 0, Math.PI * 2); ctx.fill();
     } else if (p.k === 'mist') {
       ctx.fillStyle = `rgba(220,248,255,${0.1 * a})`; ctx.beginPath(); ctx.arc(p.x, p.y, p.r * (1 + p.life), 0, Math.PI * 2); ctx.fill();
     }
@@ -6640,6 +6675,8 @@ const Input = (() => {
             const nx = gx + dx, ny = gy + dy;
             if (nx >= 0 && ny >= 0 && nx < N && ny < N && state.grid[Logic.idx(nx, ny)] && !FX.settle.has(Logic.idx(nx, ny))) FX.settle.set(Logic.idx(nx, ny), { t0: now + 70, amp: 0.12 });
           }
+          { const [bx, by] = cellCentre(gx, gy), v = state.grid[Logic.idx(gx, gy)], cols = skin().colours;
+            lastSquishAt = { x: bx, y: by - L.c * 0.15 }; squishDrops(bx, by, cols[(v - 1) % cols.length]); }
           Sound.squish(((x - L.ix) / (L.c * N)) * 2 - 1); Haptics.pulse(8);
         }
         return;
