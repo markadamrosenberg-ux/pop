@@ -559,7 +559,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 24 Nov 11:44</div>
+        <div class="ver" id="buildVer">Version 24 Nov 12:14</div>
       </div>
     </div>
   </div>
@@ -3098,7 +3098,7 @@ function rescueMove() {
 
 function serialise() {
   return { grid: state.grid, tray: state.tray.map(packPiece),
-    score: state.score, combo: state.combo, sinceClear: state.sinceClear, skin: state.skin, boardClears: state.boardClears, frameLines: state.frameLines,
+    score: state.score, combo: state.combo, sinceClear: state.sinceClear, skin: state.skin, skinOrder: state.skinOrder, boardClears: state.boardClears, frameLines: state.frameLines,
     mysteryLines: state.mysteryLines, mysteryCount: state.mysteryCount, mysteryPending: state.mysteryPending, mysterySinceFrame: state.mysterySinceFrame, rescueGiven: !!state.rescueGiven,
     pid: state.pid, nextPid: state.nextPid, golden: state.golden || null, goldenDone: !!state.goldenDone, goldenDue: !!state.goldenDue, frameMoves: state.frameMoves | 0, goldenAt: state.goldenAt | 0, gapQueue: state.gapQueue || [], puzzlePure: !!state.puzzlePure, frameStart: state.frameStart | 0, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted, bgOffset: state.bgOffset | 0, tutorial: !!state.tutorial, easyTest: !!state.easyTest, swaps: state.swaps | 0 };
 }
@@ -3110,7 +3110,7 @@ function restoreGame() {
   state.tray = (g.tray || [null, null, null]).map(unpackPiece);
   state.mysteryLines = g.mysteryLines | 0; state.mysteryCount = g.mysteryCount | 0; state.mysteryPending = g.mysteryPending || false; state.mysterySinceFrame = g.mysterySinceFrame | 0; state.rescueGiven = !!g.rescueGiven;
   state.score = g.score | 0; state.combo = g.combo | 0; state.sinceClear = g.sinceClear | 0;
-  state.skin = g.skin | 0; state.bgOffset = g.bgOffset | 0; state.tutorial = !!g.tutorial; state.bgFrame = g.boardClears | 0; state.easyTest = !!g.easyTest; state.swaps = g.swaps == null ? 3 : g.swaps | 0; state.boardClears = g.boardClears | 0; state.frameLines = g.frameLines | 0; state.over = false;
+  state.skin = g.skin | 0; state.skinOrder = Array.isArray(g.skinOrder) ? g.skinOrder : null; state.bgOffset = g.bgOffset | 0; state.tutorial = !!g.tutorial; state.bgFrame = g.boardClears | 0; state.easyTest = !!g.easyTest; state.swaps = g.swaps == null ? 3 : g.swaps | 0; state.boardClears = g.boardClears | 0; state.frameLines = g.frameLines | 0; state.over = false;
   applyPalette();
   // older saves have no piece ids: their bubbles are fixed, new placements are tracked normally
   state.pid = validPids(g.pid, state.grid) ? g.pid.slice() : fixedPids(state.grid);
@@ -3241,6 +3241,11 @@ function touchStreak() {
   return out;
 }
 
+function nextSkin() {
+  const o = state.skinOrder && state.skinOrder.length === SKINS.length ? state.skinOrder : null;
+  if (!o) return (state.skin + 1) % SKINS.length;
+  return o[(o.indexOf(state.skin) + 1) % o.length];
+}
 function newGame() {
   state.grid = new Array(N * N).fill(0);
   state.score = 0; state.combo = 0; state.sinceClear = 0; state.over = false; state.boardClears = 0; state.frameLines = 0;
@@ -3259,6 +3264,11 @@ function newGame() {
   if (!Store.get('pinStarter', false)) { Store.set('pinStarter', true); for (let i = 0; i < CONFIG.pin.starter; i++) grantPin(); }
   // the first game is a guided one: every extra turns up early in frame 1 so the tips can show how it works
   state.tutorial = (games <= 1 && !navigator.webdriver) || Store.get('tutNext', false);
+  // every game shuffles the order the balls come out in (a beginner's guided game still starts on the classic bubbles)
+  state.skinOrder = SKINS.map((_, i) => i);
+  for (let i = state.skinOrder.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [state.skinOrder[i], state.skinOrder[j]] = [state.skinOrder[j], state.skinOrder[i]]; }
+  if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
+  state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
     if (Store.get('pins', 0) + Store.get('pinSpare', 0) < 1) grantPin();
@@ -5473,7 +5483,7 @@ function updateFX(now, dt) {
       Celebrate.start({
         frameNo: wf.frameNo, bonus: wf.bonus, oldSkin: wf.oldSkin, perfect: wf.perfect, undoEarned: wf.undoEarned, bonusEarned: wf.bonusEarned, multAfter: wf.multAfter, multBefore: wf.multBefore,
         onPay: d => { shownTarget += d; wf.paid += d; },
-        onSkin: () => { if (CONFIG.waterfall.changeSkin) { state.skin = state.lockSkin != null ? state.lockSkin : (state.skin + 1) % SKINS.length; Library.see(state.skin); applyPalette(); saveGame(); wf.skinChanged = true; FX.trayIn = state.tray.map((_, i) => performance.now() + 250 + i * 90); } return skin(); },
+        onSkin: () => { if (CONFIG.waterfall.changeSkin) { state.skin = state.lockSkin != null ? state.lockSkin : nextSkin(); Library.see(state.skin); applyPalette(); saveGame(); wf.skinChanged = true; FX.trayIn = state.tray.map((_, i) => performance.now() + 250 + i * 90); } return skin(); },
       });
     }
     if (t >= wf.dur) { shownTarget += wf.bonus - wf.paid; wf.paid = wf.bonus; FX.waterfall = null; state.bgFrame = state.boardClears; boardBgKey = ''; if (state.easyTest && !state.tray.some(q => q && q.mystery && q.frame)) { const k = state.tray.findIndex(q => !q); state.tray[k < 0 ? 0 : k] = makeMystery(true); FX.trayIn[k < 0 ? 0 : k] = performance.now(); saveGame(); } if (state.boardClears === 6 && !state.over && !Store.get('diffAsked', false)) { Store.set('diffAsked', true); setTimeout(() => UI.askDifficulty(), 500); } }
@@ -6824,7 +6834,7 @@ const UI = (() => {
         }
       });
       tile.appendChild(cv2);
-      const lab = document.createElement('span'); lab.textContent = got ? sk.name : '🔒 Reach frame ' + (i + 1);
+      const lab = document.createElement('span'); lab.textContent = got ? sk.name : '🔒 Still to find';
       tile.appendChild(lab); if (!got) tile.className = 'lock';
       grid.appendChild(tile);
     });
