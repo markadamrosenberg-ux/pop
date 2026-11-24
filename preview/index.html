@@ -319,7 +319,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 .bggrid button b{font-size:26px;font-weight:400}
 .bggrid button.on{border-color:#2ee6d6;background:rgba(46,230,214,.15)}
 .bggrid button:disabled{opacity:.45}
-.diffbtns{display:flex;flex-direction:column;gap:8px}.diffbtns .btn{margin:0}
+.diffbtns{display:flex;flex-direction:column;gap:8px}.diffbtns .btn.cur{background:linear-gradient(135deg,#ff9a3c,#ff3d9a 55%,#9b4dff);color:#fff;border-color:transparent}
+.diffrow{flex-wrap:wrap;gap:8px}.seg{display:flex;gap:6px;width:100%}.seg button{flex:1;font:inherit;font-size:14px;font-weight:700;color:#fff;background:rgba(255,255,255,.1);border:1px solid var(--line);border-radius:12px;padding:7px 4px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:1px}
+.seg button small{font-size:11px;font-weight:600;opacity:.75}.seg button.cur{background:linear-gradient(135deg,#ff9a3c,#ff3d9a 55%,#9b4dff);border-color:transparent}.seg button.cur small{opacity:1}.diffbtns .btn{margin:0}
 .ver{color:var(--muted);font-size:12px;text-align:center;margin-top:12px;opacity:.7}
 .libsub{color:var(--muted);font-size:14px;margin:-4px 0 12px}
 .libbar{height:8px;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden;margin:8px 0 0}.libbar i{display:block;height:100%;background:linear-gradient(90deg,#2ee6d6,#ff2d8a)}
@@ -530,7 +532,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card">
         <h2>How's it feeling?</h2>
         <div class="libsub" id="diffSub">Frame 3 done</div>
-        <div class="diffbtns"><button class="btn ghost" data-d="-1">😌 Too easy</button><button class="btn" data-d="0">👌 Just right</button><button class="btn ghost" data-d="1">😰 Too hard</button></div>
+        <div class="libsub">Pick how hard you want it. Harder pays more.</div>
+        <div class="diffbtns"><button class="btn ghost" data-m="easy">😌 Easy · ½ points</button><button class="btn ghost" data-m="medium">👌 Medium · normal points</button><button class="btn ghost" data-m="hard">🔥 Hard · 2× points</button></div>
       </div>
     </div>
     <div class="overlay" id="libPick" style="z-index:7">
@@ -554,12 +557,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <h2 id="titleText">Pop</h2>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
+        <div class="row diffrow"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
+          <div class="seg" id="modeSeg"><button data-m="easy">😌 Easy<small>½ pts</small></button><button data-m="medium">👌 Medium<small>1× pts</small></button><button data-m="hard">🔥 Hard<small>2× pts</small></button></div></div>
         <div class="row"><span>Ball library<div class="note" id="libNote"></div></span><button class="bgbtn" id="libBtn">See all ›</button></div>
         <div class="row"><span>Background</span><button class="bgbtn" id="bgBtn"><span id="bgNow">Every frame</span> ›</button></div>
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 24 Nov 14:39</div>
+        <div class="ver" id="buildVer">Version 24 Nov 20:24</div>
       </div>
     </div>
   </div>
@@ -3041,6 +3046,15 @@ function pickGolden() {
 }
 const mysteryTarget = () => state.mysteryCount === 0 ? CONFIG.mystery.firstAfterLines : CONFIG.mystery.everyLines;
 const makeMystery = (frame = false) => ({ mystery: true, frame, shape: null, color: 0 });
+// Difficulty: Easy deals friendlier pieces for half points, Hard deals tougher ones for double
+const MODES = { easy: { mult: 0.5, level: -2, label: 'Easy' }, medium: { mult: 1, level: 0, label: 'Medium' }, hard: { mult: 2, level: 2, label: 'Hard' } };
+function gameMode() {
+  let m = Store.get('mode', null);
+  if (!MODES[m]) { const lv = Store.get('diffLevel', 0); m = lv < 0 ? 'easy' : lv > 0 ? 'hard' : 'medium'; Store.set('mode', m); }
+  return m;
+}
+const diffMult = () => MODES[gameMode()].mult;
+function setMode(m) { if (!MODES[m]) return; Store.set('mode', m); Store.set('diffLevel', MODES[m].level); }
 const frameMult = () => Math.min(CONFIG.scoring.frameMultMax, 1 + state.boardClears * CONFIG.scoring.frameMultStep);
 const framesBefore = () => { const a = CONFIG.mystery.frameBubbleAfter; return a[Math.min(state.boardClears, a.length - 1)]; };
 const packPiece = p => p && (p.mystery ? { id: p.frame ? 'framebubble' : p.bonus ? 'bonusmystery' : 'mystery' } : { id: p.shape.id, color: p.color });
@@ -3127,7 +3141,7 @@ function restoreGame() {
 
 function refillTray(animate = true) {
   // difficulty you've asked for: each step harder deals as if you were 2 frames further on (and vice versa)
-  const eff = Math.max(0, state.boardClears + Store.get('diffLevel', 0) * 2);
+  const eff = Math.max(0, state.boardClears + MODES[gameMode()].level * 2);
   state.tray = Logic.newTray(state.grid, skin().colours.length, eff);
   if (state.easyTest) state.tray[0] = makeMystery(true);   // test mode: a Frame Bubble every hand
   if (state.tray.some(p => p && p.shape && p.shape.special && p.shape.cells.length >= 12)) setTimeout(() => { try { UI.toast('💥 Giant piece! Find it a big space'); Sound.whoosh && Sound.whoosh(); } catch (_) {} }, 350);
@@ -3182,7 +3196,7 @@ function popClearedFrame(gx, gy) {
   if (typeof Input !== 'undefined' && Input.endPinNow) Input.endPinNow();
   const S = CONFIG.scoring, F = CONFIG.frames;
   const multBefore = frameMult();
-  const bonus = S.boardClearBonus * (state.boardClears + 1) + (F.enabled ? F.perfectBonus : 0);
+  const bonus = Math.round((S.boardClearBonus * (state.boardClears + 1) + (F.enabled ? F.perfectBonus : 0)) * diffMult());
   state.bgFrame = state.boardClears; state.boardClears++; state.frameLines = 0; state.mysterySinceFrame = 0; state.rescueGiven = false;
   state.pid = new Array(N * N).fill(0);
   layStarter();
@@ -3386,14 +3400,14 @@ function move(slot, gx, gy, repo = null) {
   state.grid = res.grid;
   if (repo) state.repo -= 1; else state.tray[slot] = null;
 
-  const placePts = repo ? 0 : piece.shape.cells.length * S.pointsPerCellPlaced;
+  const placePts = repo ? 0 : Math.round(piece.shape.cells.length * S.pointsPerCellPlaced * diffMult());
   const lines = res.rows.length + res.cols.length;
   let linePts = 0, comboMult = 1, colourPts = 0;
   const colourMatches = CONFIG.colourPop.enabled ? res.matches : [];
   if (lines > 0) {
     state.combo += 1; state.sinceClear = 0;
     comboMult = Logic.comboMultiplier(state.combo);
-    const lineValue = S.pointsPerLine * Logic.lineMultiplier(lines) * comboMult * frameMult();
+    const lineValue = S.pointsPerLine * Logic.lineMultiplier(lines) * comboMult * frameMult() * diffMult();
     linePts = Math.round(lineValue * (lines + colourMatches.length));   // each matching line counts twice
     colourPts = linePts - Math.round(lineValue * lines);
     if (colourMatches.length) Store.set('colourPops', Store.get('colourPops', 0) + colourMatches.length);
@@ -3409,7 +3423,7 @@ function move(slot, gx, gy, repo = null) {
   const waterfall = frameBubble || frameDone || (W.trigger === 'boardEmpty' && boardEmpty) || (W.trigger === 'lines' && lines >= W.minLines) ||
     (W.trigger === 'either' && (boardEmpty || lines >= W.minLines));
   const filledNow = state.grid.reduce((a, v) => a + (v ? 1 : 0), 0);
-  const bonus = waterfall ? S.boardClearBonus * (state.boardClears + 1) + (boardEmpty && F.enabled ? F.perfectBonus : 0) + (frameBubble ? filledNow * S.poppedBubblePoints : 0) : 0;
+  const bonus = waterfall ? Math.round((S.boardClearBonus * (state.boardClears + 1) + (boardEmpty && F.enabled ? F.perfectBonus : 0) + (frameBubble ? filledNow * S.poppedBubblePoints : 0)) * diffMult()) : 0;
   const multBefore = frameMult();
   let washed = [], starterShapes = false, starterCells = [];
   if (waterfall) {
@@ -6417,7 +6431,7 @@ const Input = (() => {
         pinPop(gx, gy);
         pin.shots -= 1;
         if (pin.kind === 'party') {
-          const pts = Math.round(CONFIG.mystery.party.pointsEach * frameMult()); state.score += pts; saveGame();
+          const pts = Math.round(CONFIG.mystery.party.pointsEach * frameMult() * diffMult()); state.score += pts; saveGame();
           const [fx, fy] = cellCentre(gx, gy); floatText('+' + pts, fx, fy - L.c * 0.3, L.c * 0.42, '#ffd23f', 800, CONFIG.pin.swellMs);
           setTimeout(() => { shownTarget += pts; }, CONFIG.pin.swellMs);
           if (pin.shots <= 0) { setTimeout(() => endPin(false), CONFIG.pin.swellMs + 60); setTimeout(() => UI.toast('🎉 Pop party over!'), CONFIG.pin.swellMs + 200); }
@@ -6728,19 +6742,24 @@ const UI = (() => {
   }
   function showHint() { if (!Store.get('hintSeen', false)) hint.classList.remove('hide'); }
   function dismissHint() { if (!Store.get('hintSeen', false)) { Store.set('hintSeen', true); } hint.classList.add('hide'); }
+  function showMode() { const m = gameMode(); document.querySelectorAll('#modeSeg button, #diffAsk button[data-m]').forEach(b => b.classList.toggle('cur', b.dataset.m === m)); }
+  function pickMode(m) {
+    const was = gameMode(); setMode(m); showMode();
+    if (m !== was) toast(m === 'hard' ? '🔥 Hard: tougher pieces, 2× points' : m === 'easy' ? '😌 Easy: friendlier pieces, ½ points' : '👌 Medium: normal points');
+    else toast('👌 Staying on ' + MODES[m].label);
+  }
+  $('modeSeg').addEventListener('click', e => { const b = e.target.closest('button[data-m]'); if (b) pickMode(b.dataset.m); });
+  setTimeout(showMode, 0);
   function askDifficulty() {
     if (UI.modalOpen()) return;
+    showMode();
     $('diffSub').textContent = 'Frame ' + state.boardClears + ' cleared';
     $('diffAsk').classList.add('show');
   }
   $('diffAsk').addEventListener('click', e => {
-    const bt = e.target.closest('button[data-d]'); if (!bt) return;
-    const d = +bt.dataset.d, lv = Store.get('diffLevel', 0);
-    // "too easy" means make it harder: deal as if further into the game
-    const next = Math.max(-3, Math.min(3, lv + (d === -1 ? 1 : d === 1 ? -1 : 0)));
-    Store.set('diffLevel', next);
+    const bt = e.target.closest('button[data-m]'); if (!bt) return;
+    pickMode(bt.dataset.m);
     $('diffAsk').classList.remove('show');
-    toast(d === -1 ? '💪 Turning it up a notch' : d === 1 ? '🤝 Easing off a little' : '👌 Keeping it as is');
   });
   function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800); }
   function showGameOver() {
