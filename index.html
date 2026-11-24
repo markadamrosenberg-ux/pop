@@ -730,11 +730,11 @@ const CONFIG = {
 
   // Pin: a saved reward that pops up to `pops` bubbles of your choice. Pops you don't use stay saved.
   // Earned: some mystery rewards, every frame clear, streak days; one to try in your first game.
-  pin: { pops: 3, rewardShare: 0.12, maxPins: 3, maxTriples: 1, everyFrames: 3, starter: 1, swellMs: 380 },
+  pin: { pops: 3, rewardShare: 0.12, maxPins: 1, maxTriples: 0, everyFrames: 6, starter: 1, swellMs: 380 },   // made rarer (Mark, 25 Nov): was every 3rd frame, bank of 3 + a Triple
 
   // Days in a row: a day counts once you place a piece. One missed day a week is forgiven.
-  // Milestones hand out Pins: a Pin every 5th day, a Triple Pin every 14th.
-  streak: { pinEvery: 5, tripleEvery: 14 },
+  // Milestones hand out a Pin every 7th day (was 5th; the Triple Pin every 14th is gone).
+  streak: { pinEvery: 7, tripleEvery: Infinity },
 
   undo: { costPercent: 10, maxBanked: 3, starterGames: 3, everyGames: 5, everyFrames: 10 },
 
@@ -6600,7 +6600,7 @@ const Input = (() => {
     if (!pin) return;
     const p = pin; pin = null;
     if (refund && p.shots > 0 && p.kind !== 'party') {
-      if (p.shots === p.total && p.kind !== 'spare') grantPin(p.kind === 'triple');   // never used: give it back
+      if (p.shots === p.total && p.kind !== 'spare' && !grantPin(p.kind === 'triple')) Store.set('pinSpare', Store.get('pinSpare', 0) + p.total);   // never used: give it back
       else Store.set('pinSpare', Store.get('pinSpare', 0) + p.shots);                 // the pops you didn't use stay saved
     }
     // after popping, the run carries on only if something fits
@@ -7152,7 +7152,7 @@ const UI = (() => {
     const si = streakInfo(), S = CONFIG.streak, n = si.count || 0;
     $('mpStreak').textContent = n + (si.best > n ? `  (best ${si.best})` : '');
     const toTriple = S.tripleEvery - (n % S.tripleEvery), toPin = S.pinEvery - (n % S.pinEvery);
-    $('mpNext').textContent = n === 0 ? 'Play today to start a streak. Day 5 earns a Pin.' : toTriple <= toPin ? `${toTriple === 1 ? 'Tomorrow' : toTriple + ' more days'}: a Triple Pin` : `${toPin === 1 ? 'Tomorrow' : toPin + ' more days'}: a Pin`;
+    $('mpNext').textContent = n === 0 ? `Play today to start a streak. Day ${S.pinEvery} earns a Pin.` : toTriple <= toPin ? `${toTriple === 1 ? 'Tomorrow' : toTriple + ' more days'}: a Triple Pin` : `${toPin === 1 ? 'Tomorrow' : toPin + ' more days'}: a Pin`;
     const pc = pinCounts();
     $('mpPins').textContent = pinPops(pc);
     $('mpGames').textContent = Store.get('games', 0).toLocaleString();
