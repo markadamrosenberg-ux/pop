@@ -564,7 +564,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 24 Nov 21:59</div>
+        <div class="ver" id="buildVer">Version 24 Nov 23:28</div>
       </div>
     </div>
   </div>
@@ -3737,7 +3737,7 @@ let faceMood = 0;
 function drawFace(cx, cy, size, sx, sy, alpha, seed, now, g2 = null) {
   const ctx = g2 || window._mainCtx;
   const r = size * 0.45, t = now / 1000, m = faceMood;
-  const shake = m > 0.8 && !settings.reduced ? r * 0.05 : 0;
+  const shake = settings.reduced ? 0 : m > 0.8 ? r * 0.05 : m > 0.3 ? r * 0.015 : 0;
   ctx.save(); ctx.translate(cx + (shake ? Math.sin(t * 90 + seed) * shake : 0), cy + (shake ? Math.cos(t * 77 + seed) * shake : 0)); ctx.scale(sx, sy); ctx.globalAlpha = alpha;
   // where to look: at the piece being dragged, otherwise glance about now and then
   const dp = typeof Input !== 'undefined' && Input.dragPoint ? Input.dragPoint() : null;
@@ -3747,18 +3747,21 @@ function drawFace(cx, cy, size, sx, sy, alpha, seed, now, g2 = null) {
   const gl = Math.hypot(gx, gy) || 1, look = Math.min(1, gl / (r * 0.8));
   const ox = gx / gl * look, oy = gy / gl * look;
   const blink = m < 0.3 && ((t * 0.3 + seed * 0.618) % 1) < 0.04;
-  const ew = r * (0.19 + 0.08 * m), eh = blink ? r * 0.03 : ew * (1.15 + 0.15 * m), pr = r * (0.11 - 0.05 * m);
+  const ew = r * (0.19 + 0.1 * m), eh = blink ? r * 0.03 : ew * (1.15 + 0.2 * m), pr = r * (0.11 - 0.06 * m);
+  const jit = m > 0.3 && !settings.reduced ? r * 0.025 : 0;   // scared pupils tremble
+  const jx = jit * Math.sin(t * 53 + seed), jy = jit * Math.cos(t * 47 + seed * 2);
   for (const sgn of [-1, 1]) {
-    const ex = sgn * r * 0.32 + ox * r * 0.05, ey = -r * 0.14 + oy * r * 0.04;
+    const ex = sgn * r * 0.32 + ox * r * 0.05 + jx, ey = -r * 0.14 + oy * r * 0.04 + jy;
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(ex, ey, ew, eh, 0, 0, Math.PI * 2); ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = r * 0.03; ctx.stroke();
     if (!blink) {
       ctx.fillStyle = '#1a1020'; ctx.beginPath(); ctx.arc(ex + ox * (ew - pr) * 0.85, ey + oy * (eh - pr) * 0.85, pr, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex + ox * (ew - pr) * 0.85 - pr * 0.35, ey + oy * (eh - pr) * 0.85 - pr * 0.35, pr * 0.32, 0, Math.PI * 2); ctx.fill();
     }
-    if (m > 0.3) {   // eyebrows shoot up
-      ctx.strokeStyle = '#1a1020'; ctx.lineWidth = r * 0.06; ctx.lineCap = 'round'; ctx.beginPath();
-      ctx.moveTo(ex - sgn * ew * 0.9, ey - eh - r * (0.08 + 0.1 * m)); ctx.lineTo(ex + sgn * ew * 0.6, ey - eh - r * (0.2 + 0.06 * m)); ctx.stroke();
+    if (m > 0.3) {   // furious brows, slammed down towards the middle and quivering
+      const q = settings.reduced ? 0 : Math.sin(t * 38 + seed + sgn) * r * 0.02;
+      ctx.strokeStyle = '#1a1020'; ctx.lineWidth = r * 0.09; ctx.lineCap = 'round'; ctx.beginPath();
+      ctx.moveTo(ex - sgn * ew * 1.0, ey - eh * 0.55 + q); ctx.quadraticCurveTo(ex, ey - eh - r * 0.1, ex + sgn * ew * 0.8, ey - eh - r * 0.2 - q); ctx.stroke();
     }
   }
   ctx.lineCap = 'round';
@@ -3767,17 +3770,43 @@ function drawFace(cx, cy, size, sx, sy, alpha, seed, now, g2 = null) {
     for (const sgn of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sgn * r * 0.55, r * 0.15, r * 0.13, r * 0.08, 0, 0, Math.PI * 2); ctx.fill(); }
     ctx.strokeStyle = '#1a1020'; ctx.lineWidth = r * 0.07; ctx.beginPath(); ctx.arc(0, r * 0.12, r * 0.26, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
   } else if (m < 0.8) {
-    ctx.strokeStyle = '#1a1020'; ctx.lineWidth = r * 0.06; ctx.beginPath();
-    for (let k = 0; k <= 8; k++) { const xx = -r * 0.22 + k / 8 * r * 0.44, yy = r * 0.36 + Math.sin(k * 1.6 + t * 12) * r * 0.035; k ? ctx.lineTo(xx, yy) : ctx.moveTo(xx, yy); }
+    // gritted teeth: clenched in fear and fury, trembling
+    const mw = r * 0.46, mh = r * 0.2, my = r * 0.34, tq = settings.reduced ? 0 : Math.sin(t * 30 + seed) * r * 0.012;
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#1a1020'; ctx.lineWidth = r * 0.05;
+    ctx.beginPath(); ctx.roundRect(-mw / 2 + tq, my - mh / 2, mw, mh, mh * 0.45); ctx.fill(); ctx.stroke();
+    ctx.lineWidth = r * 0.03; ctx.beginPath(); ctx.moveTo(-mw / 2 + tq, my); ctx.lineTo(mw / 2 + tq, my);
+    for (let k = 1; k < 5; k++) { const xx = -mw / 2 + k * mw / 5 + tq; ctx.moveTo(xx, my - mh / 2); ctx.lineTo(xx, my + mh / 2); }
     ctx.stroke();
-    ctx.fillStyle = 'rgba(160,220,255,0.9)'; ctx.beginPath(); ctx.ellipse(r * 0.62, -r * 0.3, r * 0.07, r * 0.11, 0, 0, Math.PI * 2); ctx.fill();   // sweat drop
+    faceVein(ctx, r, t, seed);
+    faceSweat(ctx, r, t, seed, 3);
   } else {
-    ctx.fillStyle = '#3a0010'; ctx.beginPath(); ctx.ellipse(0, r * 0.38, r * 0.2, r * 0.27, 0, 0, Math.PI * 2); ctx.fill();   // screaming
-    ctx.fillStyle = '#ff6b8a'; ctx.beginPath(); ctx.ellipse(0, r * 0.53, r * 0.12, r * 0.07, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(160,220,255,0.9)';
-    for (const sgn of [-1, 1]) { ctx.beginPath(); ctx.ellipse(sgn * r * 0.66, -r * 0.25 + ((t * 2 + seed) % 1) * r * 0.3, r * 0.07, r * 0.11, 0, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = '#3a0010'; ctx.beginPath(); ctx.ellipse(0, r * 0.38, r * 0.22, r * 0.27, 0, 0, Math.PI * 2); ctx.fill();   // screaming
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(0, r * 0.38, r * 0.22, r * 0.27, 0, 1.15 * Math.PI, 1.85 * Math.PI); ctx.closePath(); ctx.fill();   // top teeth
+    ctx.fillStyle = '#ff6b8a'; ctx.beginPath(); ctx.ellipse(0, r * 0.55, r * 0.12, r * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+    faceVein(ctx, r, t, seed);
+    faceSweat(ctx, r, t, seed, 4);
   }
   ctx.restore();
+}
+// an angry throbbing vein on the forehead (the cartoon cross)
+function faceVein(ctx, r, t, seed) {
+  const p = 1 + (settings.reduced ? 0 : 0.15 * Math.sin(t * 14 + seed)), vx = (seed % 2 ? -1 : 1) * r * 0.42, vy = -r * 0.62, a = r * 0.09 * p;
+  ctx.save(); ctx.translate(vx, vy); ctx.strokeStyle = '#d0002a'; ctx.lineWidth = r * 0.05; ctx.lineCap = 'round';
+  for (const [dx, dy] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) { ctx.beginPath(); ctx.arc(dx * a * 1.3, dy * a * 1.3, a, Math.atan2(-dy, -dx) - 0.9, Math.atan2(-dy, -dx) + 0.9); ctx.stroke(); }
+  ctx.restore();
+}
+// sweat: glossy drops that bead up on the forehead and run down the sides of the face
+function faceSweat(ctx, r, t, seed, n) {
+  const spots = [[0.68, -0.4], [-0.68, -0.34], [0.82, -0.05], [-0.82, 0.02]];
+  for (let k = 0; k < n; k++) {
+    const [bx, by] = spots[k], ph = settings.reduced ? 0.3 : (t * (0.9 + k * 0.17) + seed * 0.31 + k * 0.37) % 1;
+    const x = bx * r, y = (by + ph * 0.45) * r, s = r * (0.07 + 0.03 * Math.min(1, ph * 3)), al = ph > 0.8 ? (1 - ph) / 0.2 : 1;
+    ctx.save(); ctx.globalAlpha *= al; ctx.translate(x, y);
+    ctx.fillStyle = '#9fdcff'; ctx.strokeStyle = 'rgba(20,70,130,0.55)'; ctx.lineWidth = r * 0.02;
+    ctx.beginPath(); ctx.moveTo(0, -s * 1.9); ctx.bezierCurveTo(s * 0.3, -s * 1.1, s, -s * 0.4, s, s * 0.15); ctx.arc(0, s * 0.15, s, 0, Math.PI); ctx.bezierCurveTo(-s, -s * 0.4, -s * 0.3, -s * 1.1, 0, -s * 1.9); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.ellipse(-s * 0.35, -s * 0.1, s * 0.2, s * 0.32, -0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
 }
 // Emojis: round yellow emoji faces, each with its own expression. They watch your piece; when their line
 // is about to go the timid ones get scared and the hotheads get angry (red faces, steam, swearing), then
