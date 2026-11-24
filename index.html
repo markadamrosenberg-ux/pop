@@ -5014,17 +5014,17 @@ const BG = (() => {
   // ---- Shooting Stars: a slowly turning sky, the Milky Way, meteors over mountains and pines ----
   let meteors = [];
   function drawStarfall3(t, dt) {
-    vfill([[0, '#01020a'], [0.55, '#060c24'], [0.85, '#14183c'], [1, '#1d1a3c']]);
+    vfill([[0, '#000000'], [0.6, '#010108'], [0.88, '#03040c'], [1, '#04040c']]);   // near black, so the meteors stand out
     const D = Math.hypot(W, H) * 1.05, px = W * 0.5, py = H * 0.45;
     const sky = layer('turnsky', D * 2, D * 2, (g, w, h) => {
-      paintGas(g, w, h, 9, 420, ['#8f7dff', '#5f8dff', '#ffc08a', '#ff8ad0', '#b0f0ff', '#ffe2b0'], { y0: 0.3, y1: 0.7, spread: 0.05 }, 0.2);
-      paintGas(g, w, h, 19, 90, ['#fff0d0', '#ffd8a8'], { y0: 0.42, y1: 0.58, spread: 0.02 }, 0.25);
+      paintGas(g, w, h, 9, 420, ['#8f7dff', '#5f8dff', '#ffc08a', '#ff8ad0', '#b0f0ff', '#ffe2b0'], { y0: 0.3, y1: 0.7, spread: 0.05 }, 0.06);
+      paintGas(g, w, h, 19, 90, ['#fff0d0', '#ffd8a8'], { y0: 0.42, y1: 0.58, spread: 0.02 }, 0.07);
       paintStars(g, w, h, Math.round(w * h / 700), 13);
-      const r = rng(17); for (let i = 0; i < w * h / 160; i++) { const u = r(), sy = h * (0.3 + 0.4 * u) + (r() + r() + r() - 1.5) * h * 0.06; g.fillStyle = `rgba(255,255,255,${0.2 + r() * 0.6})`; g.fillRect(u * w, sy, 0.8, 0.8); }
+      const r = rng(17); for (let i = 0; i < w * h / 160; i++) { const u = r(), sy = h * (0.3 + 0.4 * u) + (r() + r() + r() - 1.5) * h * 0.06; g.fillStyle = `rgba(255,255,255,${0.08 + r() * 0.3})`; g.fillRect(u * w, sy, 0.8, 0.8); }
     }, 1.25);
     x.save(); x.translate(px, py); x.rotate((settings.reduced ? 0 : t * 0.006) - 0.6); x.drawImage(sky, -D, -D, D * 2, D * 2); x.restore();
     // airglow near the horizon
-    const ag = x.createLinearGradient(0, H * 0.6, 0, H * 0.85); ag.addColorStop(0, 'rgba(60,200,140,0)'); ag.addColorStop(1, 'rgba(60,200,140,0.12)'); x.fillStyle = ag; x.fillRect(0, H * 0.6, W, H * 0.25);
+    const ag = x.createLinearGradient(0, H * 0.6, 0, H * 0.85); ag.addColorStop(0, 'rgba(60,200,140,0)'); ag.addColorStop(1, 'rgba(60,200,140,0.03)'); x.fillStyle = ag; x.fillRect(0, H * 0.6, W, H * 0.25);
     // meteors: a bright head, a long fading trail, sometimes a fireball
     if (mv() && meteors.length < 3 && Math.random() < dt * 0.5) {
       const big = Math.random() < 0.15; meteors.push({ x: Math.random() * W * 1.2, y: Math.random() * H * 0.45, a: 2.2 + Math.random() * 0.6, v: (big ? 0.6 : 0.9 + Math.random() * 0.8) * Math.max(W, H), life: 0, max: big ? 1.3 : 0.5 + Math.random() * 0.5, big, col: Math.random() < 0.5 ? '#b8fff0' : '#fff2d0' });
@@ -5043,9 +5043,9 @@ const BG = (() => {
     x.restore();
     // mountains and a pine forest in silhouette
     const fg = layer('pines', W, H, (g, w, h) => {
-      paintRidge(g, w, h, ridge(23, 7, 0.8), h * 0.86, h * 0.14, '#121633', '#0b0e22');
-      paintRidge(g, w, h, ridge(29, 7, 0.6), h * 0.93, h * 0.08, '#080a18', '#05060f');
-      const r = rng(61); g.fillStyle = '#020309';
+      paintRidge(g, w, h, ridge(23, 7, 0.8), h * 0.86, h * 0.14, '#06070f', '#030409');
+      paintRidge(g, w, h, ridge(29, 7, 0.6), h * 0.93, h * 0.08, '#020306', '#010103');
+      const r = rng(61); g.fillStyle = '#000000';
       for (let i = 0; i < 70; i++) { const tx = r() * w, th = h * (0.05 + r() * 0.07), ty = h * (0.97 + r() * 0.03), tw2 = th * 0.32;
         for (let k = 0; k < 5; k++) { const y0 = ty - th * k / 5, ww = tw2 * (1 - k / 6); g.beginPath(); g.moveTo(tx - ww, y0); g.lineTo(tx, y0 - th * 0.38); g.lineTo(tx + ww, y0); g.closePath(); g.fill(); }
         g.fillRect(tx - 1, ty - 2, 2, h - ty + 2); }
