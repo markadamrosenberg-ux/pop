@@ -559,7 +559,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Empty the board to clear the frame. Pins pop any bubble, a golden bubble wins a Frame Bubble, and the undo arrow takes back a move.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
-        <div class="ver" id="buildVer">Version 24 Nov 11:36</div>
+        <div class="ver" id="buildVer">Version 24 Nov 11:44</div>
       </div>
     </div>
   </div>
@@ -1059,14 +1059,16 @@ const Logic = (() => {
     }
     return null;
   }
-  function mysteryShape(grid) {
-    const M = CONFIG.mystery, filled = grid.reduce((a, v) => a + (v ? 1 : 0), 0);
+  // o.big (bonus pieces): a bigger budget and empty lines allowed, so it always clears at least two lines
+  function mysteryShape(grid, o = {}) {
+    const M = { ...CONFIG.mystery, ...(o.big ? { maxCells: Math.random() < 0.3 ? 28 : 18, maxBox: 8 } : {}) }, filled = grid.reduce((a, v) => a + (v ? 1 : 0), 0);
     const lines = [];
-    for (let y = 0; y < N; y++) { const e = []; for (let x = 0; x < N; x++) if (!grid[idx(x, y)]) e.push(idx(x, y)); if (e.length && e.length < N && e.length <= M.maxCells) lines.push(e); }
-    for (let x = 0; x < N; x++) { const e = []; for (let y = 0; y < N; y++) if (!grid[idx(x, y)]) e.push(idx(x, y)); if (e.length && e.length < N && e.length <= M.maxCells) lines.push(e); }
+    for (let y = 0; y < N; y++) { const e = []; for (let x = 0; x < N; x++) if (!grid[idx(x, y)]) e.push(idx(x, y)); if (e.length && (e.length < N || o.big) && e.length <= M.maxCells) lines.push(e); }
+    for (let x = 0; x < N; x++) { const e = []; for (let y = 0; y < N; y++) if (!grid[idx(x, y)]) e.push(idx(x, y)); if (e.length && (e.length < N || o.big) && e.length <= M.maxCells) lines.push(e); }
     let best = null;
+    let loose = false;   // second pass for bonus pieces on a crowded board: the piece may come in separate parts
     const consider = (cellsIdx) => {
-      const cells = connect(grid, cellsIdx, M.maxCells);
+      const cells = loose ? cellsIdx : connect(grid, cellsIdx, M.maxCells);
       if (!cells || cells.length > M.maxCells) return;
       const m = shapeFromCells(cells);
       if (m.shape.w > M.maxBox || m.shape.h > M.maxBox) return;
@@ -1079,7 +1081,7 @@ const Logic = (() => {
     // try combinations of up to 5 nearly-complete lines
     const walk = (start, chosen, union) => {
       if (chosen > 0) consider([...union]);
-      if (chosen === 5) return;
+      if (chosen === (o.big ? 4 : 5)) return;
       for (let i = start; i < lines.length; i++) {
         const u = new Set(union); for (const c of lines[i]) u.add(c);
         if (u.size > M.maxCells) continue;
@@ -1087,6 +1089,7 @@ const Logic = (() => {
       }
     };
     walk(0, 0, new Set());
+    if (o.big && (!best || best.lines < 2)) { loose = true; walk(0, 0, new Set()); }
     if (best && (best.lines >= 1 || best.empty)) return best;
     // nothing clever possible: a random unusual shape, placed where it clears the most
     const fitting = SPECIALS.filter(sp => anyFit(grid, sp));
@@ -3037,8 +3040,8 @@ const mysteryTarget = () => state.mysteryCount === 0 ? CONFIG.mystery.firstAfter
 const makeMystery = (frame = false) => ({ mystery: true, frame, shape: null, color: 0 });
 const frameMult = () => Math.min(CONFIG.scoring.frameMultMax, 1 + state.boardClears * CONFIG.scoring.frameMultStep);
 const framesBefore = () => { const a = CONFIG.mystery.frameBubbleAfter; return a[Math.min(state.boardClears, a.length - 1)]; };
-const packPiece = p => p && (p.mystery ? { id: p.frame ? 'framebubble' : 'mystery' } : { id: p.shape.id, color: p.color });
-const unpackPiece = p => !p ? null : p.id === 'framebubble' ? makeMystery(true) : p.id === 'mystery' ? makeMystery() : SHAPE_BY_ID[p.id] ? { shape: SHAPE_BY_ID[p.id], color: p.color } : null;
+const packPiece = p => p && (p.mystery ? { id: p.frame ? 'framebubble' : p.bonus ? 'bonusmystery' : 'mystery' } : { id: p.shape.id, color: p.color });
+const unpackPiece = p => !p ? null : p.id === 'framebubble' ? makeMystery(true) : p.id === 'mystery' ? makeMystery() : p.id === 'bonusmystery' ? { ...makeMystery(), bonus: true } : SHAPE_BY_ID[p.id] ? { shape: SHAPE_BY_ID[p.id], color: p.color } : null;
 // rainbow colours for mystery bubbles, cell by cell
 const mysteryColour = (x, y) => ((x + y * 2) % 5 + 5) % 5;
 // bubbles with no piece id on record (old saves, test boards) are treated as fixed
@@ -3296,7 +3299,7 @@ function continueGame() {
   state.over = false; state.rescue = false; FX.gameOverAt = 0; FX.pendingGameOver = 0; undoSnap = null;
   let slot = state.tray.findIndex(p => !p);
   if (slot < 0) slot = 0;
-  state.tray[slot] = makeMystery();
+  state.tray[slot] = { ...makeMystery(), bonus: true };   // a mystery that clears at least two lines, sometimes more
   const now = performance.now(); FX.trayIn[slot] = now + 250;
   const [mx, my] = slotCentre(slot);
   setTimeout(() => { spawnSparks(mx, my, 24, '#ffd23f'); spawnSplash(mx, my, '#ffffff', 1.6, 0); }, 280);
@@ -6451,7 +6454,7 @@ const Input = (() => {
       Sound.reveal(); spawnSparks(sx, sy, 18, '#ffd23f');
     } else if (piece.mystery) {
       // the reveal: build a one-off shape for the board as it is right now
-      const m = Logic.mysteryShape(state.grid);
+      const m = Logic.mysteryShape(state.grid, { big: !!piece.bonus });
       if (!m) return;
       piece.shape = m.shape; piece.target = { gx: m.gx, gy: m.gy, lines: m.lines, empty: m.empty };
       Sound.reveal();
