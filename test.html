@@ -601,7 +601,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 10:45am (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 11am (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -5652,7 +5652,7 @@ function drawSquircle(colour, x, y, size, cr, sx, sy, alpha, seed, now, wave = 0
   const h = size / 2, sk = skin(), col = (sk.colours && sk.colours[colour % sk.colours.length]) || '#ff5fb8';
   ctx.save(); ctx.translate(x, y); ctx.scale(sx, sy);
   if (alpha !== 1) ctx.globalAlpha = alpha;
-  jellyPath(h, cr, wave, now / 160 + seed * 1.3); ctx.clip();   // a soft rounded square (never sharp), its edges rippling like jelly
+  jellyPath(h, cr, wave, now / 300 + seed * 1.3); ctx.clip();   // a soft rounded square (never sharp), its edges rippling like jelly
   const g = ctx.createRadialGradient(-h * 0.35, -h * 0.45, h * 0.1, 0, 0, h * 1.5);
   g.addColorStop(0, 'rgba(255,255,255,0.55)'); g.addColorStop(0.35, col); g.addColorStop(1, col);
   ctx.globalAlpha = alpha * (1 - cr); ctx.fillStyle = g; ctx.fillRect(-h, -h, h * 2, h * 2); ctx.globalAlpha = alpha;
@@ -6189,9 +6189,9 @@ function draw(now) {
       if (mq >= 1) { if (m0 !== undefined) MORPH.delete(Logic.idx(gx, gy)); drawBubble(state.skin, v - 1, x, y, c * 0.96 * s, sx, sy, repoOn && pidHere < 0 ? 0.35 : 1, gx * 3 + gy * 5, now); }
       else {
         // drop: the squishy square lands in its space, squashes, then springs back into a round ball
-        const t = Math.max(0, now - m0), cr = Math.max(0, Math.min(1, spring(Math.max(0, t - 60), 95, 50)));
-        const wob = 0.24 * Math.exp(-t / 190) * Math.sin(t / 36), size = 0.97 + 0.09 * Math.exp(-t / 170);
-        drawSquircle(v - 1, x, y, c * size * s, cr, 1 + wob, 1 - wob, 1, gx * 3 + gy * 5, now, 1.6 * Math.exp(-t / 260));
+        const t = Math.max(0, now - m0), u = Math.max(0, Math.min(1, (t - 170) / 480)), cr = u * u * (3 - 2 * u);
+        const wob = 0.2 * Math.exp(-t / 200) * Math.sin(t / 40), size = 0.96 + 0.12 * Math.exp(-t / 230);
+        drawSquircle(v - 1, x, y, c * size * s, cr, 1 + wob, 1 - wob, 1, gx * 3 + gy * 5, now, 0.35 * Math.exp(-t / 300));
       }
     }
     if (goT >= 0) {
@@ -6467,14 +6467,14 @@ function draw(now) {
       if (!dragAt.on) { dragAt.on = true; dragAt.t0 = now; dragAt.sq = 0; dragAt.v = 0; dragAt.last = now; }
       const dt = Math.min(40, now - dragAt.last); dragAt.last = now;
       const pvd = Input.preview(), target = pvd && pvd.valid ? 1 : 0;
-      dragAt.v += ((target - dragAt.sq) * 0.0011 - dragAt.v * 0.03) * dt; dragAt.sq += dragAt.v * dt;   // a springy, overshooting change of shape
+      dragAt.v += ((target - dragAt.sq) * 0.00007 - dragAt.v * 0.0165) * dt; dragAt.sq += dragAt.v * dt;   // a slow, smooth inflate (about half a second), no snap
       const sq = Math.max(0, Math.min(1, dragAt.sq)), cr = 1 - sq, t = now - dragAt.t0, pop = 0.84 + 0.16 * spring(t, 60, 26);
-      const goo = Math.min(0.18, Math.abs(dragAt.v) * 9);   // extra wobble while it changes shape
+      const goo = 0;
       shp.cells.forEach(([x, y], i) => {
         const col = d.piece.values ? d.piece.values[x + ',' + y] - 1 : d.piece.color;
-        const jig = Math.sin(now / 105 + i * 1.3) * 0.085 + Math.sin(now / 43 + i * 2.1) * 0.03 + Math.sin(now / 70 + i) * goo;
-        const breath = Math.sin(now / 170 + i * 0.9) * (0.04 + 0.05 * sq);   // jellyfish pulse: wide-and-short, then tall-and-thin
-        drawSquircle(col, ox + (x + 0.5) * sz, oy + (y + 0.5) * sz, sz * (0.95 + 0.06 * sq) * pop, cr, (d.sx || 1) * (1 + jig + breath), (d.sy || 1) * (1 - jig - breath * 0.8), d.alpha == null ? 1 : d.alpha, x + y + i, now, 0.5 + 1.1 * sq + goo * 3);
+        const jig = Math.sin(now / 150 + i * 1.3) * 0.045 + Math.sin(now / 70 + i * 2.1) * 0.012;
+        const breath = Math.sin(now / 260 + i * 0.9) * (0.012 + 0.03 * sq);   // jellyfish pulse: wide-and-short, then tall-and-thin
+        drawSquircle(col, ox + (x + 0.5) * sz, oy + (y + 0.5) * sz, sz * (0.95 + 0.13 * sq) * pop, cr, (d.sx || 1) * (1 + jig + breath), (d.sy || 1) * (1 - jig - breath * 0.8), d.alpha == null ? 1 : d.alpha, x + y + i, now, 0.1 + 0.35 * sq);
       });
     } else drawPiece(d.piece, d.x, d.y, d.size, d.alpha, d.sx, d.sy, d.wob);
   } else dragAt.on = false;
