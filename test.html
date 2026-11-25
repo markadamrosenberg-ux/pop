@@ -601,14 +601,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 12:10am (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 12:20am (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
           <div class="seg" id="modeSeg"><button data-m="easy">😌 Easy<small>½ pts</small></button><button data-m="medium">👌 Medium<small>1× pts</small></button><button data-m="hard">🔥 Hard<small>2× pts</small></button></div></div>
         <div class="row"><span>Ball library<div class="note" id="libNote"></div></span><button class="bgbtn" id="libBtn">See all ›</button></div>
         <div class="row"><span>Background</span><button class="bgbtn" id="bgBtn"><span id="bgNow">Automatic</span> ›</button></div>
-        <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Pop enough lines to clear the frame and see a new look. Emptying the whole board clears it straight away, with a bonus. Your score multiplies when you clear lines on back-to-back moves. A glowing ? piece is a mystery piece: pick it up to reveal a special shape. When you earn a Pin it appears at the top left: tap it, then tap up to 3 bubbles to pop them.</details>
+        <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Pop enough lines and a golden ball appears: pop a line through it to win the ★ Frame Bubble, then drop that anywhere to clear the frame and unlock a new look. Emptying the whole board yourself clears the frame too, with a bonus. Your score multiplies when you clear lines on back-to-back moves. A glowing ? piece is a mystery piece: pick it up to reveal a special shape. When you earn a Pin it appears at the top left: tap it, then tap up to 3 bubbles to pop them.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
         <div class="ver" id="buildVer">Version 24 Nov 23:29</div>
@@ -694,7 +694,8 @@ const CONFIG = {
   // random move between minMoves and maxMoves, in a nearly-full line. Clear a line through it within `moves`
   // moves and you win the Frame Bubble; miss and it gets away. A frame that drags on (mystery.rescue) also
   // gets one. Never on the skins in noSkins (gold doesn't show up well on metal).
-  golden: { enabled: false, chance: 0.18, minMoves: 12, maxMoves: 35, moves: 3, noSkins: ['Liquid Metal', 'Gold Rush'] },
+  golden: { enabled: true, chance: 0, minMoves: 12, maxMoves: 35, moves: 4,   // back on (Mark, 26 Nov): it now appears when you reach the frame's line target; 4 moves to pop it
+    noSkins: ['Liquid Metal', 'Gold Rush'] },
 
   celebrate: 'burst',   // frame clear: 'burst' = a barrage of water balloons popping, 'water' = the rising-water version
 
@@ -3623,8 +3624,12 @@ function move(slot, gx, gy, repo = null) {
   const frameDone = F.enabled && lines > 0 && state.frameLines >= frameTarget();
   const frameBubble = !!(piece.mystery && piece.frame);
   // reaching the line target keeps your board: the look changes in place. Only emptying the board (or a Frame Bubble) washes it (25 Nov)
-  const softFrame = frameDone && !boardEmpty && !frameBubble;
-  const waterfall = frameBubble || (frameDone && boardEmpty) || (W.trigger === 'boardEmpty' && boardEmpty) || (W.trigger === 'lines' && lines >= W.minLines) ||
+  const softFrame = false;   // (26 Nov) the look never changes on its own: reaching the line target brings out the golden ball instead
+  if (frameDone && !boardEmpty && !frameBubble && !state.golden && state.mysteryPending !== 'frame' && !state.tray.some(p => p && p.mystery && p.frame)) {
+    if (CONFIG.golden.enabled && !CONFIG.golden.noSkins.includes(skin().name)) state.goldenDue = true;
+    else { const free = state.tray.findIndex(p => !p); if (free >= 0 && state.tray.some(Boolean)) state.tray[free] = makeMystery(true); else state.mysteryPending = 'frame'; }
+  }
+  const waterfall = frameBubble || (W.trigger === 'boardEmpty' && boardEmpty) || (W.trigger === 'lines' && lines >= W.minLines) ||
     (W.trigger === 'either' && (boardEmpty || lines >= W.minLines));
   const filledNow = state.grid.reduce((a, v) => a + (v ? 1 : 0), 0);
   const bonus = waterfall ? Math.round((S.boardClearBonus * (state.boardClears + 1) + (boardEmpty && F.enabled ? F.perfectBonus : 0) + (frameBubble ? filledNow * S.poppedBubblePoints : 0)) * diffMult()) : 0;
@@ -3678,7 +3683,7 @@ function move(slot, gx, gy, repo = null) {
         const free = state.tray.findIndex(p => !p);
         if (free >= 0) state.tray[free] = makeMystery(true); else state.mysteryPending = 'frame';
         golden = { kind: 'won', i: state.golden.i, slot: free }; state.golden = null;
-      } else if (!state.grid[state.golden.i] || --state.golden.left <= 0) { golden = { kind: 'lost', i: state.golden.i }; state.golden = null; }
+      } else if (!state.grid[state.golden.i] || --state.golden.left <= 0) { golden = { kind: 'lost', i: state.golden.i }; state.golden = null; if (CONFIG.frames.enabled) state.frameLines = Math.max(0, frameTarget() - 2); }   // it comes back after two more lines
     } else if (((!state.goldenDone && state.goldenAt && state.frameMoves >= state.goldenAt) || state.goldenDue) && !G.noSkins.includes(skin().name)) {
       const i = pickGolden();
       if (i >= 0) { state.golden = { i, left: G.moves }; state.goldenDone = true; state.goldenDue = false; golden = { kind: 'new', i }; }
