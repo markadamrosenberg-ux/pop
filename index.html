@@ -555,7 +555,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Version 25 Nov, 6:30am</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Version 25 Nov, 1:15pm</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -7664,7 +7664,9 @@ if (new URLSearchParams(location.search).get('easy')) { newGame(); state.easyTes
   history.replaceState(null, '', location.pathname); setTimeout(() => UI.toast('Test mode: drop the Frame Bubble to skip a frame (not on the ladder)'), 1500); }
 // test link: ?look=faces starts a practice game on that look (doesn't count for the ladder)
 (() => { const q = new URLSearchParams(location.search).get('look'); if (!q) return;
-  const i = SKINS.findIndex(k => k.name.toLowerCase().replace(/\s+/g, '') === q.toLowerCase().replace(/\s+/g, '')); if (i < 0) return;
+  const norm = t => t.toLowerCase().replace(/[^a-z]/g, ''), w = norm(q), names = SKINS.map(k => norm(k.name));
+  let i = names.indexOf(w); if (i < 0) i = names.findIndex(n => n.startsWith(w)); if (i < 0) i = names.findIndex(n => n.includes(w));   // ?look=golf finds Golf Balls
+  if (i < 0) { history.replaceState(null, '', location.pathname); setTimeout(() => UI.toast('No look called "' + q + '"'), 1500); return; }
   newGame(); state.skin = i; state.lockSkin = i; state.tainted = true; applyPalette(); state.tray = [null, null, null]; refillTray(false); saveGame();
   history.replaceState(null, '', location.pathname); setTimeout(() => UI.toast('Practice game: ' + SKINS[i].name + ' (not on the ladder)'), 1500); })();
 // a game in progress has already passed every look up to the current one
