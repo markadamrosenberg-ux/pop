@@ -557,7 +557,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Version 25 Nov, 3:35pm</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Version 25 Nov, 3:45pm</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2070,8 +2070,8 @@ const Sound = (() => {
   };
   // LEVELS: every main sound plays at the same loudness. Each trim (in dB) was measured by rendering the sound
   // through this exact chain and levelling it to one target, so a bowling strike, a tennis hit, a squish and a fart all land level.
-  const LEVEL = /*LEVELS*/{'place': 16.9, 'hit:tennis': 14.7, 'hit:cricket': 12.1, 'hit:golf': 10.7, 'hit:golfdrive': 9.5, 'hit:baseball': 15.5, 'hit:mitt': 13.4, 'hit:pingpong': -4.4, 'hit:boing': -5.5, 'hit:bowling': 5.9, 'hit:squish': 17.7, 'squish': 12.5, 'fart': 9.7, 'clear': 18.1, 'fizz': 15.7, 'strike': -11.6, 'rally:boing': -5.9, 'rally:pingpong': 2.2, 'rally:tennis': 15.2, 'rally:cricket': 4.8, 'howzat': 12.4, 'rally:baseball': 16.0, 'rally:squish': 17.2, 'rally:golf': 6.5, 'balloonBurst': 5.1}/*END*/;
-  const GROUP = { splat: 'clear', pop: 'clear', rush: 'clear', chainPop: 'clear', unstick: 'squish' };
+  const LEVEL = /*LEVELS*/{'place': 16.9, 'hit:tennis': 14.7, 'hit:cricket': 12.1, 'hit:golf': 10.7, 'hit:golfdrive': 9.5, 'hit:baseball': 15.5, 'hit:mitt': 13.4, 'hit:pingpong': -4.4, 'hit:boing': -5.5, 'hit:bowling': 5.9, 'hit:squish': 17.7, 'squish': 12.5, 'fart': 9.7, 'clear': 18.1, 'pop': 22.7, 'fizz': 15.7, 'strike': -11.6, 'rally:boing': -5.9, 'rally:pingpong': 2.2, 'rally:tennis': 15.2, 'rally:cricket': 4.8, 'howzat': 12.4, 'rally:baseball': 16.0, 'rally:squish': 17.2, 'rally:golf': 6.5, 'balloonBurst': 5.1}/*END*/;
+  const GROUP = { splat: 'clear', rush: 'clear', chainPop: 'clear', unstick: 'squish' };
   const trims = new Map(); let depth = 0;
   const keyOf = (m, a) => (m === 'hit' || m === 'rally') ? m + ':' + a[0] : (GROUP[m] || m);
   ['place', 'hit', 'rally', 'strike', 'howzat', 'fizz', 'squish', 'fart', 'unstick', 'splat', 'pop', 'rush', 'balloonBurst', 'chainPop'].forEach(m => {
