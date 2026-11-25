@@ -601,7 +601,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 9:30am (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 9:45am (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -5635,8 +5635,22 @@ const BG = (() => {
 const cellCentre = (gx, gy) => [L.ix + (gx + 0.5) * L.c, L.iy + (gy + 0.5) * L.c];
 function slotCentre(i) { return [L.bx + L.slotW * (i + 0.5), L.ty + L.T / 2]; }
 
+// (test 26 Nov) a bubble drawn as a squircle: cr = 0 is a rounded square, 1 is a full circle
+function drawSquircle(colour, x, y, size, cr, sx, sy, alpha, seed, now) {
+  const h = size / 2, sk = skin(), col = (sk.colours && sk.colours[colour % sk.colours.length]) || '#ff5fb8';
+  ctx.save(); ctx.translate(x, y); ctx.scale(sx, sy);
+  if (alpha !== 1) ctx.globalAlpha = alpha;
+  rr(ctx, -h, -h, h * 2, h * 2, h * (0.26 + 0.74 * cr)); ctx.clip();
+  const g = ctx.createRadialGradient(-h * 0.35, -h * 0.45, h * 0.1, 0, 0, h * 1.5);
+  g.addColorStop(0, 'rgba(255,255,255,0.55)'); g.addColorStop(0.35, col); g.addColorStop(1, col);
+  ctx.globalAlpha = alpha * (1 - cr); ctx.fillStyle = g; ctx.fillRect(-h, -h, h * 2, h * 2); ctx.globalAlpha = alpha;
+  drawBubble(state.skin, colour, 0, 0, size * (1.42 - 0.42 * cr), 1, 1, alpha, seed, now);
+  ctx.restore();
+}
+const spring = (t, k = 90, w = 42) => 1 - Math.exp(-t / k) * Math.cos(t / w);   // 0 -> overshoots -> settles at 1
+const hoverAt = { key: '', t0: 0 };
 const MORPH = new Map();   // (test 26 Nov) dropped bubbles land as squares, puff out, then melt back into circles
-const MORPH_MS = 620;
+const MORPH_MS = 700;
 const FX = {
   goo: [], pops: [], particles: [], texts: [], stains: [], settle: new Map(), waterfall: null, trayIn: [0, 0, 0], land: [], appear: new Map(), pendingRescue: 0,
   gameOverAt: 0, busyUntil: 0, pendingGameOver: 0, sheen: [],
@@ -6161,15 +6175,9 @@ function draw(now) {
       const m0 = MORPH.get(Logic.idx(gx, gy)), mq = m0 === undefined ? 1 : (now - m0) / MORPH_MS;
       if (mq >= 1) { if (m0 !== undefined) MORPH.delete(Logic.idx(gx, gy)); drawBubble(state.skin, v - 1, x, y, c * 0.96 * s, sx, sy, repoOn && pidHere < 0 ? 0.35 : 1, gx * 3 + gy * 5, now); }
       else {
-        // square on landing, a quick puff, then it melts back into a round bubble
-        const q = Math.max(0, mq), e = q < 0.22 ? 0 : 1 - Math.pow(1 - (q - 0.22) / 0.78, 3);
-        const puff = q < 0.22 ? 0.94 + 0.14 * Math.sin((q / 0.22) * Math.PI / 2) : 1.08 - 0.08 * e;
-        const half = c * 0.48 * puff, corner = half * (0.24 + 0.76 * e);
-        const sk = skin(), col = (sk.colours && sk.colours[(v - 1) % sk.colours.length]) || '#ff5fb8';
-        ctx.save(); rr(ctx, x - half, y - half, half * 2, half * 2, corner); ctx.clip();
-        ctx.globalAlpha = 1 - e; ctx.fillStyle = col; ctx.fillRect(x - half, y - half, half * 2, half * 2); ctx.globalAlpha = 1;
-        drawBubble(state.skin, v - 1, x, y, c * 0.96 * puff * (1.42 - 0.42 * e), 1, 1, 1, gx * 3 + gy * 5, now);
-        ctx.restore();
+        // lands as the square it was while hovering, then springs back into a round bubble: bouncy, squishy
+        const t = Math.max(0, now - m0), cr = Math.min(1, spring(t, 110, 60)), wob = Math.exp(-t / 120) * Math.sin(t / 36) * 0.2;
+        drawSquircle(v - 1, x, y, c * (0.9 + 0.06 * cr) * s, cr, 1 + wob, 1 - wob, 1, gx * 3 + gy * 5, now);
       }
     }
     if (goT >= 0) {
@@ -6280,6 +6288,14 @@ function draw(now) {
       for (const [x, y] of shape.cells) {
         const gx = pv.gx + x, gy = pv.gy + y, [px, py] = cellCentre(gx, gy);
         const inLine = glowRows.includes(gy) || glowCols.includes(gx);
+        const hk = pv.gx + ',' + pv.gy; if (hoverAt.key !== hk) { hoverAt.base = now - (hoverAt.last || 0) < 150 ? 0.6 : 0; hoverAt.key = hk; hoverAt.t0 = now; } hoverAt.last = now;   // sliding between spots re-pops from 60%, arriving on the board pops from nothing
+        if (!settings.reduced) {
+          const col = pv.piece.values ? pv.piece.values[x + ',' + y] - 1 : pv.piece.mystery ? mysteryColour(x, y) : pv.piece.color;
+          const t = Math.max(0, now - hoverAt.t0 - (x + y) * 30), b0 = hoverAt.base || 0, sp = b0 + (1 - b0) * spring(t, 80, 34);
+          const breathe = 1 + Math.sin(now / 160 + (gx + gy) * 0.8) * 0.025;
+          drawSquircle(col, px, py, c * 0.9 * Math.max(0, sp) * breathe * (inLine ? 1.04 : 1), 0, 1, 1, inLine ? 0.95 : 0.82, x + y, now);
+          continue;
+        }
         drawBubble(state.skin, pv.piece.values ? pv.piece.values[x + ',' + y] - 1 : pv.piece.mystery ? mysteryColour(x, y) : pv.piece.color, px, py, c * (inLine ? (settings.reduced ? 1.0 : 1.04 + Math.sin(wobble * 8 + (gx + gy) * 0.6) * 0.04) : 0.92), 1, 1, inLine ? 0.75 : 0.4, x + y, now);
       }
     } else {
