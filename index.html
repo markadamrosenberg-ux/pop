@@ -556,7 +556,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Version 25 Nov, 2:45pm</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Version 25 Nov, 2:55pm</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -1864,7 +1864,11 @@ const Sound = (() => {
         playSample('golfcup', 0.75 + (hits - 1) * 0.16, 0.38); return; }
       if (kind === 'boing') {   // a basketball bouncing to rest: bounce... bounce.. bounce. each one quicker and softer
         [[0.2, 0.62, 1], [0.6, 0.4, 1.03], [0.9, 0.25, 1.06], [1.11, 0.14, 1.09]].forEach(([at, gn, rt], i) => playSample('bball' + (i % 2), at, gn, rt) || playSample('boing', at, gn, 0.95)); return; }
-      if (kind === 'pingpong' && (playSample('tttrail', 0, 0.7) || playSample('pptrail', 0, 0.9))) return;   // Mark's recorded ball bouncing to rest, quicker and quicker   // the recorded ball bouncing away to rest
+      if (kind === 'pingpong') {   // Mark's recorded ball bouncing to rest, tapering away: each bounce softer than the last until it's gone
+        const b = sample('tttrail') || sample('pptrail');
+        if (b) { const t = ac.currentTime, src = ac.createBufferSource(), g = ac.createGain(), v = sample('tttrail') ? 0.7 : 0.9;
+          src.buffer = b; g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(v * 0.25, t + b.duration * 0.5); g.gain.exponentialRampToValueAtTime(0.0001, t + b.duration);
+          src.connect(g); g.connect(out); src.start(t); return; } }   // Mark's recorded ball bouncing to rest, quicker and quicker   // the recorded ball bouncing away to rest
       if (kind === 'pingpong') { let at = 0, gap = 0.22; for (let k = 0; k < 7; k++) { setTimeout(() => this.hit('pingpong', 1 - k * 0.12), at * 1000); at += gap; gap *= 0.72; } return; }
       if (kind === 'tennis') { this.hit('tennis', 0.8); setTimeout(() => this.hit('tennis', 0.45), 420); return; }   // a calm return: hit... hit
       for (let k = 0; k < Math.min(4, n); k++) setTimeout(() => this.hit(kind, 1 - k * 0.15), k * 90);
@@ -2064,7 +2068,7 @@ const Sound = (() => {
   };
   // LEVELS: every main sound plays at the same loudness. Each trim (in dB) was measured by rendering the sound
   // through this exact chain and levelling it to one target, so a bowling strike, a tennis hit, a squish and a fart all land level.
-  const LEVEL = /*LEVELS*/{'place': 16.9, 'hit:tennis': 14.7, 'hit:cricket': 12.1, 'hit:golf': 10.7, 'hit:golfdrive': 9.5, 'hit:baseball': 15.5, 'hit:mitt': 13.4, 'hit:pingpong': 1.6, 'hit:boing': -5.5, 'hit:bowling': 5.9, 'hit:squish': 17.7, 'squish': 12.5, 'fart': 9.7, 'clear': 18.1, 'fizz': 15.7, 'strike': -11.6, 'rally:boing': -5.9, 'rally:pingpong': 10.2, 'rally:tennis': 15.2, 'rally:cricket': 4.8, 'howzat': 12.4, 'rally:baseball': 16.0, 'rally:squish': 17.2, 'rally:golf': 6.5, 'balloonBurst': 5.1}/*END*/;
+  const LEVEL = /*LEVELS*/{'place': 16.9, 'hit:tennis': 14.7, 'hit:cricket': 12.1, 'hit:golf': 10.7, 'hit:golfdrive': 9.5, 'hit:baseball': 15.5, 'hit:mitt': 13.4, 'hit:pingpong': -4.4, 'hit:boing': -5.5, 'hit:bowling': 5.9, 'hit:squish': 17.7, 'squish': 12.5, 'fart': 9.7, 'clear': 18.1, 'fizz': 15.7, 'strike': -11.6, 'rally:boing': -5.9, 'rally:pingpong': 2.2, 'rally:tennis': 15.2, 'rally:cricket': 4.8, 'howzat': 12.4, 'rally:baseball': 16.0, 'rally:squish': 17.2, 'rally:golf': 6.5, 'balloonBurst': 5.1}/*END*/;
   const GROUP = { splat: 'clear', pop: 'clear', rush: 'clear', chainPop: 'clear', unstick: 'squish' };
   const trims = new Map(); let depth = 0;
   const keyOf = (m, a) => (m === 'hit' || m === 'rally') ? m + ':' + a[0] : (GROUP[m] || m);
