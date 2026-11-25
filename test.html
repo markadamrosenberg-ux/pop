@@ -601,7 +601,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 11:30am (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 11:45am (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -5898,7 +5898,7 @@ function playResult(res, pointerGesture) {
   const placed = new Set(res.piece.shape.cells.map(([x, y]) => Logic.idx(res.gx + x, res.gy + y)));
   FX.land.push({ t0: now, cells: res.piece.shape.cells.map(([x, y]) => cellCentre(res.gx + x, res.gy + y)) });
   for (const [x, y] of res.piece.shape.cells) FX.settle.set(Logic.idx(res.gx + x, res.gy + y), { t0: now + (x + y) * CONFIG.feel.rippleMs, amp: CONFIG.feel.landAmp });
-  if (!settings.reduced) for (const [x, y] of res.piece.shape.cells) MORPH.set(Logic.idx(res.gx + x, res.gy + y), now + (x + y) * 28);
+  // (26 Nov) square landing test switched off: pieces land as round balls with the normal jiggle
   // nearby bubbles feel the splash and jiggle a little, a beat later
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
     const i = Logic.idx(gx, gy);
@@ -6461,7 +6461,7 @@ function draw(now) {
     const ox = d.x - shp.w * sz / 2, oy = d.y - shp.h * sz / 2;
     for (const [x, y] of shp.cells) drawSoftShadow(ox + (x + 0.5) * sz + c * 0.18 * k, oy + (y + 0.5) * sz + c * 0.32 * k, sz * (0.42 + 0.16 * k), 0.42 - 0.12 * k);
     // (test 26 Nov) the balls stay round and wobbly in your hand, and squish into soft rounded squares only when they're over a spot they fit
-    if (!d.piece.mystery && !settings.reduced) {
+    if (false) {   // square-in-hand test switched off (Mark, 26 Nov)
       if (!dragAt.on) { dragAt.on = true; dragAt.t0 = now; dragAt.sq = 0; dragAt.v = 0; dragAt.last = now; }
       const dt = Math.min(40, now - dragAt.last); dragAt.last = now;
       const pvd = Input.preview(), target = pvd && pvd.valid ? 1 : 0;
