@@ -601,7 +601,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 9:45am (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 10am (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -5650,7 +5650,7 @@ function drawSquircle(colour, x, y, size, cr, sx, sy, alpha, seed, now) {
 const spring = (t, k = 90, w = 42) => 1 - Math.exp(-t / k) * Math.cos(t / w);   // 0 -> overshoots -> settles at 1
 const hoverAt = { key: '', t0: 0 };
 const MORPH = new Map();   // (test 26 Nov) dropped bubbles land as squares, puff out, then melt back into circles
-const MORPH_MS = 700;
+const MORPH_MS = 860;
 const FX = {
   goo: [], pops: [], particles: [], texts: [], stains: [], settle: new Map(), waterfall: null, trayIn: [0, 0, 0], land: [], appear: new Map(), pendingRescue: 0,
   gameOverAt: 0, busyUntil: 0, pendingGameOver: 0, sheen: [],
@@ -6175,9 +6175,12 @@ function draw(now) {
       const m0 = MORPH.get(Logic.idx(gx, gy)), mq = m0 === undefined ? 1 : (now - m0) / MORPH_MS;
       if (mq >= 1) { if (m0 !== undefined) MORPH.delete(Logic.idx(gx, gy)); drawBubble(state.skin, v - 1, x, y, c * 0.96 * s, sx, sy, repoOn && pidHere < 0 ? 0.35 : 1, gx * 3 + gy * 5, now); }
       else {
-        // lands as the square it was while hovering, then springs back into a round bubble: bouncy, squishy
-        const t = Math.max(0, now - m0), cr = Math.min(1, spring(t, 110, 60)), wob = Math.exp(-t / 120) * Math.sin(t / 36) * 0.2;
-        drawSquircle(v - 1, x, y, c * (0.9 + 0.06 * cr) * s, cr, 1 + wob, 1 - wob, 1, gx * 3 + gy * 5, now);
+        // drop: the ball expands into a square that fills its space, wobbles and squishes, then turns back into a ball
+        const t = Math.max(0, now - m0); let cr, size, wob;
+        if (t < 170) { const u = t / 170, e = 1 - Math.pow(1 - u, 3); cr = 1 - e; size = 0.96 + 0.12 * e; wob = 0; }
+        else if (t < 470) { const u = t - 170; cr = 0; size = 1.08 - 0.06 * (u / 300); wob = 0.17 * Math.exp(-u / 130) * Math.sin(u / 34); }
+        else { const u = t - 470; cr = Math.min(1, spring(u, 90, 48)); size = 1.02 - 0.06 * Math.min(1, u / 380); wob = 0.06 * Math.exp(-u / 110) * Math.sin(u / 36); }
+        drawSquircle(v - 1, x, y, c * size * s, cr, 1 + wob, 1 - wob, 1, gx * 3 + gy * 5, now);
       }
     }
     if (goT >= 0) {
@@ -6289,13 +6292,6 @@ function draw(now) {
         const gx = pv.gx + x, gy = pv.gy + y, [px, py] = cellCentre(gx, gy);
         const inLine = glowRows.includes(gy) || glowCols.includes(gx);
         const hk = pv.gx + ',' + pv.gy; if (hoverAt.key !== hk) { hoverAt.base = now - (hoverAt.last || 0) < 150 ? 0.6 : 0; hoverAt.key = hk; hoverAt.t0 = now; } hoverAt.last = now;   // sliding between spots re-pops from 60%, arriving on the board pops from nothing
-        if (!settings.reduced) {
-          const col = pv.piece.values ? pv.piece.values[x + ',' + y] - 1 : pv.piece.mystery ? mysteryColour(x, y) : pv.piece.color;
-          const t = Math.max(0, now - hoverAt.t0 - (x + y) * 30), b0 = hoverAt.base || 0, sp = b0 + (1 - b0) * spring(t, 80, 34);
-          const breathe = 1 + Math.sin(now / 160 + (gx + gy) * 0.8) * 0.025;
-          drawSquircle(col, px, py, c * 0.9 * Math.max(0, sp) * breathe * (inLine ? 1.04 : 1), 0, 1, 1, inLine ? 0.95 : 0.82, x + y, now);
-          continue;
-        }
         drawBubble(state.skin, pv.piece.values ? pv.piece.values[x + ',' + y] - 1 : pv.piece.mystery ? mysteryColour(x, y) : pv.piece.color, px, py, c * (inLine ? (settings.reduced ? 1.0 : 1.04 + Math.sin(wobble * 8 + (gx + gy) * 0.6) * 0.04) : 0.92), 1, 1, inLine ? 0.75 : 0.4, x + y, now);
       }
     } else {
@@ -6455,7 +6451,13 @@ function draw(now) {
     const k = d.lift || 0, sz = d.size, shp = d.piece.shape;
     const ox = d.x - shp.w * sz / 2, oy = d.y - shp.h * sz / 2;
     for (const [x, y] of shp.cells) drawSoftShadow(ox + (x + 0.5) * sz + c * 0.18 * k, oy + (y + 0.5) * sz + c * 0.32 * k, sz * (0.42 + 0.16 * k), 0.42 - 0.12 * k);
+    // (test 26 Nov) over a spot it fits, the piece in your hand slowly inflates and gently wobbles, ready to drop
+    const pvh = Input.preview(), over = pvh && pvh.valid && !settings.reduced;
+    const ht = over ? now - hoverAt.t0 : 0, inf = over ? 1 + 0.16 * (1 - Math.exp(-ht / 420)) + Math.sin(ht / 95) * 0.018 : 1;
+    const hw = over ? Math.sin(ht / 70) * 0.025 * Math.exp(-ht / 900) : 0;
+    ctx.save(); ctx.translate(d.x, d.y); ctx.scale(inf * (1 + hw), inf * (1 - hw)); ctx.translate(-d.x, -d.y);
     drawPiece(d.piece, d.x, d.y, d.size, d.alpha, d.sx, d.sy, d.wob);
+    ctx.restore();
   }
 }
 
