@@ -33,7 +33,7 @@ header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align
 header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .meter{width:calc(100% - 24px)}
 .meter{display:none!important}
-#undoBtn{display:none!important}   /* undo button removed from the top bar */   /* the frame bar is gone: the look's name flashes up at the start of each frame instead */
+#undoBtn,#bonusBtn,#swapBtn{display:none!important}   /* undo, bonus piece and swap buttons removed: a cleaner screen */   /* the frame bar is gone: the look's name flashes up at the start of each frame instead */
 .best{display:flex;align-items:center;justify-content:center;gap:4px;color:var(--muted);font-size:13px;font-weight:600;white-space:nowrap;transition:opacity .25s}
 .best span{overflow:hidden;text-overflow:ellipsis}
 .best svg{width:15px;height:15px;flex:none;color:#ffd23f;filter:drop-shadow(0 0 4px rgba(255,184,28,.6))}
@@ -557,7 +557,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Version 25 Nov, 3:30pm</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Version 25 Nov, 3:35pm</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
