@@ -601,7 +601,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 10am (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 10:05am (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -5640,7 +5640,7 @@ function drawSquircle(colour, x, y, size, cr, sx, sy, alpha, seed, now) {
   const h = size / 2, sk = skin(), col = (sk.colours && sk.colours[colour % sk.colours.length]) || '#ff5fb8';
   ctx.save(); ctx.translate(x, y); ctx.scale(sx, sy);
   if (alpha !== 1) ctx.globalAlpha = alpha;
-  rr(ctx, -h, -h, h * 2, h * 2, h * (0.26 + 0.74 * cr)); ctx.clip();
+  rr(ctx, -h, -h, h * 2, h * 2, h * (0.52 + 0.48 * cr)); ctx.clip();   // a soft rounded square, never sharp corners
   const g = ctx.createRadialGradient(-h * 0.35, -h * 0.45, h * 0.1, 0, 0, h * 1.5);
   g.addColorStop(0, 'rgba(255,255,255,0.55)'); g.addColorStop(0.35, col); g.addColorStop(1, col);
   ctx.globalAlpha = alpha * (1 - cr); ctx.fillStyle = g; ctx.fillRect(-h, -h, h * 2, h * 2); ctx.globalAlpha = alpha;
