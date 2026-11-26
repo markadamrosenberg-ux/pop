@@ -612,7 +612,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 9:10pm, jelly fried eggs, runny yolk (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 9:20pm, fried eggs wobble only when disturbed (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -4728,6 +4728,23 @@ function drawFliers(now, dt) {
     drawButterfly(0, 0, L.c * 1.0 * grow, f.colour, flap); ctx.restore();
   }
 }
+(function jellyMotion() {   // move the phone and the fried eggs jiggle (iPhone asks once for motion access, on a tap during a fried-egg frame)
+  let last = null, on = false;
+  const handler = e => { const a = e.accelerationIncludingGravity || e.acceleration; if (!a) return;
+    const v = [a.x || 0, a.y || 0, a.z || 0];
+    if (last) { const d = Math.hypot(v[0] - last[0], v[1] - last[1], v[2] - last[2]), now = performance.now();
+      if (d > 2.2 && (!window._jelly || now - window._jelly.t > 220)) window._jelly = { t: now, x: null, y: null, amp: Math.min(1, d / 9) }; }
+    last = v; };
+  const start = () => { if (on) return; on = true; window.addEventListener('devicemotion', handler); };
+  if (typeof DeviceMotionEvent === 'undefined') return;
+  if (typeof DeviceMotionEvent.requestPermission !== 'function') { start(); return; }
+  window.addEventListener('pointerdown', () => {
+    if (on || window._motionAsked) return;
+    try { if (!SKINS[state.skin % SKINS.length].hatch || eggKind() !== 'fried') return; } catch (_) { return; }
+    window._motionAsked = true;
+    DeviceMotionEvent.requestPermission().then(r => { if (r === 'granted') start(); }).catch(() => {});
+  });
+})();
 const EGG_KINDS = ['chick', 'fried', 'easter'], EGG_FORCE = (location.search.match(/[?&]egg=(chick|fried|easter)/) || [])[1];
 function eggKind() {   // which surprise is inside the eggs this frame (picked once per frame, never the same twice running)
   if (EGG_FORCE) return EGG_FORCE;
@@ -4928,8 +4945,9 @@ function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, se
   if (HAND && SKINS[skinIdx % SKINS.length].bloom) { drawBud(cx, cy, size, sx, sy, alpha, seed, colour); return; }
   if (HAND && SKINS[skinIdx % SKINS.length].hatch) { drawEgg(cx, cy, size, sx, sy, alpha, seed, colour); return; }
   if (!HAND && SKINS[skinIdx % SKINS.length].hatch && eggKind() === 'fried' && !settings.reduced) {   // really jelly-like: always wobbling, and the whole plate jiggles when anything lands or gets squished
-    const kick = Math.exp(-(now - (window._jellyT || -1e9)) / 420), w = Math.sin(now / 150 + seed * 1.3) * 0.05 + Math.sin(now / 48 + seed) * 0.2 * kick;
-    sx *= 1 + w; sy *= 1 - w * 0.9;
+    const J = window._jelly;   // still until something disturbs them: a ripple spreads out from where a piece lands or you touch, and the whole plate jiggles when you move the phone
+    if (J) { const d = J.x == null ? 0 : Math.hypot(cx - J.x, cy - J.y), age = now - J.t - d * 1.4;
+      if (age > 0 && age < 1600) { const w = Math.sin(age / 45 + seed * 0.7) * 0.2 * J.amp * Math.exp(-age / 380) * Math.exp(-d / (L.c * 2.4)); sx *= 1 + w; sy *= 1 - w * 0.9; } }
   }
   if (HAND && SKINS[skinIdx % SKINS.length].morph) { drawCaterpillar(cx, cy, size, sx, sy, alpha, seed, colour); return; }
   if (SKINS[skinIdx % SKINS.length].morph) { drawCaterpillar(cx, cy, size, sx, sy, alpha, seed, colour); return; }   // caterpillars wait on the board, watching you
@@ -6646,7 +6664,7 @@ function playResult(res, pointerGesture) {
   }
   else if (skin().popcorn || skin().bloom || skin().hatch) { /* each kernel or bud makes its own sound as it opens, below */ }
   else if (skin().hit) { Sound.hit(skin().hit); if (skin().hit === 'bowling') Sound.preload(); } else Sound.place(res.piece.shape.cells.length);
-  window._jellyT = performance.now();   // fried eggs jiggle when a piece lands
+  { const cs = res.piece.shape.cells, [jx, jy] = cellCentre(res.gx + cs.reduce((a, c2) => a + c2[0], 0) / cs.length, res.gy + cs.reduce((a, c2) => a + c2[1], 0) / cs.length); window._jelly = { t: performance.now(), x: jx, y: jy, amp: 1 }; }   // fried eggs ripple out from where a piece lands
   if (CONFIG.haptics.place) Haptics.pulse(CONFIG.haptics.place);
 
   let endAt = now;
@@ -7942,7 +7960,7 @@ const Input = (() => {
           }
           { const [bx, by] = cellCentre(gx, gy), v = state.grid[Logic.idx(gx, gy)], cols = skin().colours;
             lastSquishAt = { x: bx, y: by - L.c * 0.15 };
-            window._jellyT = performance.now();
+            window._jelly = { t: performance.now(), x: bx, y: by, amp: 1 };
             if (skin().hatch && eggKind() === 'fried') { state.yolks = state.yolks || {}; if (!state.yolks[Logic.idx(gx, gy)]) state.yolks[Logic.idx(gx, gy)] = performance.now(); }   // the yolk breaks and runs
             const sn = skin().name, col = cols[(v - 1) % cols.length];
             if (sn === 'Tennis Balls') spawnFluff(bx, by, col); else if (sn === 'Donuts') spawnSprinkles(bx, by, 8); else if (skin().hatch && eggKind() === 'chick') spawnFeathers(bx, by - L.c * 0.15, 9, 0.75); else if (skin().hatch && eggKind() === 'easter') spawnSprinkles(bx, by, 8); else if (skin().hatch) squishDrops(bx, by, '#ffc21a'); else squishDrops(bx, by, col); }   // chicks: a puff of feathers; Easter eggs: sprinkles; fried eggs: yolk
