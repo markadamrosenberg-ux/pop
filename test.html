@@ -604,7 +604,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 2:15pm, popcorn 2 (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 2:55pm, popcorn 3 (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -1957,8 +1957,17 @@ const Sound = (() => {
     },
     // Each bubble in the ripple: the pick-up pop, stepping up a pentatonic scale, panned across the row,
     // with a soft muffled splash and a few tiny droplets.
+    // Popcorn (26 Nov): a dry, sharp "pok" like a real kernel going off, every one a little different
+    popcorn(delay = 0, pan = 0, big = 1) {
+      if (!ok()) return;
+      const t = ac.currentTime + Math.max(0, delay), v = R(0.85, 1.2);
+      noise(t, { type: 'bandpass', f: 2400 * v, f2: 1300 * v, q: 1.4, peak: 0.11 * big, attack: 0.0008, decay: 0.03, pan });
+      tone(t, { f: 560 * v, f2: 170, peak: 0.05 * big, attack: 0.001, decay: 0.045, pan });
+      noise(t + 0.002, { type: 'highpass', f: 4200, q: 0.7, peak: 0.035 * big, attack: 0.0005, decay: 0.012, pan });
+    },
     pop(i = 0, combo = 1, pan = 0) {
       if (!ok()) return;
+      if (typeof skin === 'function' && skin().popcorn) return this.popcorn(0, pan, 0.9);   // popcorn pops instead of bubble pops
       const t = ac.currentTime;
       if (t - lastPop < 0.012) return;
       lastPop = t;
@@ -2889,16 +2898,20 @@ const NEW_SKINS = [
   { name: 'Popcorn', popcorn: true, squish: 1.3, fixedColours: true, colours: ['#fffaf0', '#ffe58a', '#f2c27a', '#ffd0e4', '#d3ebff'],
     // (26 Nov) puffy popped corn: kernels in your hand pop into popcorn when they land, and burst when their line clears
     draw(ctx, s, c, i) {
-      const r = s * 0.52;
-      ctx.fillStyle = 'rgba(214,160,80,0.9)'; ctx.beginPath(); ctx.ellipse(r * 0.05, r * 0.62, r * 0.2, r * 0.1, 0.2, 0, Math.PI * 2); ctx.fill();   // a little husk
-      const puffs = [[-0.42, -0.02, 0.5], [0.4, -0.1, 0.48], [0.0, -0.48, 0.5], [-0.16, 0.36, 0.46], [0.36, 0.38, 0.4], [-0.52, 0.42, 0.32], [0.06, 0.02, 0.44], [0.5, -0.5, 0.26], [-0.46, -0.48, 0.28]];
+      const r = s * 0.6;
+      const puffs = [[-0.4, -0.1, 0.42], [0.38, -0.18, 0.4], [0.0, -0.5, 0.42], [-0.3, 0.38, 0.4], [0.34, 0.36, 0.38], [0.52, 0.08, 0.3], [-0.56, 0.18, 0.3], [0.08, 0.5, 0.34]];
+      ctx.fillStyle = '#d9a945'; ctx.beginPath(); ctx.arc(0, 0, r * 0.46, 0, Math.PI * 2); ctx.fill();   // soft shadow behind the cluster
       for (const [px, py, pr] of puffs) {
-        const x = px * r, y = py * r, rr2 = pr * r, g = ctx.createRadialGradient(x - rr2 * 0.35, y - rr2 * 0.4, rr2 * 0.05, x, y, rr2);
-        g.addColorStop(0, '#ffffff'); g.addColorStop(0.5, '#fffdf6'); g.addColorStop(0.82, c); g.addColorStop(1, 'rgba(232,205,160,1)');
+        const x = px * r, y = py * r, rr2 = pr * r, g = ctx.createRadialGradient(x - rr2 * 0.35, y - rr2 * 0.45, rr2 * 0.05, x, y, rr2);
+        g.addColorStop(0, '#fffdf2'); g.addColorStop(0.55, '#fff0c4'); g.addColorStop(1, '#e8c070');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rr2, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.fillStyle = 'rgba(255,214,70,0.6)';   // butter spots
-      for (const [px, py, pr] of [[0.2, -0.32, 0.1], [-0.34, 0.12, 0.09], [0.36, 0.24, 0.08], [-0.06, -0.06, 0.07]]) { ctx.beginPath(); ctx.arc(px * r, py * r, pr * r, 0, Math.PI * 2); ctx.fill(); }
+      // the golden centre where the kernel burst open
+      ctx.save(); ctx.translate(r * 0.02, r * 0.02);
+      ctx.beginPath(); for (let k = 0; k < 10; k++) { const a = k * Math.PI / 5 - Math.PI / 2, rad = r * (k % 2 ? 0.13 : 0.24); k ? ctx.lineTo(Math.cos(a) * rad, Math.sin(a) * rad) : ctx.moveTo(Math.cos(a) * rad, Math.sin(a) * rad); }
+      ctx.closePath(); const sg = ctx.createRadialGradient(0, 0, 0, 0, 0, r * 0.24); sg.addColorStop(0, '#ffcf4a'); sg.addColorStop(1, '#e58a12'); ctx.fillStyle = sg; ctx.fill(); ctx.restore();
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';   // highlights on the top puffs
+      for (const [px, py, pr] of [[-0.05, -0.62, 0.12], [-0.5, -0.2, 0.09], [0.32, -0.3, 0.09]]) { ctx.beginPath(); ctx.ellipse(px * r, py * r, pr * r, pr * r * 0.6, -0.4, 0, Math.PI * 2); ctx.fill(); }
     },
   },
   { name: 'Emojis', colours: ['#ffd23f'], fixedColours: true, squish: 1.5, face: true, emoji: true,
@@ -4292,17 +4305,25 @@ function drawBitten(n, v, x, y, size, sx, sy, seed, now) {
 }
 let HAND = false;   // true while drawing the tray or the piece in your hand
 const POPT = new Map();   // popcorn cells still to pop: cell -> time it pops
-function drawKernel(cx, cy, size, sx, sy, alpha, seed) {
-  const w = size * 0.3, h = size * 0.4;
-  ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.sin(seed * 2.3) * 0.5); ctx.scale(sx, sy); if (alpha !== 1) ctx.globalAlpha = alpha;
-  ctx.beginPath(); ctx.moveTo(0, -h); ctx.bezierCurveTo(w * 1.25, -h, w * 1.1, h * 0.35, 0, h); ctx.bezierCurveTo(-w * 1.1, h * 0.35, -w * 1.25, -h, 0, -h); ctx.closePath();
-  const g = ctx.createLinearGradient(0, -h, 0, h); g.addColorStop(0, '#ffd84d'); g.addColorStop(0.6, '#f0a21e'); g.addColorStop(0.9, '#c9701a'); g.addColorStop(1, '#fff0c8');
-  ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = Math.max(1, size * 0.025); ctx.strokeStyle = 'rgba(120,60,10,0.55)'; ctx.stroke();
-  ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.ellipse(-w * 0.35, -h * 0.45, w * 0.18, h * 0.22, -0.3, 0, Math.PI * 2); ctx.fill();
+const KERNEL_COLS = [['#ffd54a', '#f2a316', '#b8690c'], ['#ffb04a', '#ec7a1c', '#a8460c'], ['#ff6b5e', '#d93030', '#8e1818']];
+function drawKernel(cx, cy, size, sx, sy, alpha, seed, colour = 0) {
+  const [lt, mid, dk] = KERNEL_COLS[colour % 3], r = size * 0.42;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(-0.35 + Math.sin(seed * 2.3) * 0.12); ctx.scale(sx, sy); if (alpha !== 1) ctx.globalAlpha = alpha;
+  // a plump drop: round at the top, narrowing to the tip at the bottom right
+  ctx.beginPath(); ctx.moveTo(0, -r * 1.05);
+  ctx.bezierCurveTo(r * 1.15, -r * 1.05, r * 1.2, r * 0.45, r * 0.35, r * 1.0);
+  ctx.bezierCurveTo(r * 0.05, r * 1.25, -r * 0.5, r * 1.1, -r * 0.9, r * 0.55);
+  ctx.bezierCurveTo(-r * 1.25, -r * 0.1, -r * 0.95, -r * 1.05, 0, -r * 1.05); ctx.closePath();
+  const g = ctx.createRadialGradient(-r * 0.35, -r * 0.45, r * 0.1, 0, 0, r * 1.3);
+  g.addColorStop(0, lt); g.addColorStop(0.55, mid); g.addColorStop(1, dk);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.fillStyle = '#f6e3b4'; ctx.beginPath(); ctx.ellipse(r * 0.18, r * 0.98, r * 0.32, r * 0.22, -0.4, 0, Math.PI * 2); ctx.fill();   // the cream tip
+  ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(-r * 0.4, -r * 0.55, r * 0.28, r * 0.16, -0.6, 0, Math.PI * 2); ctx.fill();   // shine
   ctx.restore();
 }
 function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, seed = 0, now = performance.now()) {
-  if (HAND && SKINS[skinIdx % SKINS.length].popcorn) { drawKernel(cx, cy, size, sx, sy, alpha, seed); return; }
+  if (HAND && SKINS[skinIdx % SKINS.length].popcorn) { drawKernel(cx, cy, size, sx, sy, alpha, seed, colour); return; }
+  if (SKINS[skinIdx % SKINS.length].popcorn) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(((seed * 2.39996) % (Math.PI * 2))); drawBall(skinIdx, colour, 0, 0, size, sx, sy, alpha); ctx.restore(); return; }   // every piece of popcorn sits at its own angle
   const sk = SKINS[skinIdx % SKINS.length];
   if (!settings.reduced) {
     const q = sk.squish || 1, b = Math.sin(now / 1000 * 2.3 * (q > 1 ? 1.6 : 1) + seed * 1.7) * 0.016 * q;
@@ -5953,7 +5974,7 @@ function playResult(res, pointerGesture) {
   const placed = new Set(res.piece.shape.cells.map(([x, y]) => Logic.idx(res.gx + x, res.gy + y)));
   FX.land.push({ t0: now, cells: res.piece.shape.cells.map(([x, y]) => cellCentre(res.gx + x, res.gy + y)) });
   for (const [x, y] of res.piece.shape.cells) FX.settle.set(Logic.idx(res.gx + x, res.gy + y), { t0: now + (x + y) * CONFIG.feel.rippleMs, amp: CONFIG.feel.landAmp });
-  if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + 90 + k * 55 + Math.random() * 40));
+  if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 90 + k * 55 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.popcorn((at - now) / 1000, (res.gx + x - 3.5) / 5); });
   // (26 Nov) square landing test switched off: pieces land as round balls with the normal jiggle
   // nearby bubbles feel the splash and jiggle a little, a beat later
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
@@ -5970,6 +5991,7 @@ function playResult(res, pointerGesture) {
       spawnFluff(...cellCentre(res.gx + x, res.gy + y), sk.colours[(Math.max(1, g | 0) - 1) % sk.colours.length]);
     }
   }
+  else if (skin().popcorn) { /* each kernel makes its own pok as it pops, below */ }
   else if (skin().hit) { Sound.hit(skin().hit); if (skin().hit === 'bowling') Sound.preload(); } else Sound.place(res.piece.shape.cells.length);
   if (CONFIG.haptics.place) Haptics.pulse(CONFIG.haptics.place);
 
