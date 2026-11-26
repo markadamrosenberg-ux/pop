@@ -370,6 +370,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 #hxl{position:absolute;left:-9999px;top:0;opacity:0;pointer-events:none}
 
 
+
+/* Pin hint (26 Nov): when your Pin can pop every bubble left on the board, the Pin button glows and wiggles */
+#pinBtn.pinhint{animation:pinWig 1.1s ease-in-out infinite;box-shadow:0 0 0 3px rgba(255,210,63,.9),0 0 22px 6px rgba(255,210,63,.55)}
+@keyframes pinWig{0%,100%{transform:rotate(0) scale(1)}10%{transform:rotate(-14deg) scale(1.12)}20%{transform:rotate(12deg) scale(1.12)}30%{transform:rotate(-8deg) scale(1.06)}40%{transform:rotate(0) scale(1)}}
+#pinHintTxt{position:absolute;z-index:8;pointer-events:none;opacity:0;transition:opacity .25s;font-family:Fredoka,ui-rounded,system-ui,sans-serif;font-weight:700;font-size:19px;color:#ffd23f;white-space:nowrap;
+  text-shadow:2px 0 0 #2a0633,-2px 0 0 #2a0633,0 2px 0 #2a0633,0 -2px 0 #2a0633,2px 2px 0 #2a0633,-2px 2px 0 #2a0633,2px -2px 0 #2a0633,-2px -2px 0 #2a0633,0 4px 0 #2a0633;animation:hintBob 1.1s ease-in-out infinite alternate}
+#pinHintTxt.on{opacity:1}
+@keyframes hintBob{0%{transform:translateY(0)}100%{transform:translateY(-4px)}}
 /* Squish me: after a quiet spell, one bubble on the board pipes up (Mark, 25 Nov) */
 #squishMe{position:absolute;z-index:6;pointer-events:none;opacity:0;transform:translate(-50%,-100%) scale(.4);transform-origin:50% 100%;
   background:#fff;color:#c2187a;font-family:'Arial Rounded MT Bold','SF Pro Rounded',ui-rounded,system-ui,sans-serif;font-weight:900;font-size:15px;
@@ -459,7 +467,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
   <div class="meter" id="meter" aria-label="Frame progress"><div class="fill" id="meterFill"></div><div class="txt"><span id="meterL">Frame 1</span><span id="meterR">0 / 10 lines</span></div></div>
   <div id="stage">
     <canvas id="cv"></canvas>
-    <div id="comboRingGlow"></div><div id="comboRing"></div><div id="quip"><span class="w"></span></div><div id="squishMe"></div>
+    <div id="comboRingGlow"></div><div id="comboRing"></div><div id="quip"><span class="w"></span></div><div id="squishMe"></div><div id="pinHintTxt"></div>
     <div class="hint hide" id="hint">Drag a piece onto the grid.<br>Fill a <b>row</b> or <b>column</b> and the bubbles pop.<br><b>Empty the board</b> to clear the frame.</div>
     <div class="coach" id="coach"><div id="coachText"></div><button id="coachOk">Got it</button></div>
     <div class="coachpt" id="coachPt"></div>
@@ -604,7 +612,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 2:55pm, popcorn 3 (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 3:25pm, pin hint + louder popcorn (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -1961,9 +1969,9 @@ const Sound = (() => {
     popcorn(delay = 0, pan = 0, big = 1) {
       if (!ok()) return;
       const t = ac.currentTime + Math.max(0, delay), v = R(0.85, 1.2);
-      noise(t, { type: 'bandpass', f: 2400 * v, f2: 1300 * v, q: 1.4, peak: 0.11 * big, attack: 0.0008, decay: 0.03, pan });
-      tone(t, { f: 560 * v, f2: 170, peak: 0.05 * big, attack: 0.001, decay: 0.045, pan });
-      noise(t + 0.002, { type: 'highpass', f: 4200, q: 0.7, peak: 0.035 * big, attack: 0.0005, decay: 0.012, pan });
+      noise(t, { type: 'bandpass', f: 2400 * v, f2: 1300 * v, q: 1.4, peak: 0.26 * big, attack: 0.0008, decay: 0.03, pan });
+      tone(t, { f: 560 * v, f2: 170, peak: 0.12 * big, attack: 0.001, decay: 0.045, pan });
+      noise(t + 0.002, { type: 'highpass', f: 4200, q: 0.7, peak: 0.08 * big, attack: 0.0005, decay: 0.012, pan });
     },
     pop(i = 0, combo = 1, pan = 0) {
       if (!ok()) return;
@@ -5832,6 +5840,21 @@ function spawnSparks(x, y, n, colourHex) {
 
 
 
+
+/* ---- Pin hint (26 Nov): when your Pin has enough pops to clear every bubble left, nudge you to use it ---- */
+setInterval(() => {
+  const btn = document.getElementById('pinBtn'), tx = document.getElementById('pinHintTxt'); if (!btn || !tx || typeof state === 'undefined') return;
+  const n = state.grid.filter(Boolean).length, pops = pinPops();
+  const busy = state.over || Celebrate.active() || FX.waterfall || Input.pinShots() > 0 || (Input.partyMode && Input.partyMode()) || btn.offsetParent === null;
+  const on = !busy && n >= 1 && n <= pops;
+  btn.classList.toggle('pinhint', on);
+  if (on) {
+    tx.textContent = n === 1 ? '↑ Pin the last one!' : `↑ Pin the last ${n}!`;
+    const sr = tx.parentElement.getBoundingClientRect(), b = btn.getBoundingClientRect();
+    tx.style.left = (b.left - sr.left + 2) + 'px'; tx.style.top = (b.bottom - sr.top + 8) + 'px';   // just under the Pin, clear of the score
+  }
+  tx.classList.toggle('on', on);
+}, 300);
 /* ---- Squish me: if nobody touches the game for a while, a bubble on the board asks to be squished ---- */
 const SquishMe = (() => {
   const LINES = ['Squish me!', 'Psst. Squish me.', 'Hello? Anyone?', 'I’m bored. Poke me.', 'Tickle me', 'I won’t bite'];
