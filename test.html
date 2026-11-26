@@ -612,7 +612,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 5:30pm, flowers 3 + softer popcorn (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 6:30pm, butterflies + chicks + fireworks (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -1973,18 +1973,48 @@ const Sound = (() => {
       tone(t, { f: 520 * v, f2: 160, peak: 0.12 * big, attack: 0.001, decay: 0.045, pan });
       noise(t + 0.002, { type: 'highpass', f: 3400, q: 0.7, peak: 0.03 * big, attack: 0.0005, decay: 0.012, pan });
     },
+    // Butterflies (26 Nov): a soft papery flutter
+    flutter(delay = 0, pan = 0, big = 1) {
+      if (!ok()) return; const t = ac.currentTime + Math.max(0, delay);
+      for (let k = 0; k < 4; k++) noise(t + k * 0.045, { type: 'bandpass', f: 900 + k * 120, q: 0.8, peak: 0.03 * big * (1 - k * 0.15), attack: 0.004, decay: 0.035, pan });
+    },
+    // Chicks (26 Nov): a shell crack, then a little cheep
+    hatch(delay = 0, pan = 0, big = 1) {
+      if (!ok()) return; const t = ac.currentTime + Math.max(0, delay), v = R(0.9, 1.1);
+      for (let k = 0; k < 3; k++) noise(t + k * 0.018, { type: 'bandpass', f: 2600 * v, q: 2, peak: 0.07 * big, attack: 0.001, decay: 0.012, pan });
+      this.cheep(delay + 0.12, pan, big);
+    },
+    cheep(delay = 0, pan = 0, big = 1) {
+      if (!ok()) return; const t = ac.currentTime + Math.max(0, delay), f = 2300 * R(0.9, 1.15);
+      tone(t, { f, f2: f * 1.35, peak: 0.05 * big, attack: 0.005, decay: 0.07, pan });
+      tone(t + 0.09, { f: f * 1.05, f2: f * 1.4, peak: 0.04 * big, attack: 0.005, decay: 0.06, pan });
+    },
+    // Fireworks (26 Nov): a rising whoosh, then a bang with crackle
+    launch(delay = 0) {
+      if (!ok()) return; const t = ac.currentTime + Math.max(0, delay);
+      noise(t, { type: 'bandpass', f: 600, f2: 3200, q: 1.5, peak: 0.05, attack: 0.05, decay: 0.5, pan: R(-0.4, 0.4) });
+    },
+    bang() {
+      if (!ok()) return; const t = ac.currentTime, pan = R(-0.5, 0.5);
+      if (t - (this._bang || 0) < 0.06) return; this._bang = t;
+      tone(t, { f: 120, f2: 45, peak: 0.14, attack: 0.002, decay: 0.35, pan });
+      noise(t, { type: 'lowpass', f: 1800, f2: 300, q: 0.5, peak: 0.12, attack: 0.002, decay: 0.3, pan });
+      for (let k = 0; k < 10; k++) noise(t + 0.15 + Math.random() * 0.6, { type: 'highpass', f: 3000, q: 0.7, peak: 0.025, attack: 0.001, decay: 0.01, pan: R(-0.8, 0.8) });
+    },
     // Flowers (26 Nov): a soft bell-like pluck with a breath of air as a flower opens
-    bloom(delay = 0, pan = 0, big = 1) {
+    bloom(delay = 0, pan = 0, big = 1) {   // (26 Nov, softer) an airy unfurl, like petals opening, with a gentle low wooden note under it
       if (!ok()) return;
-      const t = ac.currentTime + Math.max(0, delay), f = 660 * PENTA[Math.floor(Math.random() * 5)] * R(0.99, 1.01);
-      tone(t, { f, peak: 0.07 * big, attack: 0.004, decay: 0.32, pan });
-      tone(t + 0.005, { f: f * 2, peak: 0.022 * big, attack: 0.004, decay: 0.18, pan });
-      noise(t, { type: 'bandpass', f: 3200, f2: 1600, q: 0.8, peak: 0.025 * big, attack: 0.01, decay: 0.12, pan });
+      const t = ac.currentTime + Math.max(0, delay), f = 330 * PENTA[Math.floor(Math.random() * 5)] * R(0.99, 1.01);
+      noise(t, { type: 'bandpass', f: 700, f2: 2200, q: 0.7, peak: 0.035 * big, attack: 0.09, decay: 0.28, pan });
+      tone(t + 0.06, { f, type: 'triangle', peak: 0.03 * big, attack: 0.01, decay: 0.2, pan });
     },
     pop(i = 0, combo = 1, pan = 0) {
       if (!ok()) return;
       if (typeof skin === 'function' && skin().popcorn) return this.popcorn(0, pan, 0.9);
-      if (typeof skin === 'function' && skin().bloom) return this.bloom(0, pan, 0.9);   // popcorn pops instead of bubble pops
+      if (typeof skin === 'function' && skin().bloom) return this.bloom(0, pan, 0.9);
+      if (typeof skin === 'function' && skin().hatch) return this.cheep(0, pan, 0.8);
+      if (typeof skin === 'function' && skin().morph) return this.flutter(0, pan, 1.2);
+      if (typeof skin === 'function' && skin().fw) return;   // fireworks make their own launch and bang   // popcorn pops instead of bubble pops
       const t = ac.currentTime;
       if (t - lastPop < 0.012) return;
       lastPop = t;
@@ -2912,6 +2942,65 @@ const NEW_SKINS = [
       nlGloss(ctx, r, 0.6);
     },
   },
+  { name: 'Butterflies', morph: true, squish: 1.1, fixedColours: true, colours: ['#ff7ab8', '#4fc3ff', '#ffb02e', '#a77bff', '#5be39a'],
+    // (26 Nov) caterpillars in your hand turn into butterflies when they land; when their row clears they fly away
+    draw(ctx, s, c, i) {
+      const r = s * 0.5;
+      for (const d of [-1, 1]) {   // wings: a big upper wing and a smaller lower wing each side
+        const g = ctx.createRadialGradient(d * r * 0.2, -r * 0.1, r * 0.05, d * r * 0.4, -r * 0.1, r * 0.75);
+        g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, c); g.addColorStop(1, shade(c, -45));
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.moveTo(0, -r * 0.05); ctx.bezierCurveTo(d * r * 0.35, -r * 0.95, d * r * 1.0, -r * 0.75, d * r * 0.85, -r * 0.1); ctx.bezierCurveTo(d * r * 0.75, r * 0.1, d * r * 0.3, r * 0.05, 0, r * 0.05); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(0, r * 0.02); ctx.bezierCurveTo(d * r * 0.65, r * 0.05, d * r * 0.75, r * 0.65, d * r * 0.35, r * 0.7); ctx.bezierCurveTo(d * r * 0.15, r * 0.72, 0, r * 0.4, 0, r * 0.1); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.arc(d * r * 0.55, -r * 0.4, r * 0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(40,20,40,0.55)'; ctx.beginPath(); ctx.arc(d * r * 0.38, r * 0.42, r * 0.07, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = '#3a2440'; ctx.beginPath(); ctx.ellipse(0, r * 0.05, r * 0.07, r * 0.45, 0, 0, Math.PI * 2); ctx.fill();   // body
+      ctx.strokeStyle = '#3a2440'; ctx.lineWidth = Math.max(1, s * 0.02); ctx.lineCap = 'round';
+      for (const d of [-1, 1]) { ctx.beginPath(); ctx.moveTo(0, -r * 0.35); ctx.quadraticCurveTo(d * r * 0.1, -r * 0.65, d * r * 0.25, -r * 0.72); ctx.stroke(); }   // antennae
+    },
+  },
+  { name: 'Chicks', hatch: true, squish: 1.3, fixedColours: true, colours: ['#fffaf0', '#d8ecff', '#f3dfc4', '#e3f4d4', '#ffe1ec'],
+    // (26 Nov) eggs in your hand hatch when they land: a chick sitting in the bottom half of its shell
+    draw(ctx, s, c, i) {
+      const r = s * 0.5;
+      // the chick: a fluffy yellow ball
+      const g = ctx.createRadialGradient(-r * 0.15, -r * 0.35, r * 0.05, 0, -r * 0.1, r * 0.55);
+      g.addColorStop(0, '#fff8b8'); g.addColorStop(0.6, '#ffd93d'); g.addColorStop(1, '#f2b01b');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, -r * 0.12, r * 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#f2b01b'; ctx.lineWidth = Math.max(1.5, s * 0.03); ctx.lineCap = 'round';   // a little tuft
+      for (const d of [-1, 0, 1]) { ctx.beginPath(); ctx.moveTo(d * r * 0.06, -r * 0.6); ctx.quadraticCurveTo(d * r * 0.16, -r * 0.78, d * r * 0.2 + r * 0.04, -r * 0.8); ctx.stroke(); }
+      ctx.fillStyle = '#2b1d14'; for (const d of [-1, 1]) { ctx.beginPath(); ctx.arc(d * r * 0.18, -r * 0.2, r * 0.065, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = '#fff'; for (const d of [-1, 1]) { ctx.beginPath(); ctx.arc(d * r * 0.18 - r * 0.02, -r * 0.225, r * 0.022, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = 'rgba(255,120,140,0.45)'; for (const d of [-1, 1]) { ctx.beginPath(); ctx.ellipse(d * r * 0.32, -r * 0.04, r * 0.08, r * 0.05, 0, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = '#ff8a1e'; ctx.beginPath(); ctx.moveTo(-r * 0.08, -r * 0.08); ctx.lineTo(r * 0.08, -r * 0.08); ctx.lineTo(0, r * 0.04); ctx.closePath(); ctx.fill();
+      // the bottom half of the shell, with a zigzag edge
+      ctx.save(); eggPath(ctx, r * 0.78, r * 0.95, r * 0.12); ctx.clip();
+      ctx.beginPath(); ctx.moveTo(-r, r); ctx.lineTo(-r, r * 0.08);
+      for (let k = 0; k <= 8; k++) ctx.lineTo(-r + k * r / 4, r * (k % 2 ? -0.04 : 0.12));
+      ctx.lineTo(r, r); ctx.closePath();
+      const sg = ctx.createLinearGradient(-r, 0, r, 0); sg.addColorStop(0, '#ffffff'); sg.addColorStop(0.35, c); sg.addColorStop(1, shade(c, -18));
+      ctx.fillStyle = sg; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = Math.max(1, s * 0.015); ctx.stroke();
+      ctx.fillStyle = 'rgba(140,100,60,0.35)'; for (const [px, py] of [[-0.3, 0.4], [0.2, 0.55], [0.4, 0.3], [-0.1, 0.7]]) { ctx.beginPath(); ctx.arc(px * r, py * r, r * 0.035, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+    },
+  },
+  { name: 'Fireworks', fw: true, squish: 1.2, fixedColours: true, colours: ['#ff3d6e', '#36c8ff', '#ffc531', '#a66bff', '#3ddc84'],
+    // (26 Nov) firework shells with fuses: when a row clears they launch into the sky and burst
+    draw(ctx, s, c, i) {
+      const r = s * 0.42;
+      ctx.strokeStyle = '#6b4a2a'; ctx.lineWidth = Math.max(1.5, s * 0.035); ctx.lineCap = 'round';   // the fuse
+      ctx.beginPath(); ctx.moveTo(0, -r * 0.95); ctx.quadraticCurveTo(r * 0.25, -r * 1.25, r * 0.12, -r * 1.42); ctx.stroke();
+      ctx.fillStyle = '#ffdc5e'; ctx.beginPath(); ctx.arc(r * 0.12, -r * 1.45, r * 0.09, 0, Math.PI * 2); ctx.fill();   // the spark
+      const g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.1, 0, 0, r);
+      g.addColorStop(0, shade(c, 40)); g.addColorStop(0.6, c); g.addColorStop(1, shade(c, -35));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#ffd86b'; ctx.lineWidth = Math.max(1.5, s * 0.05); ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.28, 0, 0, Math.PI * 2); ctx.stroke();   // gold band
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';   // little stars
+      for (const [px, py, pr] of [[-0.42, -0.45, 0.13], [0.35, -0.55, 0.1], [0.45, 0.45, 0.11], [-0.35, 0.5, 0.09]]) { const x = px * r, y = py * r, q = pr * r; ctx.beginPath(); for (let k = 0; k < 8; k++) { const a = k * Math.PI / 4, d = k % 2 ? q * 0.4 : q; k ? ctx.lineTo(x + Math.cos(a) * d, y + Math.sin(a) * d) : ctx.moveTo(x + d, y); } ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.beginPath(); ctx.ellipse(-r * 0.35, -r * 0.5, r * 0.25, r * 0.12, -0.5, 0, Math.PI * 2); ctx.fill();
+    },
+  },
   { name: 'Flowers', bloom: true, squish: 1.2, fixedColours: true, colours: ['#ff7eb6', '#b58cff', '#ff8f6b', '#6fc3ff', '#ffd24d'],
     // (26 Nov) closed buds in your hand bloom open into flowers when they land
     draw(ctx, s, c, i) {
@@ -3555,7 +3644,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'bloom']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Flowers, then Popcorn
+  for (const fl of ['popcorn', 'bloom', 'fw', 'hatch', 'morph']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, then Chicks, Fireworks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -4355,6 +4444,101 @@ function drawKernel(cx, cy, size, sx, sy, alpha, seed, colour = 0) {
   ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(-r * 0.4, -r * 0.55, r * 0.28, r * 0.16, -0.6, 0, Math.PI * 2); ctx.fill();   // shine
   ctx.restore();
 }
+function drawCaterpillar(cx, cy, size, sx, sy, alpha, seed, colour, wig = 0) {
+  const sk = SKINS.find(k => k.morph), c = sk.colours[colour % sk.colours.length], r = size * 0.5, t = performance.now();
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(-0.3 + Math.sin(seed * 2.3) * 0.2); ctx.scale(sx, sy); if (alpha !== 1) ctx.globalAlpha = alpha;
+  const segs = 5;
+  for (let k = segs - 1; k >= 0; k--) {   // a wriggly line of segments, the head at the front
+    const x = -r * 0.6 + k * r * 0.3, y = Math.sin(t / 160 + k * 0.9 + seed) * r * (0.06 + wig * 0.12), rad = r * (k === segs - 1 ? 0.27 : 0.22);
+    const g = ctx.createRadialGradient(x - rad * 0.3, y - rad * 0.4, 1, x, y, rad); g.addColorStop(0, '#d9ffb0'); g.addColorStop(0.6, '#62c93f'); g.addColorStop(1, '#2f8a28');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
+    if (k < segs - 1) { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y - rad * 0.55, rad * 0.28, 0, Math.PI * 2); ctx.fill(); }   // coloured spots: the butterfly it'll become
+  }
+  const hx = -r * 0.6 + (segs - 1) * r * 0.3, hy = Math.sin(t / 160 + (segs - 1) * 0.9 + seed) * r * (0.06 + wig * 0.12);
+  ctx.fillStyle = '#1d1d1d'; ctx.beginPath(); ctx.arc(hx + r * 0.08, hy - r * 0.06, r * 0.045, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx + r * 0.07, hy - r * 0.075, r * 0.016, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#2f8a28'; ctx.lineWidth = Math.max(1, size * 0.02); ctx.beginPath(); ctx.moveTo(hx, hy - r * 0.22); ctx.lineTo(hx + r * 0.05, hy - r * 0.36); ctx.stroke();
+  ctx.restore();
+}
+const FLIERS = [];   // butterflies flying off the board
+function releaseButterfly(x, y, colour) {
+  const a = Math.random() * Math.PI * 2, sp = L.c * (2.5 + Math.random() * 2.5);
+  FLIERS.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - L.c * 1.5, colour, t0: performance.now(), ph: Math.random() * 6.28, life: 2600 });
+}
+function drawFliers(now, dt) {
+  const s2 = dt / 1000, sk = SKINS.findIndex(k => k.morph);
+  for (let i = FLIERS.length - 1; i >= 0; i--) {
+    const f = FLIERS[i], age = now - f.t0;
+    if (age > f.life || f.x < -L.c * 2 || f.x > L.W + L.c * 2 || f.y < -L.c * 2 || f.y > L.H + L.c * 2) { FLIERS.splice(i, 1); continue; }
+    f.vx += Math.sin(age / 300 + f.ph) * L.c * 3 * s2; f.vy += Math.cos(age / 260 + f.ph) * L.c * 3 * s2 - L.c * 0.6 * s2;   // a fluttery, wandering path
+    f.x += f.vx * s2; f.y += f.vy * s2;
+    const flap = 0.25 + 0.75 * Math.abs(Math.sin(age / 55 + f.ph)), heading = Math.atan2(f.vy, f.vx) + Math.PI / 2;
+    ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(heading * 0.6); ctx.globalAlpha = Math.min(1, (f.life - age) / 400);
+    drawBall(sk, f.colour, 0, 0, L.c * 0.85, flap, 1, 1); ctx.restore();
+  }
+}
+function eggPath(c2, w, h, dy = 0) {   // an egg: rounder at the bottom, narrower at the top
+  c2.beginPath(); c2.moveTo(0, -h + dy);
+  c2.bezierCurveTo(w * 0.75, -h + dy, w, -h * 0.05 + dy, w * 0.98, h * 0.25 + dy);
+  c2.bezierCurveTo(w * 0.95, h * 0.8 + dy, w * 0.5, h + dy, 0, h + dy);
+  c2.bezierCurveTo(-w * 0.5, h + dy, -w * 0.95, h * 0.8 + dy, -w * 0.98, h * 0.25 + dy);
+  c2.bezierCurveTo(-w, -h * 0.05 + dy, -w * 0.75, -h + dy, 0, -h + dy); c2.closePath();
+}
+function shade(hex, amt) { const n = parseInt(hex.slice(1), 16), cl = v => Math.max(0, Math.min(255, v)); return '#' + [16, 8, 0].map(b => cl(((n >> b) & 255) + amt).toString(16).padStart(2, '0')).join(''); }
+function drawEgg(cx, cy, size, sx, sy, alpha, seed, colour, rot = 0, crack = 0, half = 0) {
+  const sk = SKINS.find(k => k.hatch), c = sk.colours[colour % sk.colours.length], r = size * 0.5;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.scale(sx, sy); if (alpha !== 1) ctx.globalAlpha = alpha;
+  if (half) {   // just the top of the shell, for the bit that flies off
+    ctx.beginPath(); ctx.moveTo(-r, -r * 1.2); ctx.lineTo(r, -r * 1.2); ctx.lineTo(r, r * 0.08);
+    for (let k = 8; k >= 0; k--) ctx.lineTo(-r + k * r / 4, r * (k % 2 ? -0.04 : 0.12)); ctx.closePath(); ctx.clip();
+  }
+  eggPath(ctx, r * 0.74, r * 0.92, r * 0.06);
+  const g = ctx.createLinearGradient(-r, -r, r, r); g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, c); g.addColorStop(1, shade(c, -22));
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.16)'; ctx.lineWidth = Math.max(1, size * 0.015); ctx.stroke();
+  ctx.fillStyle = 'rgba(140,100,60,0.32)'; for (const [px, py] of [[-0.3, -0.3], [0.25, -0.5], [0.4, 0.2], [-0.2, 0.45], [0.05, 0.1]]) { ctx.beginPath(); ctx.arc(px * r, py * r, r * 0.04, 0, Math.PI * 2); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(-r * 0.3, -r * 0.45, r * 0.12, r * 0.22, 0.4, 0, Math.PI * 2); ctx.fill();
+  if (crack > 0) {   // the crack spreading round the middle
+    ctx.strokeStyle = 'rgba(80,50,20,0.8)'; ctx.lineWidth = Math.max(1.2, size * 0.025); ctx.beginPath();
+    const n = Math.ceil(8 * crack); for (let k = 0; k <= n; k++) { const x = -r * 0.72 + k * r * 0.18, y = r * (k % 2 ? -0.04 : 0.12); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke();
+  }
+  ctx.restore();
+}
+// fireworks and feathers: particles drawn over the board
+const SPARKS = [];
+function launchFirework(x, y, col, delay) {
+  const now = performance.now() + delay, tx = x + (Math.random() - 0.5) * L.B * 0.5, ty = L.by + L.B * (0.08 + Math.random() * 0.4);
+  SPARKS.push({ kind: 'rocket', x, y, x0: x, y0: y, tx, ty: Math.min(ty, y - L.c * 2), col, t0: now, dur: 480 + Math.random() * 200 });
+  Sound.launch(delay / 1000);
+}
+function burst(x, y, col, now) {
+  const n = 54;
+  for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2 + Math.random() * 0.2, sp = L.c * (4.5 + Math.random() * 3.5);
+    SPARKS.push({ kind: 'spark', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, col: Math.random() < 0.25 ? '#ffffff' : col, t0: now, life: 900 + Math.random() * 600 }); }
+  SPARKS.push({ kind: 'flash', x, y, col, t0: now, life: 220 });
+}
+function spawnFeathers(x, y) {
+  const now = performance.now();
+  for (let k = 0; k < 5; k++) { const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, sp = L.c * (5 + Math.random() * 5);
+    PETALS.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 8, sz: L.c * (0.14 + Math.random() * 0.08), col: Math.random() < 0.7 ? '#ffd93d' : '#fff3a6', t0: now + Math.random() * 60, life: 1800 + Math.random() * 900, ph: Math.random() * 6.28 }); }
+}
+function drawSparks(now, dt) {
+  const s2 = dt / 1000; ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = SPARKS.length - 1; i >= 0; i--) {
+    const p = SPARKS[i], age = now - p.t0; if (age < 0) continue;
+    if (p.kind === 'rocket') {
+      const u = Math.min(1, age / p.dur), e = 1 - Math.pow(1 - u, 2), x = p.x0 + (p.tx - p.x0) * e, y = p.y0 + (p.ty - p.y0) * e;
+      for (let k = 0; k < 6; k++) { const b = Math.max(0, e - k * 0.03); ctx.globalAlpha = 0.5 - k * 0.07; ctx.fillStyle = '#ffd98a'; ctx.beginPath(); ctx.arc(p.x0 + (p.tx - p.x0) * b, p.y0 + (p.ty - p.y0) * b, L.c * (0.09 - k * 0.01), 0, Math.PI * 2); ctx.fill(); }
+      if (u >= 1) { SPARKS.splice(i, 1); burst(x, y, p.col, now); Sound.bang(); }
+      continue;
+    }
+    if (age > p.life) { SPARKS.splice(i, 1); continue; }
+    if (p.kind === 'flash') { const k = age / p.life; ctx.globalAlpha = 1 - k; const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, L.c * (0.6 + 1.4 * k)); g.addColorStop(0, '#fff'); g.addColorStop(0.4, p.col); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.x, p.y, L.c * (0.6 + 1.4 * k), 0, Math.PI * 2); ctx.fill(); continue; }
+    p.vy += L.c * 2.2 * s2; p.vx *= Math.pow(0.3, s2); p.vy *= Math.pow(0.5, s2); p.x += p.vx * s2; p.y += p.vy * s2;
+    const k = age / p.life; ctx.globalAlpha = (1 - k) * (0.7 + 0.3 * Math.sin(age / 30 + i)); ctx.fillStyle = p.col;
+    ctx.beginPath(); ctx.arc(p.x, p.y, L.c * 0.09 * (1 - k * 0.5), 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
 function drawOpening(cx, cy, size, colour, t, seed) {
   const sk = SKINS.find(k => k.bloom), c = sk.colours[colour % sk.colours.length], r = size * 0.5, n = 6, rot = (seed * 2.39996) % (Math.PI * 2);
   const backOut = u => { const k = 1.9; u -= 1; return 1 + u * u * ((k + 1) * u + k); };   // springs a little past, then settles
@@ -4392,6 +4576,9 @@ function drawBud(cx, cy, size, sx, sy, alpha, seed, colour) {
 }
 function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, seed = 0, now = performance.now()) {
   if (HAND && SKINS[skinIdx % SKINS.length].bloom) { drawBud(cx, cy, size, sx, sy, alpha, seed, colour); return; }
+  if (HAND && SKINS[skinIdx % SKINS.length].hatch) { drawEgg(cx, cy, size, sx, sy, alpha, seed, colour); return; }
+  if (HAND && SKINS[skinIdx % SKINS.length].morph) { drawCaterpillar(cx, cy, size, sx, sy, alpha, seed, colour); return; }
+  if (SKINS[skinIdx % SKINS.length].morph && !settings.reduced) sx *= 0.82 + 0.18 * Math.abs(Math.sin(now / 420 + seed));   // resting butterflies slowly open and close their wings
   if (HAND && SKINS[skinIdx % SKINS.length].popcorn) { drawKernel(cx, cy, size, sx, sy, alpha, seed, colour); return; }
   if (SKINS[skinIdx % SKINS.length].popcorn || SKINS[skinIdx % SKINS.length].bloom) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(((seed * 2.39996) % (Math.PI * 2))); drawBall(skinIdx, colour, 0, 0, size, sx, sy, alpha); ctx.restore(); return; }   // every piece of popcorn sits at its own angle
   const sk = SKINS[skinIdx % SKINS.length];
@@ -6085,6 +6272,8 @@ function playResult(res, pointerGesture) {
   FX.land.push({ t0: now, cells: res.piece.shape.cells.map(([x, y]) => cellCentre(res.gx + x, res.gy + y)) });
   for (const [x, y] of res.piece.shape.cells) FX.settle.set(Logic.idx(res.gx + x, res.gy + y), { t0: now + (x + y) * CONFIG.feel.rippleMs, amp: CONFIG.feel.landAmp });
   if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 90 + k * 55 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.popcorn((at - now) / 1000, (res.gx + x - 3.5) / 5, 1.7); });   // placing pops as loud as a row popping (26 Nov)
+  if (skin().morph) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.flutter((at - now + 450) / 1000, (res.gx + x - 3.5) / 5, 1.6); });
+  if (skin().hatch) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 120 + Math.random() * 50; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.hatch((at - now + 380) / 1000, (res.gx + x - 3.5) / 5, 1.6); });
   if (skin().bloom) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 80 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.bloom((at - now + 200) / 1000, (res.gx + x - 3.5) / 5, 1.6); });
   // (26 Nov) square landing test switched off: pieces land as round balls with the normal jiggle
   // nearby bubbles feel the splash and jiggle a little, a beat later
@@ -6102,7 +6291,7 @@ function playResult(res, pointerGesture) {
       spawnFluff(...cellCentre(res.gx + x, res.gy + y), sk.colours[(Math.max(1, g | 0) - 1) % sk.colours.length]);
     }
   }
-  else if (skin().popcorn || skin().bloom) { /* each kernel or bud makes its own sound as it opens, below */ }
+  else if (skin().popcorn || skin().bloom || skin().hatch || skin().morph) { /* each kernel or bud makes its own sound as it opens, below */ }
   else if (skin().hit) { Sound.hit(skin().hit); if (skin().hit === 'bowling') Sound.preload(); } else Sound.place(res.piece.shape.cells.length);
   if (CONFIG.haptics.place) Haptics.pulse(CONFIG.haptics.place);
 
@@ -6152,6 +6341,9 @@ function playResult(res, pointerGesture) {
     let cx = 0, cy = 0;
     res.cleared.forEach(c => { const p = cellCentre(c.x, c.y); cx += p[0]; cy += p[1]; });
     if (skin().bloom && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => spawnPetals(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 150 + k * 25));
+    if (skin().hatch && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => spawnFeathers(...cellCentre(c2.x, c2.y)), 150 + k * 25));
+    if (skin().morph && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => releaseButterfly(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 120 + k * 30));
+    if (skin().fw && !settings.reduced) { const sk = skin(); res.cleared.forEach((c2, k) => { if (k % 2 === 0 && k < 16) launchFirework(...cellCentre(c2.x, c2.y), sk.colours[((c2.v || 1) - 1) % sk.colours.length], 120 + k * 45); }); }
     cx /= n; cy /= n;
     floatText('+' + res.linePts, cx, cy, L.c * 0.6, '#ffffff', 720, 40);
     if (res.lines >= 2) floatText(res.lines + ' lines  ×' + Logic.lineMultiplier(res.lines), cx, cy + L.c * 0.66, L.c * 0.42, '#ffd23f', 800, 80);
@@ -6373,6 +6565,38 @@ function draw(now) {
     const pt = POPT.get(Logic.idx(gx, gy));
     if (pt !== undefined) {
       const t = now - pt;
+      if (skin().morph) {
+        const sd = gx * 3 + gy * 5;
+        if (t < 0) { drawCaterpillar(x, y, c * 0.96, 1, 1, 1, sd, v - 1); continue; }
+        if (t < 1150) {
+          if (t < 300) drawCaterpillar(x, y, c * 0.96, 1, 1, 1, sd, v - 1, 1);   // a big wriggle
+          else if (t < 480) {   // it wraps itself into a cocoon that swells
+            const u = (t - 300) / 180, sk2 = SKINS.find(k => k.morph), col = sk2.colours[(v - 1) % sk2.colours.length];
+            ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(t / 30) * 0.1); const g = ctx.createLinearGradient(-c * 0.3, 0, c * 0.3, 0); g.addColorStop(0, '#d8f0b0'); g.addColorStop(1, '#7fbf4a');
+            ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, c * (0.18 + 0.06 * u), c * (0.3 + 0.08 * u), 0, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = col; ctx.globalAlpha = u; ctx.beginPath(); ctx.ellipse(0, 0, c * 0.12, c * 0.24, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+          } else {   // the wings unfold and flap, then settle
+            const u = t - 480, open = u < 280 ? 1 - Math.pow(1 - u / 280, 3) : 1, flap = u < 280 ? open : 0.75 + 0.25 * Math.cos((u - 280) / 45) * Math.exp(-(u - 280) / 250);
+            drawBall(state.skin, v - 1, x, y - Math.sin(Math.min(1, u / 400) * Math.PI) * c * 0.15, c * 0.96 * (0.7 + 0.3 * open), Math.max(0.05, flap), 1, 1);
+          }
+          continue;
+        }
+        POPT.delete(Logic.idx(gx, gy));
+      }
+      if (skin().hatch) {
+        if (t < 0) { HAND = true; drawBubble(state.skin, v - 1, x, y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; continue; }
+        if (t < 1100) {
+          const sd = gx * 3 + gy * 5;
+          if (t < 380) drawEgg(x, y, c * 0.96, 1, 1, 1, sd, v - 1, Math.sin(t / 45) * 0.18 * (1 - t / 500), Math.max(0, (t - 200) / 180));   // wobble, then crack
+          else {
+            const u = t - 380, pop = u < 120 ? 0.6 + 0.55 * (u / 120) : 1 + 0.15 * Math.exp(-(u - 120) / 110) * Math.cos((u - 120) / 40);
+            drawBubble(state.skin, v - 1, x, y - Math.sin(Math.min(1, u / 260) * Math.PI) * c * 0.18, c * 0.96 * pop, 1, 1, 1, sd, now);   // the chick pops up
+            if (u < 520) drawEgg(x + u * c * 0.0016, y - u * c * 0.004 + (u * u) * c * 0.0000062, c * 0.96, 1, 1, 1 - u / 520, sd, v - 1, u / 160, 1, 1);   // the top of the shell flies off
+          }
+          continue;
+        }
+        POPT.delete(Logic.idx(gx, gy));
+      }
       const bl = skin().bloom;
       if (t < 0) { HAND = true; drawBubble(state.skin, v - 1, x + (bl ? 0 : Math.sin(now / 18 + gx) * c * 0.03), y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; continue; }   // the kernel jitters / the bud waits
       if (bl) {
@@ -6669,7 +6893,7 @@ function draw(now) {
     }
   }
 
-  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); }
+  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); if (SPARKS.length) drawSparks(now, dtp); if (FLIERS.length) drawFliers(now, dtp); }
   // dragged piece on top
   const d = Input.dragDraw();
   if (d) {
