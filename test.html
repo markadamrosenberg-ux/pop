@@ -612,7 +612,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 6pm, popcorn volumes (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 6:10pm, flower scale on clears (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2030,10 +2030,20 @@ const Sound = (() => {
       tone(t, { f: f * 2.76, peak: 0.022 * big, attack: 0.002, decay: 0.22, pan });           // its shimmer
       tone(t, { f: f * 4, type: 'triangle', peak: 0.012 * big, attack: 0.001, decay: 0.07, pan });   // the sparkle on top
     },
+    scale(lines = 1) {   // (26 Nov) a row of flowers clearing runs up C D E F G A B C; two or more lines run up two octaves
+      if (!ok()) return;
+      const steps = [1, 9 / 8, 5 / 4, 4 / 3, 3 / 2, 5 / 3, 15 / 8], n = lines >= 2 ? 15 : 8, gap = lines >= 2 ? 0.05 : 0.075, t0 = ac.currentTime + 0.1;
+      for (let k = 0; k < n; k++) {
+        const f = 523.25 * steps[k % 7] * Math.pow(2, Math.floor(k / 7)), t = t0 + k * gap, pan = -0.6 + 1.2 * k / (n - 1), last = k === n - 1;
+        tone(t, { f, peak: last ? 0.13 : 0.09, attack: 0.003, decay: last ? 1.0 : 0.5, pan });
+        tone(t, { f: f * 2.76, peak: 0.02, attack: 0.002, decay: 0.2, pan });
+        tone(t, { f: f * 4, type: 'triangle', peak: 0.01, attack: 0.001, decay: 0.06, pan });
+      }
+    },
     pop(i = 0, combo = 1, pan = 0) {
       if (!ok()) return;
       if (typeof skin === 'function' && skin().popcorn) return this.popcorn(0, pan, 0.6);
-      if (typeof skin === 'function' && skin().bloom) return this.bloom(0, pan, 0.9);
+      if (typeof skin === 'function' && skin().bloom) return;   // flowers play a whole scale when a row clears (scale below)
       if (typeof skin === 'function' && skin().morph) return;   // the wing flaps are the clear sound for butterflies
       if (typeof skin === 'function' && skin().fw) return;   // fireworks make their own launch and bang   // popcorn pops instead of bubble pops
       const t = ac.currentTime;
@@ -6570,6 +6580,7 @@ function playResult(res, pointerGesture) {
     // floating score text in the middle of the cleared lines
     let cx = 0, cy = 0;
     res.cleared.forEach(c => { const p = cellCentre(c.x, c.y); cx += p[0]; cy += p[1]; });
+    if (skin().bloom) Sound.scale(res.lines);
     if (skin().bloom && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => spawnPetals(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 150 + k * 25));
     if (skin().hatch && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => spawnFeathers(...cellCentre(c2.x, c2.y)), 150 + k * 25));
     if (skin().morph) Sound.wings(0.1, Math.min(1.3, 0.8 + res.cleared.length / 40));
