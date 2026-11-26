@@ -604,7 +604,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 1:35pm, remarks (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 2pm, popcorn (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2886,6 +2886,21 @@ const NEW_SKINS = [
       nlGloss(ctx, r, 0.6);
     },
   },
+  { name: 'Popcorn', popcorn: true, squish: 1.3, fixedColours: true, colours: ['#fffaf0', '#ffe58a', '#f2c27a', '#ffd0e4', '#d3ebff'],
+    // (26 Nov) puffy popped corn: kernels in your hand pop into popcorn when they land, and burst when their line clears
+    draw(ctx, s, c, i) {
+      const r = s * 0.46;
+      ctx.fillStyle = '#c98a3a'; ctx.beginPath(); ctx.ellipse(r * 0.05, r * 0.55, r * 0.28, r * 0.16, 0.2, 0, Math.PI * 2); ctx.fill();   // the little hull
+      const puffs = [[-0.36, -0.05, 0.44], [0.34, -0.12, 0.42], [0.0, -0.42, 0.44], [-0.14, 0.24, 0.4], [0.3, 0.3, 0.34], [-0.44, 0.34, 0.28], [0.1, 0.02, 0.36]];
+      for (const [px, py, pr] of puffs) {
+        const x = px * r, y = py * r, rr2 = pr * r, g = ctx.createRadialGradient(x - rr2 * 0.35, y - rr2 * 0.4, rr2 * 0.1, x, y, rr2);
+        g.addColorStop(0, '#ffffff'); g.addColorStop(0.55, c); g.addColorStop(1, 'rgba(190,140,70,0.9)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rr2, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(255,205,60,0.55)';   // a few butter spots
+      for (const [px, py, pr] of [[0.18, -0.3, 0.1], [-0.3, 0.1, 0.08], [0.32, 0.2, 0.07]]) { ctx.beginPath(); ctx.arc(px * r, py * r, pr * r, 0, Math.PI * 2); ctx.fill(); }
+    },
+  },
   { name: 'Emojis', colours: ['#ffd23f'], fixedColours: true, squish: 1.5, face: true, emoji: true,
     // yellow emoji faces: they watch, get scared or angry, scream, burst, and the rest cry laughing
     draw(ctx, s, c, i) {
@@ -3492,6 +3507,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
+  { const pc = SKINS.findIndex(k => k.popcorn); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start every game on Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -4273,7 +4289,19 @@ function drawBitten(n, v, x, y, size, sx, sy, seed, now) {
   const w = sp.box * (size / sp.size) * sx, h = sp.box * (size / sp.size) * sy;
   ctx.drawImage(biteCanvas, x - w / 2, y - h / 2 + (1 - sy) * size * 0.3, w, h);
 }
+let HAND = false;   // true while drawing the tray or the piece in your hand
+const POPT = new Map();   // popcorn cells still to pop: cell -> time it pops
+function drawKernel(cx, cy, size, sx, sy, alpha, seed) {
+  const w = size * 0.3, h = size * 0.4;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.sin(seed * 2.3) * 0.5); ctx.scale(sx, sy); if (alpha !== 1) ctx.globalAlpha = alpha;
+  ctx.beginPath(); ctx.moveTo(0, -h); ctx.bezierCurveTo(w * 1.25, -h, w * 1.1, h * 0.35, 0, h); ctx.bezierCurveTo(-w * 1.1, h * 0.35, -w * 1.25, -h, 0, -h); ctx.closePath();
+  const g = ctx.createLinearGradient(0, -h, 0, h); g.addColorStop(0, '#ffd84d'); g.addColorStop(0.6, '#f0a21e'); g.addColorStop(0.9, '#c9701a'); g.addColorStop(1, '#fff0c8');
+  ctx.fillStyle = g; ctx.fill(); ctx.lineWidth = Math.max(1, size * 0.025); ctx.strokeStyle = 'rgba(120,60,10,0.55)'; ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.ellipse(-w * 0.35, -h * 0.45, w * 0.18, h * 0.22, -0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
 function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, seed = 0, now = performance.now()) {
+  if (HAND && SKINS[skinIdx % SKINS.length].popcorn) { drawKernel(cx, cy, size, sx, sy, alpha, seed); return; }
   const sk = SKINS[skinIdx % SKINS.length];
   if (!settings.reduced) {
     const q = sk.squish || 1, b = Math.sin(now / 1000 * 2.3 * (q > 1 ? 1.6 : 1) + seed * 1.7) * 0.016 * q;
@@ -5924,6 +5952,7 @@ function playResult(res, pointerGesture) {
   const placed = new Set(res.piece.shape.cells.map(([x, y]) => Logic.idx(res.gx + x, res.gy + y)));
   FX.land.push({ t0: now, cells: res.piece.shape.cells.map(([x, y]) => cellCentre(res.gx + x, res.gy + y)) });
   for (const [x, y] of res.piece.shape.cells) FX.settle.set(Logic.idx(res.gx + x, res.gy + y), { t0: now + (x + y) * CONFIG.feel.rippleMs, amp: CONFIG.feel.landAmp });
+  if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + 90 + k * 55 + Math.random() * 40));
   // (26 Nov) square landing test switched off: pieces land as round balls with the normal jiggle
   // nearby bubbles feel the splash and jiggle a little, a beat later
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
@@ -6205,6 +6234,17 @@ function draw(now) {
       ctx.fillStyle = '#fff'; ctx.font = `700 ${br * 1.3}px Fredoka, ui-rounded, system-ui, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(String(state.golden.left), bx, by + br * 0.05);
       continue;
+    }
+    const pt = POPT.get(Logic.idx(gx, gy));
+    if (pt !== undefined) {
+      const t = now - pt;
+      if (t < 0) { HAND = true; drawBubble(state.skin, v - 1, x + Math.sin(now / 18 + gx) * c * 0.03, y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; continue; }   // the kernel jitters, about to go
+      if (t < 420) {
+        const grow = t < 90 ? 0.35 + 0.9 * (t / 90) : 1 + 0.25 * Math.exp(-(t - 90) / 90) * Math.cos((t - 90) / 40);
+        drawBubble(state.skin, v - 1, x, y - Math.sin(Math.min(1, t / 300) * Math.PI) * c * 0.28, c * 0.96 * grow, 1, 1, 1, gx * 3 + gy * 5, now);
+        continue;
+      }
+      POPT.delete(Logic.idx(gx, gy));
     }
     const nb = state.bites && state.bites[Logic.idx(gx, gy)];
     if (nb) drawBitten(nb, v, x, y, c * 0.96 * s, sx, sy, gx * 3 + gy * 5, now);
@@ -6557,7 +6597,8 @@ function drawSoftShadow(x, y, r, a) {
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
 }
 
-function drawPiece(p, cx, cy, size, alpha, sx = 1, sy = 1, wob = null) {
+function drawPiece(...a) { HAND = true; try { return drawPiece0(...a); } finally { HAND = false; } }
+function drawPiece0(p, cx, cy, size, alpha, sx = 1, sy = 1, wob = null) {
   const s = p.shape, now = performance.now();
   const ox = cx - s.w * size / 2, oy = cy - s.h * size / 2;
   if (p.frame) {
