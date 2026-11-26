@@ -3331,6 +3331,7 @@ function serialise() {
 }
 function saveGame() { if (state.over) Store.set('game', null); else Store.set('game', serialise()); }
 function restoreGame() {
+  if (/[?&]new\b/.test(location.search)) { Store.set('game', null); history.replaceState(null, '', location.pathname); return false; }   // TEST PAGE: ?new starts a fresh game
   const g = Store.get('game', null);
   if (!g || !Array.isArray(g.grid) || g.grid.length !== N * N) return false;
   state.grid = g.grid.slice();
