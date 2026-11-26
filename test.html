@@ -298,7 +298,8 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 #tapStart .tssnd{font-size:14px;color:var(--muted)}
 #tapStart.pop .tsball{animation:tsBurst .35s ease-in forwards}
 #tapStart.pop .tsgo,#tapStart.pop .tssnd{animation:none;transition:opacity .2s;opacity:0}
-#tapStart.pop{background:transparent;transition:background .6s .15s;pointer-events:none}
+#tapStart.pop{pointer-events:none}   /* (26 Nov) the background stays dark through the explosion, so the board isn't seen until it fades */
+#tapStart.show.out{opacity:0;transition:opacity .8s ease}
 @keyframes tsWob{0%,100%{transform:scale(1,1)}50%{transform:scale(1.06,.95)}}
 @keyframes tsPulse{0%,100%{opacity:.65;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
 @keyframes tsBurst{0%{transform:scale(1)}35%{transform:scale(1.25,.8)}100%{transform:scale(2.2);opacity:0}}
@@ -619,7 +620,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 6:55pm, tap the floating bubbles to pop them, tap POP for 3 seconds of fireworks (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 7:05pm, the explosion plays on a dark screen, then fades to the game (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -9089,7 +9090,8 @@ const TapStart = (() => {
     }
     try { Sound.bigPop(); } catch (_) {}
     burst(); el.classList.add('pop');
-    setTimeout(() => { el.classList.remove('show', 'pop'); run = false; const f = after; after = null; if (f) setTimeout(f, 300); }, 3100);   // the show runs 3 seconds
+    setTimeout(() => el.classList.add('out'), 2300);   // the explosion plays on the dark screen, then everything fades away to the game
+    setTimeout(() => { el.classList.remove('show'); setTimeout(() => el.classList.remove('pop', 'out'), 400); run = false; const f = after; after = null; if (f) setTimeout(f, 300); }, 3150);   // 3 seconds in all; the words stay hidden, so nothing flashes back up
   });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) { hiddenAt = Date.now(); return; }
