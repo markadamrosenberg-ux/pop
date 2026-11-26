@@ -612,7 +612,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 7pm, no cracks on chick clears (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 7:25pm, chick squish feathers (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -4775,9 +4775,9 @@ function burst(x, y, col, now) {
     SPARKS.push({ kind: 'spark', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, col: Math.random() < 0.25 ? '#ffffff' : col, t0: now, life: 900 + Math.random() * 600 }); }
   SPARKS.push({ kind: 'flash', x, y, col, t0: now, life: 220 });
 }
-function spawnFeathers(x, y) {
+function spawnFeathers(x, y, n = 5, puff = 1) {
   const now = performance.now();
-  for (let k = 0; k < 5; k++) { const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, sp = L.c * (5 + Math.random() * 5);
+  for (let k = 0; k < n; k++) { const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2 * puff, sp = L.c * (5 + Math.random() * 5) * puff;
     PETALS.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 8, sz: L.c * (0.14 + Math.random() * 0.08), col: Math.random() < 0.7 ? '#ffd93d' : '#fff3a6', t0: now + Math.random() * 60, life: 1800 + Math.random() * 900, ph: Math.random() * 6.28 }); }
 }
 function drawSparks(now, dt) {
@@ -7846,7 +7846,7 @@ const Input = (() => {
           { const [bx, by] = cellCentre(gx, gy), v = state.grid[Logic.idx(gx, gy)], cols = skin().colours;
             lastSquishAt = { x: bx, y: by - L.c * 0.15 };
             const sn = skin().name, col = cols[(v - 1) % cols.length];
-            if (sn === 'Tennis Balls') spawnFluff(bx, by, col); else if (sn === 'Donuts') spawnSprinkles(bx, by, 8); else squishDrops(bx, by, col); }
+            if (sn === 'Tennis Balls') spawnFluff(bx, by, col); else if (sn === 'Donuts') spawnSprinkles(bx, by, 8); else if (skin().hatch) spawnFeathers(bx, by - L.c * 0.15, 9, 0.75); else squishDrops(bx, by, col); }   // chicks: a puff of feathers
           Sound.squish(((x - L.ix) / (L.c * N)) * 2 - 1); Haptics.pulse(8);
         }
         return;
