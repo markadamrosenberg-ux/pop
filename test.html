@@ -623,7 +623,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 7:20pm, grab, drag and flick the Pop ball; the opening mixes your pop with squishes and farts (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 11pm, glistening citrus (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2016,6 +2016,11 @@ const Sound = (() => {
       tone(t, { f: 520 * v, f2: 160, peak: 0.12 * big, attack: 0.001, decay: 0.045, pan });
       noise(t + 0.002, { type: 'highpass', f: 3400, q: 0.7, peak: 0.03 * big, attack: 0.0005, decay: 0.012, pan });
     },
+    juicyLand(n = 1) {   // (26 Nov) a citrus piece landing: one soft recorded squish, a touch brighter than a squeeze
+      if (!ok()) return;
+      if (playSample('sponge' + Math.floor(Math.random() * 13), 0, SQUISH_VOL * Math.min(1.25, 0.85 + n * 0.06), R(1.0, 1.12))) return;
+      this.place(n);
+    },
     // Butterflies (26 Nov): real wing flaps as they fly away from a cleared row, slightly sped up so they sound light
     wings(delay = 0, big = 1) {
       if (!ok()) return;
@@ -2489,7 +2494,15 @@ function fizzBurst(x, y, colourHex, I = 1, dir = 0) {
   for (let k = 0; k < 8; k++) P.push({ k: 'glow', x: x + (Math.random() - 0.5) * c * 0.8, y: y - Math.random() * c * 0.8, r: c * (0.35 + Math.random() * 0.3), life: 0, max: 0.35 + Math.random() * 0.2, tint: '#ffffff' });
   try { Sound.fizz(I); } catch (_) {}
 }
-// a drop of juice swells at the bottom of a drip, falls and splashes away
+// (26 Nov) citrus: no drips; now and then a glint catches on the wet flesh, and a soft shine slides across it
+function animGlisten(ctx, s, c, i, t, seed) {
+  const r = s * 0.45, g = (t * 0.22 + seed * 0.61) % 1;
+  if (g < 0.12) { const q = Math.sin(g / 0.12 * Math.PI), a = seed * 2.4; starGlint(ctx, Math.cos(a) * r * 0.42, Math.sin(a) * r * 0.42 - r * 0.1, r * 0.55 * q, q); }
+  const sh = (t * 0.18 + seed * 0.33) % 1;
+  if (sh < 0.25) { const u = sh / 0.25; ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r * 0.82, 0, Math.PI * 2); ctx.clip(); ctx.globalAlpha = Math.sin(u * Math.PI) * 0.35;
+    ctx.fillStyle = '#ffffff'; ctx.rotate(-0.6); ctx.fillRect(-r + u * r * 2.2 - r * 0.3, -r, r * 0.22, r * 2); ctx.restore(); ctx.globalAlpha = 1; }
+}
+// (no longer used: citrus used to drip) a drop of juice swells at the bottom of a drip, falls and splashes away
 function animJuice(ctx, s, c, i, t, seed) {
   const r = s * 0.45, x0 = 0.1 * r, y0 = Math.sqrt(r * r - x0 * x0) - r * 0.06 + 0.42 * r * 0.6, ph = (t * 0.55 + seed * 0.37) % 1;
   let y = y0, z = r * 0.06 + r * 0.06 * Math.min(1, ph / 0.6);
@@ -2834,9 +2847,9 @@ const NEW_SKINS = [
       ctx.fillStyle = sh; ctx.fillRect(-r, -r, r * 2, r * 2);
       ctx.restore(); nlGloss(ctx, r);
     } },
-  { name: 'Citrus Slices', colours: NEW_COLS,
-    squish: 1.4, anim: animJuice,
-    // a juicy fruit slice: rind, pith and glistening segments
+  { name: 'Citrus Slices', colours: NEW_COLS, citrus: true,
+    squish: 1.4, anim: animGlisten,
+    // a juicy fruit slice: rind, pith and glistening segments (26 Nov: no drips; it glistens instead, so it stays round)
     draw(ctx, s, c, i) {
       const r = s * 0.45;
       ctx.fillStyle = mix(c, '#3a1000', 0.15); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
@@ -2850,19 +2863,19 @@ const NEW_SKINS = [
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.beginPath(); ctx.ellipse(Math.cos((a0 + a1) / 2) * r * 0.5, Math.sin((a0 + a1) / 2) * r * 0.5, r * 0.04, r * 0.09, (a0 + a1) / 2, 0, Math.PI * 2); ctx.fill();
       }
-      // juice beading on the flesh
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      for (let k = 0; k < 7; k++) { const a = k * 2.3 + i, d = r * (0.25 + (k % 3) * 0.17); ctx.beginPath(); ctx.arc(Math.cos(a) * d, Math.sin(a) * d, r * (0.025 + (k % 2) * 0.015), 0, Math.PI * 2); ctx.fill(); }
-      // juice running off the bottom of the slice
-      const juice = rgba(c, 0.9);
-      [[-0.45, 0.28], [0.1, 0.42], [0.55, 0.22]].forEach(([u, len], k) => {
-        const x0 = u * r, y0 = Math.sqrt(Math.max(0, r * r - x0 * x0)) - r * 0.06, w = r * (0.09 + (k % 2) * 0.03), L = len * r;
-        ctx.fillStyle = juice; ctx.beginPath(); ctx.moveTo(x0 - w * 1.6, y0 - w * 0.4);
-        ctx.quadraticCurveTo(x0 - w, y0, x0 - w, y0 + L * 0.6); ctx.arc(x0, y0 + L * 0.6, w, Math.PI, 0, true);
-        ctx.quadraticCurveTo(x0 + w, y0, x0 + w * 1.6, y0 - w * 0.4); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(x0 - w * 0.35, y0 + L * 0.35, w * 0.22, L * 0.22, 0, 0, Math.PI * 2); ctx.fill();
-      });
-      nlGloss(ctx, r, 0.7);
+      // a wet sheen across the flesh
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r * 0.82, 0, Math.PI * 2); ctx.clip();
+      const wet = ctx.createLinearGradient(-r, -r, r * 0.4, r * 0.6); wet.addColorStop(0, 'rgba(255,255,255,0.55)'); wet.addColorStop(0.35, 'rgba(255,255,255,0.12)'); wet.addColorStop(0.6, 'rgba(255,255,255,0)');
+      ctx.fillStyle = wet; ctx.fillRect(-r, -r, r * 2, r * 2); ctx.restore();
+      // beads of juice sitting on the surface, each with a bright highlight and a soft shadow
+      const rnd = seeded(900 + i * 13);
+      for (let k = 0; k < 9; k++) {
+        const a = rnd() * Math.PI * 2, d = r * (0.18 + rnd() * 0.55), z = r * (0.03 + rnd() * 0.045), bx = Math.cos(a) * d, by = Math.sin(a) * d;
+        ctx.fillStyle = rgba(mix(c, '#000000', 0.35), 0.35); ctx.beginPath(); ctx.arc(bx + z * 0.25, by + z * 0.35, z, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.arc(bx, by, z, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.beginPath(); ctx.arc(bx - z * 0.35, by - z * 0.35, z * 0.4, 0, Math.PI * 2); ctx.fill();
+      }
+      nlGloss(ctx, r, 0.85);
     } },
   { name: 'Gummy Drops', colours: NEW_COLS,
     squish: 2.2, anim: animGlitter(6),
@@ -3548,7 +3561,7 @@ function serialise() {
 }
 function saveGame() { if (state.over) Store.set('game', null); else Store.set('game', serialise()); }
 function restoreGame() {
-  if (/[?&]new\b/.test(location.search)) { Store.set('game', null); history.replaceState(null, '', location.pathname); return false; }   // TEST PAGE: ?new starts a fresh game
+  if (/[?&]new\b/.test(location.search)) { Store.set('game', null); history.replaceState(null, '', location.pathname); return false; }   // ?new starts a fresh game
   const g = Store.get('game', null);
   if (!g || !Array.isArray(g.grid) || g.grid.length !== N * N) return false;
   state.grid = g.grid.slice();
@@ -6744,6 +6757,12 @@ function playResult(res, pointerGesture) {
     }
   }
   else if (skin().popcorn || skin().bloom || skin().hatch) { /* each kernel or bud makes its own sound as it opens, below */ }
+  else if (skin().citrus) {   // citrus lands with a soft squish and a drop or two of juice, and that's it
+    Sound.juicyLand(res.piece.shape.cells.length);
+    if (!settings.reduced) { const cs = res.piece.shape.cells, sk = skin(), n = 1 + (Math.random() < 0.5 ? 1 : 0);
+      for (let k = 0; k < n; k++) { const [x, y] = cs[Math.floor(Math.random() * cs.length)], [px, py] = cellCentre(res.gx + x, res.gy + y), a = -Math.PI / 2 + (Math.random() - 0.5) * 1.6, sp = L.c * (1.4 + Math.random() * 1.2);
+        FX.particles.push({ k: 'drop', x: px, y: py - L.c * 0.1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: L.c * (0.05 + Math.random() * 0.03), life: 0, max: 0.45 + Math.random() * 0.2, tint: sk.colours[(res.piece.color || 0) % sk.colours.length] }); } }
+  }
   else if (skin().hit) { Sound.hit(skin().hit); if (skin().hit === 'bowling') Sound.preload(); } else Sound.place(res.piece.shape.cells.length);
   { const cs = res.piece.shape.cells, [jx, jy] = cellCentre(res.gx + cs.reduce((a, c2) => a + c2[0], 0) / cs.length, res.gy + cs.reduce((a, c2) => a + c2[1], 0) / cs.length); window._jelly = { t: performance.now(), x: jx, y: jy, amp: 1 }; }   // fried eggs ripple out from where a piece lands
   if (CONFIG.haptics.place) Haptics.pulse(CONFIG.haptics.place);
