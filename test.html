@@ -612,7 +612,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 6:10pm, flower scale on clears (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 6:15pm, flower scale only (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -6551,9 +6551,9 @@ function playResult(res, pointerGesture) {
     const sq = (settings.reduced ? 30 : T.squashMs) / 1000 + faceShock / 1000;
     if (SKINS[state.skin % SKINS.length].hit && SKINS[state.skin % SKINS.length].hit !== 'bowling') setTimeout(() => Sound.rally(SKINS[state.skin % SKINS.length].hit, res.lines), sq * 1000);
     if (SKINS[state.skin % SKINS.length].hit === 'bowling' && res.lines) Sound.strike(res.lines, sq);
-    if (!SKINS[state.skin % SKINS.length].bounce && SKINS[state.skin % SKINS.length].hit !== 'pingpong' && !SKINS[state.skin % SKINS.length].fizz && SKINS[state.skin % SKINS.length].hit !== 'tennis' && SKINS[state.skin % SKINS.length].hit !== 'golf') Sound.splat(sq, intensity, Math.max(-0.6, Math.min(0.6, (ox - 3.5) / 3.5 * 0.6)));
+    if (!SKINS[state.skin % SKINS.length].bounce && SKINS[state.skin % SKINS.length].hit !== 'pingpong' && !SKINS[state.skin % SKINS.length].fizz && SKINS[state.skin % SKINS.length].hit !== 'tennis' && SKINS[state.skin % SKINS.length].hit !== 'golf' && !SKINS[state.skin % SKINS.length].bloom) Sound.splat(sq, intensity, Math.max(-0.6, Math.min(0.6, (ox - 3.5) / 3.5 * 0.6)));
     const level = (res.lines - 1) + (res.combo - 1);
-    if (level >= 1 && !SKINS[state.skin % SKINS.length].bounce && SKINS[state.skin % SKINS.length].hit !== 'pingpong' && !SKINS[state.skin % SKINS.length].fizz && SKINS[state.skin % SKINS.length].hit !== 'tennis' && SKINS[state.skin % SKINS.length].hit !== 'golf') Sound.rush(sq + 0.06, level);
+    if (level >= 1 && !SKINS[state.skin % SKINS.length].bounce && SKINS[state.skin % SKINS.length].hit !== 'pingpong' && !SKINS[state.skin % SKINS.length].fizz && SKINS[state.skin % SKINS.length].hit !== 'tennis' && SKINS[state.skin % SKINS.length].hit !== 'golf' && !SKINS[state.skin % SKINS.length].bloom) Sound.rush(sq + 0.06, level);
     const sk0 = SKINS[state.skin % SKINS.length];
     BG.pulse(sk0.colours[(res.piece.color) % sk0.colours.length], 0.35 * intensity);
     const n = res.cleared.length;
