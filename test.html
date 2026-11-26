@@ -378,14 +378,13 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 #squishMe.go{animation:squishMe 2.6s cubic-bezier(.2,.9,.3,1.3) forwards}
 @keyframes squishMe{0%{opacity:0;transform:translate(-50%,-100%) scale(.4)}15%{opacity:1;transform:translate(-50%,-112%) scale(1.08)}25%{transform:translate(-50%,-108%) scale(1)}80%{opacity:1;transform:translate(-50%,-110%) scale(1)}100%{opacity:0;transform:translate(-50%,-118%) scale(.85)}}
 /* Quips: a short witty line on big moments, in bubbly letters that pop away (Mark, 25 Nov) */
-#quip{position:absolute;left:0;right:0;text-align:center;pointer-events:none;z-index:7;opacity:0;white-space:nowrap}
-#quip span{display:inline-block;font-family:ui-rounded,'SF Pro Rounded','Arial Rounded MT Bold',system-ui,-apple-system,sans-serif;font-weight:800;
-  font-size:var(--qs,32px);line-height:1.15;color:#fff;letter-spacing:.2px;padding:7px 18px 8px;border-radius:999px;
-  background:rgba(18,8,28,.82);border:2px solid rgba(255,120,200,.85);box-shadow:0 6px 18px rgba(0,0,0,.45),0 0 18px rgba(255,90,190,.35);
-  text-shadow:0 2px 0 rgba(0,0,0,.5)}
-#quip.small span{border-color:rgba(120,240,220,.9);box-shadow:0 6px 18px rgba(0,0,0,.45),0 0 16px rgba(0,229,212,.35)}
-#quip.go{animation:quipPop 3s cubic-bezier(.2,.9,.3,1.25) forwards}
-@keyframes quipPop{0%{opacity:0;transform:scale(.5) translateY(8px)}7%{opacity:1;transform:scale(1.08)}12%{transform:scale(.98)}16%{transform:scale(1)}88%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(.92) translateY(-10px)}}
+#quip{position:absolute;left:0;top:0;pointer-events:none;z-index:7;opacity:0;white-space:nowrap;transform:translate(-50%,-50%)}
+#quip span{display:inline-block;font-family:ui-rounded,'SF Pro Rounded','Arial Rounded MT Bold',system-ui,-apple-system,sans-serif;font-weight:900;
+  font-size:var(--qs,26px);line-height:1.1;color:#fff;letter-spacing:.2px;
+  text-shadow:0 0 1px #000,0 2px 0 rgba(0,0,0,.85),0 -1px 0 rgba(0,0,0,.6),2px 0 0 rgba(0,0,0,.6),-2px 0 0 rgba(0,0,0,.6),0 4px 14px rgba(0,0,0,.7)}
+#quip.go{animation:quipPop 2.4s cubic-bezier(.2,.9,.3,1.25) forwards}
+#quip.out{transition:opacity .15s;opacity:0!important;animation:none}
+@keyframes quipPop{0%{opacity:0;transform:translate(-50%,-50%) scale(.6)}8%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}14%{transform:translate(-50%,-50%) scale(1)}85%{opacity:1;transform:translate(-50%,-60%) scale(1)}100%{opacity:0;transform:translate(-50%,-75%) scale(.96)}}
 /* Combo glow: a shimmering ring round the board while a combo is alive */
 #comboRing{position:absolute;pointer-events:none;z-index:2;border-radius:18px;padding:3px;opacity:0;transition:opacity .35s;
   background:linear-gradient(120deg,#ff5fb8,#4de8d6,#a98bff,#ffd23f,#ff5fb8);background-size:300% 300%;
@@ -601,7 +600,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 11:45am (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 12:15pm, step 1 (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -3464,6 +3463,7 @@ function nextSkin() {
   return o[(o.indexOf(state.skin) + 1) % o.length];
 }
 function newGame() {
+  try { if (typeof Quip !== 'undefined') Quip.reset(); } catch (_) {}   // no repeated lines within a run
   setTimeout(() => flashLook(), 500);
   state.grid = new Array(N * N).fill(0);
   state.score = 0; state.combo = 0; state.sinceClear = 0; state.over = false; state.boardClears = 0; state.frameLines = 0;
@@ -3742,6 +3742,7 @@ function move(slot, gx, gy, repo = null) {
   const result = { repo: !!repo, grantSlot, bonusEarned, undoEarned, pinEarned, streakNews, multBefore, multAfter: frameMult(), skinName: null, frameBubble, mysteryGranted, mysteryPlaced: !!piece.mystery, slot, piece, gx, gy, placePts, linePts, colourPts, colourMatches, starterCells, golden, lines, comboMult, combo: state.combo, bonus, waterfall, boardEmpty, ...res, grid: state.grid, washed, frameNo: state.boardClears };
 
   if (starterShapes) { const m = state.tray.filter(p => p && p.mystery); state.tray = [null, null, null]; m.forEach((p, i) => state.tray[i] = p); if (state.gapQueue.length) dealGaps(); if (state.tray.some(Boolean)) fillHand(); }
+  result.lastOfHand = state.tray.every(p => !p);   // for the quips: was this the last piece in the tray?
   if (state.tray.every(p => !p)) refillTray();
   state.over = isStuck();
   saveGame();
@@ -5803,61 +5804,76 @@ const SquishMe = (() => {
 })();
 /* ---- Quips: short witty lines on big moments, and a glowing ring while a combo is alive (Mark, 25 Nov) ---- */
 const Quip = (() => {
-  const Q = {
-    big: ['Okay, show-off', 'Sir, this is a puzzle game', 'Calm down, Einstein', "That's illegal (it's not)", "Chef's kiss", 'Somebody call the bubble police', 'Rude. In a good way.', 'Main character move'],
-    combo: ["You're on fire. Not literally.", 'Someone stop them', 'Is this your job now?', 'Okay, we get it', 'Again?!', 'Your thumbs deserve a raise', "Plot twist: you're good", 'Touch grass… after this'],
-    clear: ['Spotless. Mum would be proud.', 'Nothing to see here', 'Mic drop'],
-    save: ['Phew. That was close.', 'Living dangerously', 'Heart rate: elevated', 'Not today!', 'Houdini!'],
-    fart: ['Excuse you', 'Who cut the cheese?', 'Who did that?', 'Better out than in', 'That one had a voice', 'Not me', 'Smelt it, dealt it', 'Somebody had beans', 'Windows down!', 'Pardon your French', 'Silent but deadly… not so silent', 'Blame the dog', 'That bubble needs to see someone'],
-    rare: ['Crikey!'],
-    looks: {
-      'Tennis Balls': ['Ace!', 'New balls, please', 'Quiet please… no, cheer!'],
-      'Cricket Balls': ['Howzat!', 'Six! Out of the ground', "That's gone into the car park"],
-      'Golf Balls': ['Hole in one!', 'Fore! (sorry)', 'Nice. Now do it again.'],
-      'Basketballs': ['Swish. Show-off.', 'Nothing but net', 'Ball is life'],
-      'Baseballs': ['Home run!', 'Out of the park', 'Batter up!'],
-      'Bowling Balls': ['Strike!', 'Pins never stood a chance'],
-      'Ping-Pong Balls': ['Ping… pong… POW', 'Smash!'],
-      'Donuts': ['Glazed and amazed', 'Hole lotta love', 'Calories don’t count here'],
+  // ===== ALL IN-GAME LINES LIVE HERE (edit freely). Each list only fires when the game can see that moment on the board. =====
+  const LINES = {
+    missedSpot:    ['You missed a spot.'],                                              // a clear leaves exactly one bubble on the board
+    lastPieceSave: ["Wasn't worried.", 'Cutting it fine.', 'Never in doubt.'],          // the last piece in the tray clears a line on a cramped board
+    tightFit:      ['That had no business fitting.', 'Snug.', 'Measured twice.'],       // the piece fitted in only one or two places, and it cleared a line
+    bigTidy:       ['Bit of a tidy-up.', 'Room to breathe.', 'Much better.'],           // 2+ lines cleared from a nearly full board
+    combo5:        ['Five in a row.'],                                                  // combo reaches 5
+    combo10:       ['Ten. Now you’re showing off.'],                                    // combo reaches 10
+    threeLines:    ['Three at once. Steady on.', 'Efficient.', "That'll do."],          // 3+ lines in one move
+    looks: {                                                                            // 3+ lines on these looks, instead of the threeLines list
+      'Tennis Balls': ['Ace.'], 'Cricket Balls': ['Howzat.'], 'Golf Balls': ['Hole in one.'], 'Basketballs': ['Nothing but net.'],
+      'Baseballs': ['Out of the park.'], 'Bowling Balls': ['Strike.'], 'Ping-Pong Balls': ['Smash.'], 'Donuts': ['Glazed and amazed.'],
     },
+    fart:          ['Excuse you.', 'Who cut the cheese?', 'Better out than in.', 'That one had a voice.', 'Smelt it, dealt it.', 'Blame the dog.'],
   };
-  const COMBO_AT = [3, 5, 8, 12, 16, 20, 25, 30, 40, 50];
-  let last = '', until = 0, timer = 0;
-  const pick = list => { const l = list.filter(x => x !== last); return l[Math.floor(Math.random() * l.length)] || list[0]; };
-  function show(text, small = false) {
+  const COOLDOWN_MOVES = 5, COOLDOWN_MS = 6000;
+  // ===========================================================================================================================
+  let used = new Set(), lastAt = -1e9, movesSince = 99, timer = 0;
+  const reset = () => { used = new Set(); movesSince = 99; };
+  const pickFrom = list => { const fresh = list.filter(x => !used.has(x)); if (!fresh.length) return null; const t = fresh[Math.floor(Math.random() * fresh.length)]; used.add(t); return t; };
+  function show(text, x, y) {
     const el = document.getElementById('quip'); if (!el || !text) return;
-    last = text; until = performance.now() + 3600;
+    lastAt = performance.now(); movesSince = 0;
     el.firstChild.textContent = text;
-    const base = Math.min(34, Math.max(22, L.B * 0.075)), len = text.length;
-    el.style.setProperty('--qs', Math.round(len > 22 ? base * 0.72 : len > 14 ? base * 0.86 : base) + 'px');
-    el.style.top = (L.by + L.B * 0.06) + 'px';
-    el.classList.remove('go', 'small'); void el.offsetWidth;
-    if (small) el.classList.add('small');
-    el.classList.add('go');
-    clearTimeout(timer); timer = setTimeout(() => el.classList.remove('go'), 3100);
+    el.style.setProperty('--qs', Math.round(Math.min(30, Math.max(20, L.c * 0.42)) * (text.length > 22 ? 0.85 : 1)) + 'px');
+    const px = Math.max(L.bx + L.B * 0.28, Math.min(L.bx + L.B * 0.72, x)), py = Math.max(L.by + L.c * 0.6, Math.min(L.by + L.B - L.c * 0.6, y));
+    el.style.left = px + 'px'; el.style.top = py + 'px';
+    el.classList.remove('go', 'out'); void el.offsetWidth; el.classList.add('go');
+    clearTimeout(timer); timer = setTimeout(() => el.classList.remove('go'), 2500);
   }
-  const lookList = () => Q.looks[(SKINS[state.skin % SKINS.length] || {}).name];
-  function move(res) { if (!res || !res.lines || res.waterfall || performance.now() < until) return; until = performance.now() + 2600; setTimeout(() => { until = 0; decide(res); }, 260); }
+  const hide = () => { const el = document.getElementById('quip'); if (el && el.classList.contains('go')) el.classList.add('out'); };
+  window.addEventListener('pointerdown', hide, { passive: true });   // the next drag clears it
   function decide(res) {
-    if (!res || !res.lines) return;
-    const filled = state.grid.filter(Boolean).length + (res.cleared ? res.cleared.length : 0) - res.piece.shape.cells.length;
-    const lk = lookList();
-    if (Math.random() < 0.02) return show(pick(Q.rare));
-    if (res.lines >= 3 || (res.lines >= 2 && Math.random() < 0.3)) return show(pick(lk && Math.random() < 0.6 ? lk : Q.big));
-    if (filled >= 40 && Math.random() < 0.6) return show(pick(Q.save));
-    if (COMBO_AT.includes(res.combo)) {
-      if (res.combo === 3 && (SKINS[state.skin % SKINS.length] || {}).name === 'Bowling Balls') return show('Turkey!');
-      return show(pick(lk && Math.random() < 0.4 ? lk : Q.combo));
-    }
+    const cleared = res.cleared || [], filledAfter = state.grid.filter(Boolean).length;
+    const filledBefore = filledAfter + cleared.length - res.piece.shape.cells.length;
+    if (filledAfter === 1) return 'missedSpot';
+    if (res.lastOfHand && filledBefore >= 40) return 'lastPieceSave';
+    // how many places did this piece fit, on the board as it was before the move?
+    const before = state.grid.slice(); for (const c of cleared) before[Logic.idx(c.x, c.y)] = c.v;
+    for (const [x, y] of res.piece.shape.cells) before[Logic.idx(res.gx + x, res.gy + y)] = 0;
+    let fits = 0; const sh = res.piece.shape;
+    for (let gy = 0; gy <= N - sh.h && fits < 3; gy++) for (let gx = 0; gx <= N - sh.w && fits < 3; gx++) if (Logic.canPlace(before, sh, gx, gy)) fits++;
+    if (fits <= 2 && filledBefore >= 24) return 'tightFit';
+    if (res.lines >= 2 && filledBefore >= 40) return 'bigTidy';
+    if (res.combo === 5) return 'combo5';
+    if (res.combo === 10) return 'combo10';
+    if (res.lines >= 3) return 'threeLines';
+    return null;
   }
-  function fart() { if (performance.now() < until || Math.random() > 0.45) return; setTimeout(() => show(pick(Q.fart), true), 250); }
-  function boardClear() { show(pick(Q.clear)); }
+  function move(res, cx, cy) {
+    movesSince++;
+    if (!res || !res.lines || res.waterfall) return;
+    if (movesSince < COOLDOWN_MOVES || performance.now() - lastAt < COOLDOWN_MS) return;
+    const ev = decide(res); if (!ev) return;
+    let list = LINES[ev];
+    if (ev === 'threeLines') { const lk = LINES.looks[(SKINS[state.skin % SKINS.length] || {}).name]; if (lk) list = lk; }
+    const text = pickFrom(list); if (!text) return;
+    setTimeout(() => show(text, cx, cy - L.c * 1.45), 260);
+  }
+  function fart() {
+    if (performance.now() - lastAt < COOLDOWN_MS || Math.random() > 0.4) return;
+    const text = pickFrom(LINES.fart); if (!text) return;
+    setTimeout(() => show(text, L.bx + L.B / 2, L.by + L.B * 0.2), 250);
+  }
   // the ring: on while a combo is alive, a little brighter the longer it runs
   setInterval(() => {
     const on = typeof state !== 'undefined' && !state.over && (state.combo | 0) >= 2;
     for (const id of ['comboRing', 'comboRingGlow']) { const e = document.getElementById(id); if (!e) continue; e.classList.toggle('on', on); if (on) e.style.setProperty('--ro', Math.min(1, 0.55 + state.combo * 0.06).toFixed(2)); }
   }, 150);
-  return { move, fart, boardClear, show };
+  return { move, fart, reset, show, hide };
 })();
 function floatText(text, x, y, size, colour = '#ffffff', dur = 900, delay = 0) {
   FX.texts.push({ text, x, y, size, colour, t0: performance.now() + delay, dur });
@@ -5967,7 +5983,7 @@ function playResult(res, pointerGesture) {
     if (res.lines >= 2) floatText(res.lines + ' lines  ×' + Logic.lineMultiplier(res.lines), cx, cy + L.c * 0.66, L.c * 0.42, '#ffd23f', 800, 80);
     if (res.combo >= 2) floatText('Combo ' + res.combo + ' ×' + Logic.comboMultiplier(res.combo), cx, cy - L.c * 0.62, L.c * 0.36, '#8ff0ff', 800, 100);
     if (CONFIG.haptics.lineClear) Haptics.pulse(CONFIG.haptics.lineClear);
-    try { Quip.move(res); } catch (_) {}
+    try { Quip.move(res, cx, cy); } catch (_) {}
     if (res.colourMatches && res.colourMatches.length) {
       const m = res.colourMatches[0];
       UI.colourPop(sk0.colours[(m.v - 1) % sk0.colours.length], res.colourMatches.length, res.colourPts);
@@ -6301,7 +6317,11 @@ function draw(now) {
         const gx = pv.gx + x, gy = pv.gy + y, [px, py] = cellCentre(gx, gy);
         const inLine = glowRows.includes(gy) || glowCols.includes(gx);
         const hk = pv.gx + ',' + pv.gy; if (hoverAt.key !== hk) { hoverAt.base = now - (hoverAt.last || 0) < 150 ? 0.6 : 0; hoverAt.key = hk; hoverAt.t0 = now; } hoverAt.last = now;   // sliding between spots re-pops from 60%, arriving on the board pops from nothing
-        drawBubble(state.skin, pv.piece.values ? pv.piece.values[x + ',' + y] - 1 : pv.piece.mystery ? mysteryColour(x, y) : pv.piece.color, px, py, c * (inLine ? (settings.reduced ? 1.0 : 1.04 + Math.sin(wobble * 8 + (gx + gy) * 0.6) * 0.04) : 0.92), 1, 1, inLine ? 0.75 : 0.4, x + y, now);
+        // (26 Nov) highlight the target cells only, so you don't see a second set of pieces under the one you're holding
+        const pulse = settings.reduced ? 0 : Math.sin(wobble * 6 + (gx + gy) * 0.5) * 0.04;
+        rr(ctx, px - c * 0.45, py - c * 0.45, c * 0.9, c * 0.9, c * 0.24);
+        ctx.fillStyle = inLine ? `rgba(0,229,212,${0.3 + pulse})` : `rgba(255,255,255,${0.16 + pulse})`; ctx.fill();
+        ctx.lineWidth = Math.max(1.5, c * 0.04); ctx.strokeStyle = inLine ? 'rgba(120,255,240,0.85)' : 'rgba(255,255,255,0.5)'; ctx.stroke();
       }
     } else {
       ctx.strokeStyle = 'rgba(255,150,130,0.7)'; ctx.lineWidth = Math.max(1.5, c * 0.05);
