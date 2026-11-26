@@ -604,7 +604,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 2pm, popcorn (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 2:15pm, popcorn 2 (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2889,16 +2889,16 @@ const NEW_SKINS = [
   { name: 'Popcorn', popcorn: true, squish: 1.3, fixedColours: true, colours: ['#fffaf0', '#ffe58a', '#f2c27a', '#ffd0e4', '#d3ebff'],
     // (26 Nov) puffy popped corn: kernels in your hand pop into popcorn when they land, and burst when their line clears
     draw(ctx, s, c, i) {
-      const r = s * 0.46;
-      ctx.fillStyle = '#c98a3a'; ctx.beginPath(); ctx.ellipse(r * 0.05, r * 0.55, r * 0.28, r * 0.16, 0.2, 0, Math.PI * 2); ctx.fill();   // the little hull
-      const puffs = [[-0.36, -0.05, 0.44], [0.34, -0.12, 0.42], [0.0, -0.42, 0.44], [-0.14, 0.24, 0.4], [0.3, 0.3, 0.34], [-0.44, 0.34, 0.28], [0.1, 0.02, 0.36]];
+      const r = s * 0.52;
+      ctx.fillStyle = 'rgba(214,160,80,0.9)'; ctx.beginPath(); ctx.ellipse(r * 0.05, r * 0.62, r * 0.2, r * 0.1, 0.2, 0, Math.PI * 2); ctx.fill();   // a little husk
+      const puffs = [[-0.42, -0.02, 0.5], [0.4, -0.1, 0.48], [0.0, -0.48, 0.5], [-0.16, 0.36, 0.46], [0.36, 0.38, 0.4], [-0.52, 0.42, 0.32], [0.06, 0.02, 0.44], [0.5, -0.5, 0.26], [-0.46, -0.48, 0.28]];
       for (const [px, py, pr] of puffs) {
-        const x = px * r, y = py * r, rr2 = pr * r, g = ctx.createRadialGradient(x - rr2 * 0.35, y - rr2 * 0.4, rr2 * 0.1, x, y, rr2);
-        g.addColorStop(0, '#ffffff'); g.addColorStop(0.55, c); g.addColorStop(1, 'rgba(190,140,70,0.9)');
+        const x = px * r, y = py * r, rr2 = pr * r, g = ctx.createRadialGradient(x - rr2 * 0.35, y - rr2 * 0.4, rr2 * 0.05, x, y, rr2);
+        g.addColorStop(0, '#ffffff'); g.addColorStop(0.5, '#fffdf6'); g.addColorStop(0.82, c); g.addColorStop(1, 'rgba(232,205,160,1)');
         ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, rr2, 0, Math.PI * 2); ctx.fill();
       }
-      ctx.fillStyle = 'rgba(255,205,60,0.55)';   // a few butter spots
-      for (const [px, py, pr] of [[0.18, -0.3, 0.1], [-0.3, 0.1, 0.08], [0.32, 0.2, 0.07]]) { ctx.beginPath(); ctx.arc(px * r, py * r, pr * r, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = 'rgba(255,214,70,0.6)';   // butter spots
+      for (const [px, py, pr] of [[0.2, -0.32, 0.1], [-0.34, 0.12, 0.09], [0.36, 0.24, 0.08], [-0.06, -0.06, 0.07]]) { ctx.beginPath(); ctx.arc(px * r, py * r, pr * r, 0, Math.PI * 2); ctx.fill(); }
     },
   },
   { name: 'Emojis', colours: ['#ffd23f'], fixedColours: true, squish: 1.5, face: true, emoji: true,
@@ -6240,8 +6240,9 @@ function draw(now) {
       const t = now - pt;
       if (t < 0) { HAND = true; drawBubble(state.skin, v - 1, x + Math.sin(now / 18 + gx) * c * 0.03, y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; continue; }   // the kernel jitters, about to go
       if (t < 420) {
-        const grow = t < 90 ? 0.35 + 0.9 * (t / 90) : 1 + 0.25 * Math.exp(-(t - 90) / 90) * Math.cos((t - 90) / 40);
-        drawBubble(state.skin, v - 1, x, y - Math.sin(Math.min(1, t / 300) * Math.PI) * c * 0.28, c * 0.96 * grow, 1, 1, 1, gx * 3 + gy * 5, now);
+        const grow = t < 80 ? 0.5 + 1.0 * (t / 80) : 1 + 0.5 * Math.exp(-(t - 80) / 90) * Math.cos((t - 80) / 38);
+        if (t < 160) { const k = t / 160; ctx.save(); ctx.globalAlpha = (1 - k) * 0.9; ctx.strokeStyle = '#fff'; ctx.lineWidth = c * 0.08 * (1 - k); ctx.beginPath(); ctx.arc(x, y, c * (0.25 + 0.55 * k), 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+        drawBubble(state.skin, v - 1, x, y - Math.sin(Math.min(1, t / 300) * Math.PI) * c * 0.32, c * 0.96 * grow, 1, 1, 1, gx * 3 + gy * 5, now);
         continue;
       }
       POPT.delete(Logic.idx(gx, gy));
