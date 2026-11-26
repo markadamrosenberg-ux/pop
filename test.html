@@ -612,7 +612,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 8:50pm, bigger caterpillar smile (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 9:10pm, jelly fried eggs, runny yolk (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -4738,21 +4738,41 @@ function eggKind() {   // which surprise is inside the eggs this frame (picked o
   return state._eggKind;
 }
 function drawFried(x, r, i) {   // a fried egg: a soft, wavy white with a glossy yolk
-  const pts = 11, rad = k => r * (0.6 + 0.05 * Math.sin(k * 2.3 + i * 1.7) + 0.03 * Math.cos(k * 4.1 + i));
+  const pts = 48, sq = a => { const c = Math.abs(Math.cos(a)), s2 = Math.abs(Math.sin(a)); return 1 / Math.pow(Math.pow(c, 4) + Math.pow(s2, 4), 0.25); };   // a rounded square
   x.beginPath();
   for (let k = 0; k <= pts; k++) {
-    const a0 = (k - 0.5) / pts * Math.PI * 2, a1 = k / pts * Math.PI * 2, mx = Math.cos(a0) * rad(k - 0.5), my = Math.sin(a0) * rad(k - 0.5) * 0.92;
-    const ex = Math.cos(a1) * rad(k), ey = Math.sin(a1) * rad(k) * 0.92;
-    if (k === 0) x.moveTo(ex, ey); else x.quadraticCurveTo(mx * 1.08, my * 1.08, ex, ey);
+    const a = k / pts * Math.PI * 2, rr2 = r * 0.82 * sq(a) * (1 + 0.035 * Math.sin(a * 5 + i * 1.7) + 0.02 * Math.cos(a * 9 + i));
+    const ex = Math.cos(a) * Math.min(rr2, r * 0.97), ey = Math.sin(a) * Math.min(rr2, r * 0.97);
+    if (k === 0) x.moveTo(ex, ey); else x.lineTo(ex, ey);
   }
   x.closePath();
-  const wg = x.createRadialGradient(-r * 0.1, -r * 0.15, r * 0.05, 0, 0, r * 0.55); wg.addColorStop(0, '#ffffff'); wg.addColorStop(0.75, '#f7f3ea'); wg.addColorStop(1, '#e9dcc4');
+  const wg = x.createRadialGradient(-r * 0.1, -r * 0.15, r * 0.05, 0, 0, r * 0.95); wg.addColorStop(0, '#ffffff'); wg.addColorStop(0.75, '#f7f3ea'); wg.addColorStop(1, '#e9dcc4');
   x.fillStyle = wg; x.fill(); x.strokeStyle = 'rgba(205,150,70,0.55)'; x.lineWidth = Math.max(1, r * 0.04); x.stroke();   // a lightly crispy edge
-  const yx = r * 0.04, yy = -r * 0.03, yr = r * 0.27;
+  const yx = r * 0.04, yy = -r * 0.03, yr = r * 0.3;
   x.fillStyle = 'rgba(160,110,20,0.25)'; x.beginPath(); x.ellipse(yx + r * 0.02, yy + r * 0.04, yr, yr * 0.9, 0, 0, Math.PI * 2); x.fill();
   const yg = x.createRadialGradient(yx - yr * 0.35, yy - yr * 0.4, yr * 0.1, yx, yy, yr); yg.addColorStop(0, '#fff3a8'); yg.addColorStop(0.45, '#ffc21a'); yg.addColorStop(1, '#ec8a00');
   x.fillStyle = yg; x.beginPath(); x.arc(yx, yy, yr, 0, Math.PI * 2); x.fill();
   x.fillStyle = 'rgba(255,255,255,0.85)'; x.beginPath(); x.ellipse(yx - yr * 0.35, yy - yr * 0.4, yr * 0.28, yr * 0.16, -0.5, 0, Math.PI * 2); x.fill();
+}
+function drawYolkRun(cx, cy, size, t0, now) {   // squished: the yolk breaks and runs out over the white and off the edge
+  const r = size * 0.5, q = Math.min(1, (now - t0) / 900), e = 1 - Math.pow(1 - q, 3), yx = cx + r * 0.04, yy = cy - r * 0.03;
+  ctx.save();
+  const g = ctx.createRadialGradient(yx - r * 0.1, yy - r * 0.1, r * 0.02, yx, yy + r * 0.2 * e, r * (0.35 + 0.35 * e));
+  g.addColorStop(0, '#fff0a0'); g.addColorStop(0.5, '#ffc21a'); g.addColorStop(1, '#e98a00');
+  ctx.fillStyle = g; ctx.beginPath();   // the puddle spreading down and out
+  ctx.moveTo(yx - r * 0.3, yy - r * 0.05);
+  ctx.bezierCurveTo(yx - r * (0.32 + 0.2 * e), yy + r * (0.15 + 0.3 * e), yx - r * (0.2 + 0.15 * e), yy + r * (0.3 + 0.35 * e), yx - r * 0.05, yy + r * (0.28 + 0.3 * e));
+  ctx.bezierCurveTo(yx + r * (0.15 + 0.2 * e), yy + r * (0.3 + 0.4 * e), yx + r * (0.32 + 0.2 * e), yy + r * (0.15 + 0.25 * e), yx + r * 0.3, yy - r * 0.02);
+  ctx.bezierCurveTo(yx + r * 0.28, yy - r * 0.3, yx - r * 0.28, yy - r * 0.3, yx - r * 0.3, yy - r * 0.05); ctx.fill();
+  ctx.strokeStyle = '#ffc21a'; ctx.lineCap = 'round';   // drips running off the edge
+  for (const [dx, len, w] of [[-0.12, 0.95, 0.09], [0.16, 0.8, 0.07]]) {
+    const L2 = Math.max(0, (q - 0.25) / 0.75) * len * r, x0 = yx + dx * r, y0 = yy + r * (0.45 + 0.2 * e);
+    if (L2 <= 0) continue;
+    ctx.lineWidth = w * r; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x0, y0 + L2 * 0.5); ctx.stroke();
+    ctx.fillStyle = '#f5a800'; ctx.beginPath(); ctx.arc(x0, y0 + L2 * 0.5 + w * r * 0.3, w * r * 0.75, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(yx - r * 0.12, yy - r * 0.08, r * 0.08, r * 0.04, -0.4, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
 }
 function drawEaster(x, r, i) {   // a painted Easter egg: bright colour, a zigzag band, stripes and dots
   const base = ['#ff8cc6', '#6fc6ff', '#ffcf4d', '#8fe07a', '#b98cff'][i % 5], pop = ['#ffffff', '#ffe66d', '#ff7aa8', '#ffffff', '#ffe66d'][i % 5], line = shade(base, -45), w = r * 0.72, h = r * 0.9;
@@ -4907,7 +4927,10 @@ function drawBud(cx, cy, size, sx, sy, alpha, seed, colour) {
 function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, seed = 0, now = performance.now()) {
   if (HAND && SKINS[skinIdx % SKINS.length].bloom) { drawBud(cx, cy, size, sx, sy, alpha, seed, colour); return; }
   if (HAND && SKINS[skinIdx % SKINS.length].hatch) { drawEgg(cx, cy, size, sx, sy, alpha, seed, colour); return; }
-  if (!HAND && SKINS[skinIdx % SKINS.length].hatch && eggKind() === 'fried' && !settings.reduced) { const w = Math.sin(now / 170 + seed * 1.3) * 0.035; sx *= 1 + w; sy *= 1 - w; }   // a wobbly fried egg
+  if (!HAND && SKINS[skinIdx % SKINS.length].hatch && eggKind() === 'fried' && !settings.reduced) {   // really jelly-like: always wobbling, and the whole plate jiggles when anything lands or gets squished
+    const kick = Math.exp(-(now - (window._jellyT || -1e9)) / 420), w = Math.sin(now / 150 + seed * 1.3) * 0.05 + Math.sin(now / 48 + seed) * 0.2 * kick;
+    sx *= 1 + w; sy *= 1 - w * 0.9;
+  }
   if (HAND && SKINS[skinIdx % SKINS.length].morph) { drawCaterpillar(cx, cy, size, sx, sy, alpha, seed, colour); return; }
   if (SKINS[skinIdx % SKINS.length].morph) { drawCaterpillar(cx, cy, size, sx, sy, alpha, seed, colour); return; }   // caterpillars wait on the board, watching you
   if (HAND && SKINS[skinIdx % SKINS.length].popcorn) { drawKernel(cx, cy, size, sx, sy, alpha, seed, colour); return; }
@@ -6623,6 +6646,7 @@ function playResult(res, pointerGesture) {
   }
   else if (skin().popcorn || skin().bloom || skin().hatch) { /* each kernel or bud makes its own sound as it opens, below */ }
   else if (skin().hit) { Sound.hit(skin().hit); if (skin().hit === 'bowling') Sound.preload(); } else Sound.place(res.piece.shape.cells.length);
+  window._jellyT = performance.now();   // fried eggs jiggle when a piece lands
   if (CONFIG.haptics.place) Haptics.pulse(CONFIG.haptics.place);
 
   let endAt = now;
@@ -6945,8 +6969,9 @@ function draw(now) {
       }
       POPT.delete(Logic.idx(gx, gy));
     }
-    const nb = state.bites && state.bites[Logic.idx(gx, gy)];
+    const nb = state.bites && state.bites[Logic.idx(gx, gy)], yk = state.yolks && state.yolks[Logic.idx(gx, gy)];
     if (nb) drawBitten(nb, v, x, y, c * 0.96 * s, sx, sy, gx * 3 + gy * 5, now);
+    else if (yk && skin().hatch && eggKind() === 'fried') { drawBubble(state.skin, v - 1, x, y, c * 0.96 * s, sx, sy, 1, gx * 3 + gy * 5, now); drawYolkRun(x, y, c * 0.96 * s, yk, now); }
     else {
       const m0 = MORPH.get(Logic.idx(gx, gy)), mq = m0 === undefined ? 1 : (now - m0) / MORPH_MS;
       if (mq >= 1) { if (m0 !== undefined) MORPH.delete(Logic.idx(gx, gy)); drawBubble(state.skin, v - 1, x, y, c * 0.96 * s, sx, sy, repoOn && pidHere < 0 ? 0.35 : 1, gx * 3 + gy * 5, now); }
@@ -7917,6 +7942,8 @@ const Input = (() => {
           }
           { const [bx, by] = cellCentre(gx, gy), v = state.grid[Logic.idx(gx, gy)], cols = skin().colours;
             lastSquishAt = { x: bx, y: by - L.c * 0.15 };
+            window._jellyT = performance.now();
+            if (skin().hatch && eggKind() === 'fried') { state.yolks = state.yolks || {}; if (!state.yolks[Logic.idx(gx, gy)]) state.yolks[Logic.idx(gx, gy)] = performance.now(); }   // the yolk breaks and runs
             const sn = skin().name, col = cols[(v - 1) % cols.length];
             if (sn === 'Tennis Balls') spawnFluff(bx, by, col); else if (sn === 'Donuts') spawnSprinkles(bx, by, 8); else if (skin().hatch && eggKind() === 'chick') spawnFeathers(bx, by - L.c * 0.15, 9, 0.75); else if (skin().hatch && eggKind() === 'easter') spawnSprinkles(bx, by, 8); else if (skin().hatch) squishDrops(bx, by, '#ffc21a'); else squishDrops(bx, by, col); }   // chicks: a puff of feathers; Easter eggs: sprinkles; fried eggs: yolk
           Sound.squish(((x - L.ix) / (L.c * N)) * 2 - 1); Haptics.pulse(8);
@@ -8778,6 +8805,7 @@ function frame(now) {
 // animating, clear the frame. An empty board must always finish the frame.
 let emptySince = 0;
 function checkEmptyBoard(now) {
+  if (state.yolks) for (const k in state.yolks) if (!state.grid[k] || !skin().hatch) delete state.yolks[k];   // a broken yolk goes with its egg
   if (state.bites) for (const k in state.bites) if (!state.grid[k] || skin().name !== 'Donuts') delete state.bites[k];   // bites go with the donut
   const quiet = !state.over && (state.frameMoves | 0) > 0 && !FX.waterfall && !FX.pops.length && !FX.goo.length && !Celebrate.active()
     && !(Input.partyMode && Input.partyMode()) && state.grid.every(v => !v);
