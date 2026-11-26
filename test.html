@@ -600,7 +600,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 12:15pm, step 1 (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 12:25pm, step 1b (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -5810,6 +5810,8 @@ const Quip = (() => {
     lastPieceSave: ["Wasn't worried.", 'Cutting it fine.', 'Never in doubt.'],          // the last piece in the tray clears a line on a cramped board
     tightFit:      ['That had no business fitting.', 'Snug.', 'Measured twice.'],       // the piece fitted in only one or two places, and it cleared a line
     bigTidy:       ['Bit of a tidy-up.', 'Room to breathe.', 'Much better.'],           // 2+ lines cleared from a nearly full board
+    double:        ['Two for one.', 'Tidy.', 'Neat.'],                                  // 2 lines in one move
+    combo3:        ['Three in a row.', 'On a roll.'],                                   // combo reaches 3
     combo5:        ['Five in a row.'],                                                  // combo reaches 5
     combo10:       ['Ten. Now you’re showing off.'],                                    // combo reaches 10
     threeLines:    ['Three at once. Steady on.', 'Efficient.', "That'll do."],          // 3+ lines in one move
@@ -5819,7 +5821,7 @@ const Quip = (() => {
     },
     fart:          ['Excuse you.', 'Who cut the cheese?', 'Better out than in.', 'That one had a voice.', 'Smelt it, dealt it.', 'Blame the dog.'],
   };
-  const COOLDOWN_MOVES = 5, COOLDOWN_MS = 6000;
+  const COOLDOWN_MOVES = 3, COOLDOWN_MS = 4000;   // at least 3 clears and 4 seconds between lines
   // ===========================================================================================================================
   let used = new Set(), lastAt = -1e9, movesSince = 99, timer = 0;
   const reset = () => { used = new Set(); movesSince = 99; };
@@ -5840,17 +5842,19 @@ const Quip = (() => {
     const cleared = res.cleared || [], filledAfter = state.grid.filter(Boolean).length;
     const filledBefore = filledAfter + cleared.length - res.piece.shape.cells.length;
     if (filledAfter === 1) return 'missedSpot';
-    if (res.lastOfHand && filledBefore >= 40) return 'lastPieceSave';
+    if (res.lastOfHand && filledBefore >= 30) return 'lastPieceSave';
     // how many places did this piece fit, on the board as it was before the move?
     const before = state.grid.slice(); for (const c of cleared) before[Logic.idx(c.x, c.y)] = c.v;
     for (const [x, y] of res.piece.shape.cells) before[Logic.idx(res.gx + x, res.gy + y)] = 0;
     let fits = 0; const sh = res.piece.shape;
     for (let gy = 0; gy <= N - sh.h && fits < 3; gy++) for (let gx = 0; gx <= N - sh.w && fits < 3; gx++) if (Logic.canPlace(before, sh, gx, gy)) fits++;
-    if (fits <= 2 && filledBefore >= 24) return 'tightFit';
-    if (res.lines >= 2 && filledBefore >= 40) return 'bigTidy';
+    if (fits <= 2 && filledBefore >= 16) return 'tightFit';
+    if (res.lines >= 2 && filledBefore >= 30) return 'bigTidy';
+    if (res.combo === 3) return 'combo3';
     if (res.combo === 5) return 'combo5';
     if (res.combo === 10) return 'combo10';
     if (res.lines >= 3) return 'threeLines';
+    if (res.lines === 2) return 'double';
     return null;
   }
   function move(res, cx, cy) {
