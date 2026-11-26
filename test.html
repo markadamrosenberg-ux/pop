@@ -612,7 +612,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 2:15pm, cute butterflies (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 2:45pm, butterflies v3 (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2953,8 +2953,8 @@ const NEW_SKINS = [
       nlGloss(ctx, r, 0.6);
     },
   },
-  { name: 'Butterflies', morph: true, squish: 1.1, fixedColours: true, colours: ['#ff86c0', '#5cc8ff', '#ffb43a', '#b088ff', '#5fe0a0'],
-    // (26 Nov, cuter) chubby caterpillars in your hand turn into smiley butterflies when they land; when their row clears they fly away
+  { name: 'Butterflies', morph: true, squish: 1.1, fixedColours: true, colours: ['#ff4fa3', '#29b6ff', '#ff9f1c', '#9b5cff', '#22d98c'],
+    // (26 Nov, v3) caterpillars on leaves in your hand turn into smiley butterflies when they land; when their row clears they fly away
     draw(ctx, s, c, i) { bfWings(ctx, s, c); bfBody(ctx, s, c); },
   },
   { name: 'Chicks', hatch: true, squish: 1.3, fixedColours: true, colours: ['#fffaf0', '#d8ecff', '#f3dfc4', '#e3f4d4', '#ffe1ec'],
@@ -4459,39 +4459,65 @@ function bubbleFill(x, cx, cy, rad, c) {   // soft, glossy, candy-like fill
   g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, shade(c, 55)); g.addColorStop(0.8, c); g.addColorStop(1, shade(c, -35));
   return g;
 }
+function bfWingPaths(x, r, d) {   // a real butterfly silhouette: pointed forewing, rounded hindwing
+  const fore = new Path2D(), hind = new Path2D();
+  fore.moveTo(d * r * 0.04, -r * 0.12);
+  fore.bezierCurveTo(d * r * 0.25, -r * 0.72, d * r * 0.75, -r * 0.86, d * r * 0.95, -r * 0.64);
+  fore.bezierCurveTo(d * r * 1.06, -r * 0.46, d * r * 0.96, -r * 0.1, d * r * 0.72, -r * 0.01);
+  fore.bezierCurveTo(d * r * 0.45, r * 0.06, d * r * 0.2, r * 0.04, d * r * 0.04, r * 0.0); fore.closePath();
+  hind.moveTo(d * r * 0.04, -r * 0.02);
+  hind.bezierCurveTo(d * r * 0.4, -r * 0.05, d * r * 0.84, r * 0.06, d * r * 0.8, r * 0.38);
+  hind.bezierCurveTo(d * r * 0.77, r * 0.64, d * r * 0.46, r * 0.8, d * r * 0.25, r * 0.73);
+  hind.bezierCurveTo(d * r * 0.1, r * 0.67, d * r * 0.03, r * 0.42, d * r * 0.03, r * 0.12); hind.closePath();
+  return [fore, hind];
+}
 function bfWings(x, s, c) {
-  const r = s * 0.5;
-  x.lineJoin = 'round';
-  for (const lower of [true, false]) for (const d of [-1, 1]) {
-    x.save();
-    if (lower) { x.translate(d * r * 0.3, r * 0.32); x.rotate(-d * 0.55); } else { x.translate(d * r * 0.42, -r * 0.16); x.rotate(d * 0.35); }
-    const rx = lower ? r * 0.28 : r * 0.44, ry = lower ? r * 0.24 : r * 0.38;
-    const g = x.createRadialGradient(-d * rx * 0.6, ry * 0.3, rx * 0.1, 0, 0, rx * 1.15);
-    g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, shade(c, 60)); g.addColorStop(0.85, c); g.addColorStop(1, shade(c, -30));
-    x.fillStyle = g; x.beginPath(); x.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2); x.fill();
-    x.strokeStyle = shade(c, -55); x.lineWidth = Math.max(1, s * 0.03); x.stroke();
-    x.fillStyle = 'rgba(255,255,255,0.9)';
-    if (lower) {   // a little heart
-      const h = rx * 0.35; x.beginPath(); x.moveTo(0, h * 0.9); x.bezierCurveTo(-h * 1.4, -h * 0.1, -h * 0.6, -h * 1.1, 0, -h * 0.35); x.bezierCurveTo(h * 0.6, -h * 1.1, h * 1.4, -h * 0.1, 0, h * 0.9); x.fill();
-    } else {   // polka dots and a glossy shine
-      x.beginPath(); x.arc(d * rx * 0.25, ry * 0.15, rx * 0.22, 0, Math.PI * 2); x.fill();
-      x.beginPath(); x.arc(d * rx * 0.55, -ry * 0.3, rx * 0.11, 0, Math.PI * 2); x.fill();
-      x.fillStyle = 'rgba(255,255,255,0.55)'; x.beginPath(); x.ellipse(-d * rx * 0.15, -ry * 0.58, rx * 0.45, ry * 0.17, 0, 0, Math.PI * 2); x.fill();
+  const r = s * 0.5, ink = '#1e1024';
+  for (const d of [-1, 1]) {
+    const [fore, hind] = bfWingPaths(x, r, d);
+    for (const [path, isFore] of [[hind, false], [fore, true]]) {
+      x.save();
+      x.shadowColor = 'rgba(0,0,0,0.35)'; x.shadowBlur = s * 0.05; x.shadowOffsetY = s * 0.02;
+      const g = x.createRadialGradient(0, 0, r * 0.05, 0, 0, r * 1.0);   // deep near the body, bright and glowing towards the edges
+      g.addColorStop(0, shade(c, -70)); g.addColorStop(0.3, shade(c, -10)); g.addColorStop(0.62, c); g.addColorStop(0.85, shade(c, 70));
+      x.fillStyle = g; x.fill(path); x.shadowColor = 'transparent';
+      x.clip(path);
+      x.strokeStyle = 'rgba(30,16,36,0.35)'; x.lineWidth = Math.max(0.6, s * 0.012);   // veins
+      const veins = isFore ? [[0.5, -0.72], [0.8, -0.62], [0.95, -0.35], [0.8, -0.08]] : [[0.75, 0.15], [0.7, 0.48], [0.42, 0.72]];
+      for (const [vx, vy] of veins) { x.beginPath(); x.moveTo(d * r * 0.05, 0); x.quadraticCurveTo(d * r * vx * 0.5, r * vy * 0.35, d * r * vx, r * vy); x.stroke(); }
+      x.strokeStyle = ink; x.lineWidth = r * 0.2; x.stroke(path);   // a dark velvet border, inside the edge only
+      x.fillStyle = 'rgba(255,255,255,0.95)';   // a row of white dots in the border, like a monarch
+      const dots = isFore ? [[0.33, -0.7], [0.55, -0.76], [0.76, -0.72], [0.9, -0.58], [0.93, -0.4], [0.88, -0.22], [0.76, -0.08]] : [[0.75, 0.2], [0.74, 0.4], [0.64, 0.58], [0.47, 0.69], [0.3, 0.68]];
+      dots.forEach(([px, py], k) => { x.beginPath(); x.arc(d * r * px, r * py, r * (k % 2 ? 0.032 : 0.045), 0, Math.PI * 2); x.fill(); });
+      if (isFore) {   // a glossy sheen across the forewing
+        const sh = x.createLinearGradient(0, -r * 0.8, 0, -r * 0.2); sh.addColorStop(0, 'rgba(255,255,255,0.55)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
+        x.fillStyle = sh; x.beginPath(); x.ellipse(d * r * 0.5, -r * 0.55, r * 0.38, r * 0.16, d * -0.35, 0, Math.PI * 2); x.fill();
+        x.fillStyle = 'rgba(255,255,255,0.85)'; x.beginPath(); x.arc(d * r * 0.55, -r * 0.38, r * 0.06, 0, Math.PI * 2); x.fill();   // a bright spot
+      } else {   // an eyespot on the hindwing
+        const ex = d * r * 0.47, ey = r * 0.38;
+        x.fillStyle = ink; x.beginPath(); x.arc(ex, ey, r * 0.13, 0, Math.PI * 2); x.fill();
+        x.fillStyle = shade(c, 90); x.beginPath(); x.arc(ex, ey, r * 0.09, 0, Math.PI * 2); x.fill();
+        x.fillStyle = shade(c, -40); x.beginPath(); x.arc(ex, ey, r * 0.05, 0, Math.PI * 2); x.fill();
+        x.fillStyle = '#fff'; x.beginPath(); x.arc(ex - r * 0.025, ey - r * 0.03, r * 0.022, 0, Math.PI * 2); x.fill();
+      }
+      x.restore();
     }
-    x.restore();
   }
 }
 function bfBody(x, s, c) {
-  const r = s * 0.5, body = shade(c, -70), head = r * 0.31, hy = -r * 0.1;
-  x.strokeStyle = body; x.lineWidth = Math.max(1, s * 0.03); x.lineCap = 'round';
-  for (const d of [-1, 1]) {   // curly antennae with candy tips
-    x.beginPath(); x.moveTo(d * head * 0.35, hy - head * 0.85); x.quadraticCurveTo(d * r * 0.08, hy - r * 0.55, d * r * 0.26, hy - r * 0.5); x.stroke();
-    x.fillStyle = bubbleFill(x, d * r * 0.26, hy - r * 0.5, r * 0.08, c); x.beginPath(); x.arc(d * r * 0.26, hy - r * 0.5, r * 0.08, 0, Math.PI * 2); x.fill();
+  const r = s * 0.5, glossy = (cx, cy, rx, ry) => { const g = x.createRadialGradient(cx - rx * 0.4, cy - ry * 0.4, 0, cx, cy, Math.max(rx, ry));
+    g.addColorStop(0, '#6d5577'); g.addColorStop(0.5, '#2c1a33'); g.addColorStop(1, '#120a16'); x.fillStyle = g; x.beginPath(); x.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); x.fill(); };
+  x.strokeStyle = shade(c, -30); x.lineWidth = Math.max(0.9, s * 0.022); x.lineCap = 'round';
+  for (const d of [-1, 1]) {   // fine curled antennae with clubbed, coloured tips
+    x.beginPath(); x.moveTo(d * r * 0.02, -r * 0.28); x.bezierCurveTo(d * r * 0.05, -r * 0.5, d * r * 0.18, -r * 0.66, d * r * 0.3, -r * 0.7); x.stroke();
+    x.fillStyle = c; x.beginPath(); x.ellipse(d * r * 0.31, -r * 0.7, r * 0.045, r * 0.035, d * 0.6, 0, Math.PI * 2); x.fill();
   }
-  x.fillStyle = bubbleFill(x, 0, r * 0.3, r * 0.14, body); x.beginPath(); x.ellipse(0, r * 0.3, r * 0.11, r * 0.24, 0, 0, Math.PI * 2); x.fill();
-  x.fillStyle = bubbleFill(x, 0, hy, head, shade(c, -15)); x.beginPath(); x.arc(0, hy, head, 0, Math.PI * 2); x.fill();
-  x.strokeStyle = shade(c, -55); x.lineWidth = Math.max(0.8, s * 0.022); x.stroke();
-  cuteFace(x, 0, hy + head * 0.05, head * 0.8);
+  glossy(0, r * 0.24, r * 0.06, r * 0.27);   // abdomen
+  x.strokeStyle = 'rgba(255,255,255,0.18)'; x.lineWidth = Math.max(0.5, s * 0.008);
+  for (let k = 0; k < 4; k++) { const yy = r * (0.08 + k * 0.1); x.beginPath(); x.moveTo(-r * 0.05, yy); x.quadraticCurveTo(0, yy + r * 0.025, r * 0.05, yy); x.stroke(); }
+  glossy(0, -r * 0.08, r * 0.085, r * 0.14);   // thorax
+  glossy(0, -r * 0.25, r * 0.075, r * 0.07);   // head
+  x.fillStyle = 'rgba(255,255,255,0.85)'; for (const d of [-1, 1]) { x.beginPath(); x.arc(d * r * 0.04, -r * 0.27, r * 0.018, 0, Math.PI * 2); x.fill(); }   // glints in the eyes
 }
 function bfSprite(kind, c) {
   const key = 'bf' + kind + c; let sp = spriteCache.get(key); if (sp) return sp;
@@ -4502,43 +4528,64 @@ function bfSprite(kind, c) {
 }
 function drawButterfly(cx, cy, size, colour, flap = 1, alpha = 1) {   // wings fold and open, the smiley face stays put
   const sk = SKINS.find(k => k.morph), c = sk.colours[((colour % sk.colours.length) + sk.colours.length) % sk.colours.length];
-  const w = bfSprite('w', c), bd = bfSprite('b', c), k = size / w.size * 1.4;
+  const w = bfSprite('w', c), bd = bfSprite('b', c), k = size / w.size * 1.4 * 0.98;
   const a0 = ctx.globalAlpha; if (alpha !== 1) ctx.globalAlpha = a0 * alpha;
   const f = Math.max(0.08, flap);
   ctx.drawImage(w.canvas, cx - w.size * k * f / 2, cy - w.size * k / 2, w.size * k * f, w.size * k);
   ctx.drawImage(bd.canvas, cx - bd.size * k / 2, cy - bd.size * k / 2, bd.size * k, bd.size * k);
   ctx.globalAlpha = a0;
 }
-function drawCaterpillar(cx, cy, size, sx, sy, alpha, seed, colour, wig = 0) {   // a chubby, smiley, candy-coloured caterpillar
-  const sk = SKINS.find(k => k.morph), c = sk.colours[colour % sk.colours.length], r = size * 0.5, t = performance.now();
-  ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.sin(seed * 2.3) * 0.08); ctx.scale(sx, sy); if (alpha !== 1) ctx.globalAlpha = alpha;
-  const segs = [[-0.68, 0.19], [-0.41, 0.23], [-0.1, 0.26]], hx = r * 0.32, hr = r * 0.42;
-  const bob = k => -Math.abs(Math.sin(t / 230 + seed + k * 0.9)) * r * (0.08 + wig * 0.16);   // an inchworm hump that travels along
-  segs.forEach(([sxp, sr], k) => {
-    const x0 = sxp * r, y0 = r * 0.15 + bob(k), rad = sr * r;
-    ctx.fillStyle = shade(c, -60); for (const d of [-0.4, 0.4]) { ctx.beginPath(); ctx.ellipse(x0 + d * rad, y0 + rad * 0.95, rad * 0.22, rad * 0.16, 0, 0, Math.PI * 2); ctx.fill(); }   // tiny feet
-    ctx.fillStyle = bubbleFill(ctx, x0, y0, rad, k % 2 ? shade(c, 25) : c); ctx.beginPath(); ctx.arc(x0, y0, rad, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = shade(c, -50); ctx.lineWidth = Math.max(0.8, size * 0.022); ctx.stroke();
-  });
-  const hy = r * 0.02 + bob(3);
-  ctx.strokeStyle = shade(c, -60); ctx.lineWidth = Math.max(1, size * 0.03); ctx.lineCap = 'round';
-  for (const d of [-1, 1]) {   // antennae with bobbles
-    const tx = hx + d * hr * 0.55, ty = hy - hr * 1.45 + Math.sin(t / 180 + d) * r * 0.03;
-    ctx.beginPath(); ctx.moveTo(hx + d * hr * 0.3, hy - hr * 0.8); ctx.quadraticCurveTo(hx + d * hr * 0.2, ty + hr * 0.2, tx, ty); ctx.stroke();
-    ctx.fillStyle = bubbleFill(ctx, tx, ty, r * 0.08, shade(c, 20)); ctx.beginPath(); ctx.arc(tx, ty, r * 0.08, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.fillStyle = bubbleFill(ctx, hx, hy, hr, shade(c, 15)); ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = shade(c, -50); ctx.lineWidth = Math.max(0.8, size * 0.022); ctx.stroke();
-  cuteFace(ctx, hx, hy + hr * 0.05, hr * 0.68);
+function drawLeaf(r) {   // a glossy green leaf for the caterpillar to sit on
+  ctx.save(); ctx.rotate(-0.12);
+  const lf = new Path2D(); lf.moveTo(-r * 0.92, r * 0.36); lf.bezierCurveTo(-r * 0.45, r * 0.05, r * 0.45, r * 0.08, r * 0.92, r * 0.28); lf.bezierCurveTo(r * 0.45, r * 0.72, -r * 0.45, r * 0.75, -r * 0.92, r * 0.36); lf.closePath();
+  const g = ctx.createLinearGradient(0, r * 0.1, 0, r * 0.7); g.addColorStop(0, '#9be86a'); g.addColorStop(0.5, '#43b649'); g.addColorStop(1, '#1f7a34');
+  ctx.fillStyle = g; ctx.fill(lf);
+  ctx.strokeStyle = 'rgba(220,255,200,0.75)'; ctx.lineWidth = Math.max(0.6, r * 0.03);
+  ctx.beginPath(); ctx.moveTo(-r * 0.88, r * 0.36); ctx.quadraticCurveTo(0, r * 0.38, r * 0.88, r * 0.3); ctx.stroke();
+  for (const vx of [-0.5, -0.15, 0.2, 0.5]) { ctx.beginPath(); ctx.moveTo(r * vx, r * 0.37); ctx.lineTo(r * (vx + 0.14), r * 0.55); ctx.stroke(); }
   ctx.restore();
 }
-function drawCocoon(cx, cy, size, colour, u, t) {   // a sleepy candy cocoon that wiggles and swells
+function drawCaterpillar(cx, cy, size, sx, sy, alpha, seed, colour, wig = 0) {   // a plump, glossy, striped caterpillar on a leaf
+  const sk = SKINS.find(k => k.morph), c = sk.colours[colour % sk.colours.length], r = size * 0.5, t = performance.now();
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy); if (alpha !== 1) ctx.globalAlpha = alpha;
+  drawLeaf(r);
+  const n = 6, seg = k => {   // segments along the leaf, with a hump that travels from tail to head
+    const x0 = r * (-0.7 + k * 0.19), lift = Math.max(0, Math.sin(t / 170 - k * 0.7 + seed)) * r * (0.07 + wig * 0.14);
+    return [x0, r * 0.12 - lift - k * r * 0.012, r * (0.18 + k * 0.01)];
+  };
+  for (let k = 0; k < n; k++) {
+    const [x0, y0, rad] = seg(k);
+    ctx.fillStyle = '#1e1024'; ctx.beginPath(); ctx.ellipse(x0, y0 + rad * 0.95, rad * 0.25, rad * 0.18, 0, 0, Math.PI * 2); ctx.fill();   // little legs
+    const g = ctx.createRadialGradient(x0 - rad * 0.3, y0 - rad * 0.45, rad * 0.1, x0, y0, rad * 1.05);
+    const band = k % 2 === 0;
+    g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, band ? shade(c, 60) : '#fff6d6'); g.addColorStop(0.85, band ? c : '#ffe08a'); g.addColorStop(1, band ? shade(c, -50) : '#c9932c');
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x0, y0, rad, 0, Math.PI * 2); ctx.fill();
+    if (band) { ctx.fillStyle = '#1e1024'; ctx.beginPath(); ctx.arc(x0, y0 - rad * 0.35, rad * 0.16, 0, Math.PI * 2); ctx.fill(); }   // a black dot on each coloured band
+  }
+  const [hx0, hy0] = seg(n - 1), hx = hx0 + r * 0.2, hy = hy0 - r * 0.06, hr = r * 0.25;
+  ctx.strokeStyle = shade(c, -20); ctx.lineWidth = Math.max(1, size * 0.025); ctx.lineCap = 'round';
+  for (const d of [-0.05, 0.12]) { const tx = hx + r * d + r * 0.08, ty = hy - hr - r * 0.2 + Math.sin(t / 200 + d * 9) * r * 0.025;   // antennae
+    ctx.beginPath(); ctx.moveTo(hx + r * d * 0.6, hy - hr * 0.8); ctx.quadraticCurveTo(hx + r * d, ty + r * 0.06, tx, ty); ctx.stroke();
+    ctx.fillStyle = c; ctx.beginPath(); ctx.arc(tx, ty, r * 0.04, 0, Math.PI * 2); ctx.fill(); }
+  const hg = ctx.createRadialGradient(hx - hr * 0.3, hy - hr * 0.4, hr * 0.1, hx, hy, hr);
+  hg.addColorStop(0, '#ffffff'); hg.addColorStop(0.3, shade(c, 30)); hg.addColorStop(0.85, shade(c, -25)); hg.addColorStop(1, shade(c, -70));
+  ctx.fillStyle = hg; ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1e1024'; ctx.beginPath(); ctx.ellipse(hx + hr * 0.38, hy - hr * 0.12, hr * 0.2, hr * 0.26, 0, 0, Math.PI * 2); ctx.fill();   // a shiny eye
+  ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx + hr * 0.32, hy - hr * 0.22, hr * 0.09, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,120,150,0.5)'; ctx.beginPath(); ctx.ellipse(hx + hr * 0.45, hy + hr * 0.38, hr * 0.18, hr * 0.11, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#1e1024'; ctx.lineWidth = Math.max(0.6, size * 0.015); ctx.beginPath(); ctx.arc(hx + hr * 0.62, hy + hr * 0.2, hr * 0.22, 0.2 * Math.PI, 0.8 * Math.PI); ctx.stroke();
+  ctx.restore();
+}
+function drawCocoon(cx, cy, size, colour, u, t) {   // a jade chrysalis with a gold-dotted band; the butterfly's colour glows through as it swells
   const sk = SKINS.find(k => k.morph), c = sk.colours[colour % sk.colours.length], r = size * 0.5;
-  ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.sin(t / 35) * 0.12 * u); const sc = 0.85 + 0.25 * u; ctx.scale(sc, sc);
-  ctx.fillStyle = bubbleFill(ctx, 0, 0, r * 0.45, shade(c, 40)); ctx.beginPath(); ctx.ellipse(0, 0, r * 0.36, r * 0.52, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = shade(c, -45); ctx.lineWidth = Math.max(0.8, size * 0.025); ctx.stroke();
-  ctx.strokeStyle = 'rgba(255,255,255,0.7)'; for (const yy of [0.18, 0.34]) { ctx.beginPath(); ctx.arc(0, r * (yy - 0.6), r * 0.42, 0.3 * Math.PI, 0.7 * Math.PI); ctx.stroke(); }
-  cuteFace(ctx, 0, -r * 0.08, r * 0.22, true);
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.sin(t / 35) * 0.1 * u); const sc = 0.85 + 0.2 * u; ctx.scale(sc, sc);
+  const ch = new Path2D(); ch.moveTo(0, -r * 0.6); ch.bezierCurveTo(r * 0.42, -r * 0.45, r * 0.4, r * 0.3, 0, r * 0.58); ch.bezierCurveTo(-r * 0.4, r * 0.3, -r * 0.42, -r * 0.45, 0, -r * 0.6);
+  const g = ctx.createRadialGradient(-r * 0.12, -r * 0.2, r * 0.05, 0, 0, r * 0.6); g.addColorStop(0, '#e9ffe9'); g.addColorStop(0.45, '#7fdc9a'); g.addColorStop(1, '#2e9a63');
+  ctx.fillStyle = g; ctx.fill(ch);
+  ctx.save(); ctx.clip(ch); ctx.globalAlpha = u * 0.85; const g2 = ctx.createRadialGradient(0, r * 0.1, 0, 0, r * 0.1, r * 0.55); g2.addColorStop(0, shade(c, 40)); g2.addColorStop(1, c); ctx.fillStyle = g2; ctx.fill(ch); ctx.restore();
+  ctx.fillStyle = '#ffd54a'; for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.arc(k * r * 0.09, -r * 0.16 + Math.abs(k) * r * 0.025, r * 0.028, 0, Math.PI * 2); ctx.fill(); }
+  ctx.strokeStyle = '#1e1024'; ctx.lineWidth = Math.max(0.6, size * 0.015); ctx.beginPath(); ctx.moveTo(0, -r * 0.6); ctx.lineTo(0, -r * 0.72); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.ellipse(-r * 0.12, -r * 0.22, r * 0.06, r * 0.16, 0.3, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
 }
 const FLIERS = [];   // butterflies flying off the board
@@ -6353,7 +6400,7 @@ function playResult(res, pointerGesture) {
   FX.land.push({ t0: now, cells: res.piece.shape.cells.map(([x, y]) => cellCentre(res.gx + x, res.gy + y)) });
   for (const [x, y] of res.piece.shape.cells) FX.settle.set(Logic.idx(res.gx + x, res.gy + y), { t0: now + (x + y) * CONFIG.feel.rippleMs, amp: CONFIG.feel.landAmp });
   if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 90 + k * 55 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.popcorn((at - now) / 1000, (res.gx + x - 3.5) / 5, 1.7); });   // placing pops as loud as a row popping (26 Nov)
-  if (skin().morph) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.flap((at - now + 480) / 1000, 1); });
+  if (skin().morph) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); });
   if (skin().hatch) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 120 + Math.random() * 50; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.hatch((at - now + 380) / 1000, (res.gx + x - 3.5) / 5, 1.6); });
   if (skin().bloom) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 80 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.bloom((at - now + 200) / 1000, (res.gx + x - 3.5) / 5, 1.6); });
   // (26 Nov) square landing test switched off: pieces land as round balls with the normal jiggle
@@ -6372,7 +6419,7 @@ function playResult(res, pointerGesture) {
       spawnFluff(...cellCentre(res.gx + x, res.gy + y), sk.colours[(Math.max(1, g | 0) - 1) % sk.colours.length]);
     }
   }
-  else if (skin().popcorn || skin().bloom || skin().hatch || skin().morph) { /* each kernel or bud makes its own sound as it opens, below */ }
+  else if (skin().popcorn || skin().bloom || skin().hatch) { /* each kernel or bud makes its own sound as it opens, below */ }
   else if (skin().hit) { Sound.hit(skin().hit); if (skin().hit === 'bowling') Sound.preload(); } else Sound.place(res.piece.shape.cells.length);
   if (CONFIG.haptics.place) Haptics.pulse(CONFIG.haptics.place);
 
