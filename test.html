@@ -604,7 +604,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 1:30pm, remarks (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 1:35pm, remarks (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -5833,7 +5833,7 @@ const Quip = (() => {
     const PAL = [['#ffd23f', 'rgba(255,210,63,.55)'], ['#ff6ec7', 'rgba(255,110,199,.55)'], ['#4de8d6', 'rgba(77,232,214,.55)'], ['#a6ff4d', 'rgba(166,255,77,.5)'], ['#ff9a3d', 'rgba(255,154,61,.55)']];
     const w = el.firstChild; w.textContent = ''; let k = 0, wi = Math.floor(Math.random() * PAL.length);
     for (const ch of text) {
-      if (ch === ' ') { wi++; w.appendChild(document.createTextNode(' ')); continue; }
+      if (ch === ' ') { wi++; w.appendChild(document.createTextNode(' ')); continue; }   // a real space, so long lines can wrap
       const o = document.createElement('span'), inner = document.createElement('i');
       o.className = 'ch'; o.style.setProperty('--d', (k++ * 26) + 'ms');
       const [col, glow] = PAL[wi % PAL.length]; o.style.setProperty('--c', col); o.style.setProperty('--g', glow);
