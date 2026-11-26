@@ -612,7 +612,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 6:35pm, calmer popcorn clears (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 6:40pm, adoring caterpillar eyes (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -4558,9 +4558,9 @@ function drawCatImg(cx, cy, size, colour, seed, alpha = 1) {   // a live caterpi
   const gl = Math.hypot(gx, gy) || 1, look = Math.min(1, gl / (size * 0.6)), ox = gx / gl * look, oy = gy / gl * look;
   const lean = settings.reduced ? 0 : (dp ? Math.max(-1, Math.min(1, gx / (L.c * 3))) * 0.16 : ox * 0.05);
   const happy = !HAND && faceMood > 0.5;   // its row is about to clear: it knows it's about to become a butterfly
-  const br = settings.reduced ? 0 : Math.sin(t * (happy ? 9 : 2.2) + seed) * (happy ? 0.05 : 0.025);
+  const br = settings.reduced ? 0 : Math.sin(t * 2.2 + seed) * 0.025;
   ctx.save(); if (alpha !== 1) ctx.globalAlpha *= alpha;
-  ctx.translate(cx, base - (happy && !settings.reduced ? Math.abs(Math.sin(t * 9 + seed)) * size * 0.06 : 0)); ctx.rotate(lean); ctx.scale(1 - br * 0.5, 1 + br);
+  ctx.translate(cx, base); ctx.rotate(lean); ctx.scale(1 - br * 0.5, 1 + br);
   ctx.drawImage(im, -w / 2, -h, w, h);
   const ph = (t * 0.32 + seed * 0.618) % 1, blink = !settings.reduced && (ph < 0.03 || (ph > 0.06 && ph < 0.085));   // a blink, sometimes a double blink
   const ew = meta.er * w * 1.5, eh = ew * 1.25;
@@ -4572,8 +4572,16 @@ function drawCatImg(cx, cy, size, colour, seed, alpha = 1) {   // a live caterpi
     ctx.fillStyle = '#3a1020'; ctx.beginPath(); ctx.moveTo(mx - mw, my - mh * 0.15); ctx.quadraticCurveTo(mx, my + mh * 0.05, mx + mw, my - mh * 0.15); ctx.quadraticCurveTo(mx + mw * 0.95, my + mh * 1.1, mx, my + mh * 1.05); ctx.quadraticCurveTo(mx - mw * 0.95, my + mh * 1.1, mx - mw, my - mh * 0.15); ctx.fill();
     ctx.save(); ctx.clip(); ctx.fillStyle = '#ff6f91'; ctx.beginPath(); ctx.ellipse(mx, my + mh * 1.0, mw * 0.6, mh * 0.45, 0, 0, Math.PI * 2); ctx.fill();   // tongue
     ctx.fillStyle = '#fff'; ctx.fillRect(mx - mw, my - mh * 0.3, mw * 2, mh * 0.28); ctx.restore();   // top teeth
-    ctx.strokeStyle = '#24161e'; ctx.lineWidth = Math.max(1, ew * 0.4);
-    for (const [ex0, ey0] of meta.eyes) { const ex = -w / 2 + ex0 * w, ey = -h + ey0 * h; ctx.beginPath(); ctx.arc(ex, ey + eh * 0.35, ew * 0.95, 1.12 * Math.PI, 1.88 * Math.PI); ctx.stroke(); }   // ^ ^
+    for (const [ex0, ey0] of meta.eyes) {   // big, adoring, sparkly eyes
+      const ex = -w / 2 + ex0 * w, ey = -h + ey0 * h, bw = ew * 1.3, bh = eh * 1.3;
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(ex, ey, bw, bh, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(40,20,30,0.45)'; ctx.lineWidth = Math.max(0.6, ew * 0.18); ctx.stroke();
+      const pg = ctx.createRadialGradient(ex, ey + bh * 0.2, bw * 0.1, ex, ey, bw * 0.85); pg.addColorStop(0, '#6b3a52'); pg.addColorStop(1, '#1e1018');
+      ctx.fillStyle = pg; ctx.beginPath(); ctx.ellipse(ex, ey + bh * 0.05, bw * 0.78, bh * 0.8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex - bw * 0.3, ey - bh * 0.3, bw * 0.3, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ex + bw * 0.28, ey + bh * 0.28, bw * 0.14, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(ex + bw * 0.05, ey - bh * 0.45, bw * 0.08, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.restore(); return true;
   }
   for (const [ex0, ey0] of meta.eyes) {
