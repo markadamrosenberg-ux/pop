@@ -612,7 +612,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 7:25pm, chick squish feathers (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 7:40pm, Eggs (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2987,7 +2987,7 @@ const NEW_SKINS = [
     // (26 Nov, v4) Mark's painted caterpillars sit on the board watching you; when their row clears they turn into butterflies and fly away in your hand turn into smiley butterflies when they land; when their row clears they fly away
     draw(ctx, s, c, i) { if (!catStatic(ctx, s, c)) { bfWings(ctx, s, c); bfBody(ctx, s, c); } },
   },
-  { name: 'Chicks', hatch: true, squish: 1.3, fixedColours: true, colours: ['#fffaf0', '#d8ecff', '#f3dfc4', '#e3f4d4', '#ffe1ec'],
+  { name: 'Eggs', hatch: true, squish: 1.3, fixedColours: true, colours: ['#fffaf0', '#d8ecff', '#f3dfc4', '#e3f4d4', '#ffe1ec'],
     // (26 Nov) eggs in your hand hatch when they land: a chick sitting in the bottom half of its shell
     draw(ctx, s, c, i) {
       const r = s * 0.5;
@@ -4705,7 +4705,8 @@ function eggPath(c2, w, h, dy = 0) {   // an egg: rounder at the bottom, narrowe
   c2.bezierCurveTo(-w, -h * 0.05 + dy, -w * 0.75, -h + dy, 0, -h + dy); c2.closePath();
 }
 function shade(hex, amt) { const n = parseInt(hex.slice(1), 16), cl = v => Math.max(0, Math.min(255, v)); return '#' + [16, 8, 0].map(b => cl(((n >> b) & 255) + amt).toString(16).padStart(2, '0')).join(''); }
-function drawEgg(cx, cy, size, sx, sy, alpha, seed, colour, rot = 0, crack = 0, half = 0) {
+function drawEgg(cx, cy, size, sx, sy, alpha, seed, colour, rot = 0, crack = 0, half = 0, g2 = null) {
+  const ctx = g2 || window._mainCtx;   // can also draw onto a card (the look's icon shows eggs, so the chicks stay a surprise)
   const sk = SKINS.find(k => k.hatch), c = sk.colours[colour % sk.colours.length], r = size * 0.5;
   ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot); ctx.scale(sx, sy); if (alpha !== 1) ctx.globalAlpha = alpha;
   if (half) {   // just the top of the shell, for the bit that flies off
@@ -7689,7 +7690,7 @@ const Celebrate = (() => {
           const k = red ? 1 : easeOutBack(Math.min(1, rq / 320));
           x.save(); x.translate(cx, ry); x.scale(k, k);
           if (row.kind === 'look') {
-            for (let j = -1; j <= 1; j++) { const sp = sprite(idx, (j + 1) * 2 % 5), w = sp.box * (c * 1.05 / sp.size); x.drawImage(sp.canvas, j * c * 1.15 - w / 2, -w / 2, w, w); }   // name shown once, on the board as the frame starts (25 Nov)
+            for (let j = -1; j <= 1; j++) { if (SKINS[idx % SKINS.length].hatch) { drawEgg(j * c * 1.15, 0, c * 1.0, 1, 1, 1, j + 3, (j + 1) * 2 % 5, 0, 0, 0, x); continue; } const sp = sprite(idx, (j + 1) * 2 % 5), w = sp.box * (c * 1.05 / sp.size); x.drawImage(sp.canvas, j * c * 1.15 - w / 2, -w / 2, w, w); }   // Eggs show eggs, so the chicks stay a surprise   // name shown once, on the board as the frame starts (25 Nov)
           } else txt(row.s, 0, 0, c * 0.5, row.col, row.glow);
           x.restore();
           ry += c * 1.05;
@@ -8266,8 +8267,8 @@ const UI = (() => {
       [0, 2, 4].forEach((col, k) => {
         const cx = 22 + k * 38, cy = 22, size = 36;
         if (got) {
-          const sp = sprite(i, col), kk = size / sp.size, w = sp.box * kk;
-          g.drawImage(sp.canvas, cx - w / 2, cy - w / 2, w, w);
+          if (sk.hatch) drawEgg(cx, cy, size * 0.92, 1, 1, 1, k * 3, col, 0, 0, 0, g);   // eggs, not chicks: keep the surprise
+          else { const sp = sprite(i, col), kk = size / sp.size, w = sp.box * kk; g.drawImage(sp.canvas, cx - w / 2, cy - w / 2, w, w); }
           if (sk.face) { if (sk.emoji) drawEmoji(cx, cy, size, 1, 1, 1, k * 3 + 1, performance.now(), g); else if (sk.cute) drawCute(cx, cy, size, 1, 1, 1, k * 3, performance.now(), g); else drawFace(cx, cy, size, 1, 1, 1, k * 3, performance.now(), g); }
           if (sk.eye) drawEye(cx, cy, size, 1, 1, 1, k * 3, 0, vivid(sk.colours[col % sk.colours.length]), g);
         } else {
