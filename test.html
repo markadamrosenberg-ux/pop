@@ -612,7 +612,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 5:40pm, egg cracks, no chick squeaks (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 5:45pm, flower chimes (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2023,11 +2023,12 @@ const Sound = (() => {
       for (let k = 0; k < 10; k++) noise(t + 0.15 + Math.random() * 0.6, { type: 'highpass', f: 3000, q: 0.7, peak: 0.025, attack: 0.001, decay: 0.01, pan: R(-0.8, 0.8) });
     },
     // Flowers (26 Nov): a soft bell-like pluck with a breath of air as a flower opens
-    bloom(delay = 0, pan = 0, big = 1) {   // (26 Nov, softer) an airy unfurl, like petals opening, with a gentle low wooden note under it
+    bloom(delay = 0, pan = 0, big = 1, k = 0) {   // (26 Nov) a sparkly chime: each flower in a piece rings the next note of C E G, C E G... so a piece plays a little arpeggio
       if (!ok()) return;
-      const t = ac.currentTime + Math.max(0, delay), f = 330 * PENTA[Math.floor(Math.random() * 5)] * R(0.99, 1.01);
-      noise(t, { type: 'bandpass', f: 700, f2: 2200, q: 0.7, peak: 0.035 * big, attack: 0.09, decay: 0.28, pan });
-      tone(t + 0.06, { f, type: 'triangle', peak: 0.03 * big, attack: 0.01, decay: 0.2, pan });
+      const t = ac.currentTime + Math.max(0, delay), f = 523.25 * [1, 1.26, 1.498][k % 3] * Math.pow(2, Math.floor(k / 3) % 2);
+      tone(t, { f, peak: 0.1 * big, attack: 0.003, decay: 0.7, pan });                        // the bell
+      tone(t, { f: f * 2.76, peak: 0.022 * big, attack: 0.002, decay: 0.22, pan });           // its shimmer
+      tone(t, { f: f * 4, type: 'triangle', peak: 0.012 * big, attack: 0.001, decay: 0.07, pan });   // the sparkle on top
     },
     pop(i = 0, combo = 1, pan = 0) {
       if (!ok()) return;
@@ -6503,7 +6504,7 @@ function playResult(res, pointerGesture) {
   for (const [x, y] of res.piece.shape.cells) FX.settle.set(Logic.idx(res.gx + x, res.gy + y), { t0: now + (x + y) * CONFIG.feel.rippleMs, amp: CONFIG.feel.landAmp });
   if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 90 + k * 55 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.popcorn((at - now) / 1000, (res.gx + x - 3.5) / 5, 1.7); });   // placing pops as loud as a row popping (26 Nov)
   if (skin().hatch) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 120 + Math.random() * 50; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.hatch((at - now + 260) / 1000, (res.gx + x - 3.5) / 5, 1.6); });
-  if (skin().bloom) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 80 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.bloom((at - now + 200) / 1000, (res.gx + x - 3.5) / 5, 1.6); });
+  if (skin().bloom) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 80 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.bloom((at - now + 200) / 1000, (res.gx + x - 3.5) / 5, 1.6, k); });
   // (26 Nov) square landing test switched off: pieces land as round balls with the normal jiggle
   // nearby bubbles feel the splash and jiggle a little, a beat later
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
