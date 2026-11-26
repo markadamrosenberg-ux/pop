@@ -612,7 +612,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 4:25pm, popcorn balanced (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 5:30pm, flowers 3 + softer popcorn (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -1969,13 +1969,22 @@ const Sound = (() => {
     popcorn(delay = 0, pan = 0, big = 1) {
       if (!ok()) return;
       const t = ac.currentTime + Math.max(0, delay), v = R(0.85, 1.2);
-      noise(t, { type: 'bandpass', f: 2400 * v, f2: 1300 * v, q: 1.4, peak: 0.26 * big, attack: 0.0008, decay: 0.03, pan });
-      tone(t, { f: 560 * v, f2: 170, peak: 0.12 * big, attack: 0.001, decay: 0.045, pan });
-      noise(t + 0.002, { type: 'highpass', f: 4200, q: 0.7, peak: 0.08 * big, attack: 0.0005, decay: 0.012, pan });
+      noise(t, { type: 'bandpass', f: 1700 * v, f2: 950 * v, q: 1.2, peak: 0.22 * big, attack: 0.0008, decay: 0.03, pan });
+      tone(t, { f: 520 * v, f2: 160, peak: 0.12 * big, attack: 0.001, decay: 0.045, pan });
+      noise(t + 0.002, { type: 'highpass', f: 3400, q: 0.7, peak: 0.03 * big, attack: 0.0005, decay: 0.012, pan });
+    },
+    // Flowers (26 Nov): a soft bell-like pluck with a breath of air as a flower opens
+    bloom(delay = 0, pan = 0, big = 1) {
+      if (!ok()) return;
+      const t = ac.currentTime + Math.max(0, delay), f = 660 * PENTA[Math.floor(Math.random() * 5)] * R(0.99, 1.01);
+      tone(t, { f, peak: 0.07 * big, attack: 0.004, decay: 0.32, pan });
+      tone(t + 0.005, { f: f * 2, peak: 0.022 * big, attack: 0.004, decay: 0.18, pan });
+      noise(t, { type: 'bandpass', f: 3200, f2: 1600, q: 0.8, peak: 0.025 * big, attack: 0.01, decay: 0.12, pan });
     },
     pop(i = 0, combo = 1, pan = 0) {
       if (!ok()) return;
-      if (typeof skin === 'function' && skin().popcorn) return this.popcorn(0, pan, 0.9);   // popcorn pops instead of bubble pops
+      if (typeof skin === 'function' && skin().popcorn) return this.popcorn(0, pan, 0.9);
+      if (typeof skin === 'function' && skin().bloom) return this.bloom(0, pan, 0.9);   // popcorn pops instead of bubble pops
       const t = ac.currentTime;
       if (t - lastPop < 0.012) return;
       lastPop = t;
@@ -2903,6 +2912,23 @@ const NEW_SKINS = [
       nlGloss(ctx, r, 0.6);
     },
   },
+  { name: 'Flowers', bloom: true, squish: 1.2, fixedColours: true, colours: ['#ff7eb6', '#b58cff', '#ff8f6b', '#6fc3ff', '#ffd24d'],
+    // (26 Nov) closed buds in your hand bloom open into flowers when they land
+    draw(ctx, s, c, i) {
+      const r = s * 0.5, n = 6;
+      for (let k = 0; k < n; k++) {
+        ctx.save(); ctx.rotate(k * Math.PI * 2 / n);
+        const g = ctx.createLinearGradient(0, 0, 0, -r); g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, c); g.addColorStop(1, c);
+        ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -r * 0.52, r * 0.3, r * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = Math.max(1, s * 0.012); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(-r * 0.06, -r * 0.7, r * 0.07, r * 0.18, -0.2, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      }
+      const mid = c === '#ffd24d' ? '#ff8a1e' : '#ffcf3a', cg = ctx.createRadialGradient(-r * 0.06, -r * 0.08, r * 0.02, 0, 0, r * 0.26);
+      cg.addColorStop(0, '#fff3a6'); cg.addColorStop(1, mid); ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(0, 0, r * 0.26, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(150,80,0,0.45)'; for (let k = 0; k < 7; k++) { const a = k * 2.4; ctx.beginPath(); ctx.arc(Math.cos(a) * r * 0.13, Math.sin(a) * r * 0.13, r * 0.03, 0, Math.PI * 2); ctx.fill(); }
+    },
+  },
   { name: 'Popcorn', popcorn: true, squish: 1.3, fixedColours: true, colours: ['#fffaf0', '#ffe58a', '#f2c27a', '#ffd0e4', '#d3ebff'],
     // (26 Nov) puffy popped corn: kernels in your hand pop into popcorn when they land, and burst when their line clears
     draw(ctx, s, c, i) {
@@ -3529,7 +3555,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  { const pc = SKINS.findIndex(k => k.popcorn); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start every game on Popcorn
+  for (const fl of ['popcorn', 'bloom']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Flowers, then Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -4329,9 +4355,45 @@ function drawKernel(cx, cy, size, sx, sy, alpha, seed, colour = 0) {
   ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(-r * 0.4, -r * 0.55, r * 0.28, r * 0.16, -0.6, 0, Math.PI * 2); ctx.fill();   // shine
   ctx.restore();
 }
+function drawOpening(cx, cy, size, colour, t, seed) {
+  const sk = SKINS.find(k => k.bloom), c = sk.colours[colour % sk.colours.length], r = size * 0.5, n = 6, rot = (seed * 2.39996) % (Math.PI * 2);
+  const backOut = u => { const k = 1.9; u -= 1; return 1 + u * u * ((k + 1) * u + k); };   // springs a little past, then settles
+  ctx.save(); ctx.translate(cx, cy);
+  // petals: those at the back open first, each from pointing straight up (closed) out to its own angle
+  const order = [...Array(n).keys()].sort((a, b) => Math.abs(Math.cos(a * Math.PI * 2 / n + rot)) - Math.abs(Math.cos(b * Math.PI * 2 / n + rot)));
+  for (let j = 0; j < n; j++) {
+    const k = order[j], u = Math.max(0, Math.min(1, (t - j * 95) / 620)), e = backOut(u);
+    let target = k * Math.PI * 2 / n + rot; while (target > Math.PI) target -= Math.PI * 2; while (target < -Math.PI) target += Math.PI * 2;
+    const ang = target * e, len = r * (0.55 + 0.45 * e), wid = r * (0.13 + 0.17 * Math.min(1, e)), off = len * (0.62 + 0.42 * Math.min(1, e)) * 0.84;
+    ctx.save(); ctx.rotate(ang);
+    const g = ctx.createLinearGradient(0, 0, 0, -off - len * 0.5); g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, c); g.addColorStop(1, c);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, -off * 0.62 - (1 - Math.min(1, e)) * r * 0.2, wid, len * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = Math.max(1, size * 0.012); ctx.stroke(); ctx.restore();
+  }
+  // the centre appears as the petals part
+  const cu = Math.max(0, Math.min(1, (t - 300) / 450)), cr2 = r * 0.26 * backOut(cu);
+  if (cr2 > 0.5) { const mid = c === '#ffd24d' ? '#ff8a1e' : '#ffcf3a', cg = ctx.createRadialGradient(-cr2 * 0.25, -cr2 * 0.3, 1, 0, 0, cr2); cg.addColorStop(0, '#fff3a6'); cg.addColorStop(1, mid); ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(0, 0, cr2, 0, Math.PI * 2); ctx.fill(); }
+  ctx.restore();
+}
+function drawBud(cx, cy, size, sx, sy, alpha, seed, colour) {
+  const sk = SKINS.find(k => k.bloom), c = sk.colours[colour % sk.colours.length], r = size * 0.5;
+  ctx.save(); ctx.translate(cx, cy + r * 0.1); ctx.rotate(Math.sin(seed * 2.3) * 0.18); ctx.scale(sx, sy); if (alpha !== 1) ctx.globalAlpha = alpha;
+  ctx.strokeStyle = '#3f9b3a'; ctx.lineWidth = Math.max(2, size * 0.06); ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(0, r * 0.75); ctx.lineTo(0, r * 1.05); ctx.stroke();   // a little stem
+  // the closed bud: petals wrapped into a point
+  ctx.beginPath(); ctx.moveTo(0, -r * 1.05); ctx.bezierCurveTo(r * 0.75, -r * 0.55, r * 0.7, r * 0.55, 0, r * 0.75); ctx.bezierCurveTo(-r * 0.7, r * 0.55, -r * 0.75, -r * 0.55, 0, -r * 1.05); ctx.closePath();
+  const g = ctx.createLinearGradient(-r * 0.6, 0, r * 0.6, 0); g.addColorStop(0, '#ffffff'); g.addColorStop(0.3, c); g.addColorStop(1, c);
+  ctx.fillStyle = g; ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.18)'; ctx.lineWidth = Math.max(1, size * 0.02); ctx.stroke();
+  ctx.strokeStyle = 'rgba(0,0,0,0.14)'; ctx.beginPath(); ctx.moveTo(0, -r * 0.95); ctx.quadraticCurveTo(r * 0.28, 0, 0, r * 0.72); ctx.stroke();   // the fold of the petals
+  ctx.fillStyle = '#4caf45';   // green sepals cupping the bud
+  for (const d of [-1, 1]) { ctx.beginPath(); ctx.moveTo(0, r * 0.8); ctx.quadraticCurveTo(d * r * 0.7, r * 0.55, d * r * 0.42, r * 0.05); ctx.quadraticCurveTo(d * r * 0.25, r * 0.5, 0, r * 0.8); ctx.fill(); }
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.ellipse(-r * 0.25, -r * 0.35, r * 0.08, r * 0.24, 0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
 function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, seed = 0, now = performance.now()) {
+  if (HAND && SKINS[skinIdx % SKINS.length].bloom) { drawBud(cx, cy, size, sx, sy, alpha, seed, colour); return; }
   if (HAND && SKINS[skinIdx % SKINS.length].popcorn) { drawKernel(cx, cy, size, sx, sy, alpha, seed, colour); return; }
-  if (SKINS[skinIdx % SKINS.length].popcorn) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(((seed * 2.39996) % (Math.PI * 2))); drawBall(skinIdx, colour, 0, 0, size, sx, sy, alpha); ctx.restore(); return; }   // every piece of popcorn sits at its own angle
+  if (SKINS[skinIdx % SKINS.length].popcorn || SKINS[skinIdx % SKINS.length].bloom) { ctx.save(); ctx.translate(cx, cy); ctx.rotate(((seed * 2.39996) % (Math.PI * 2))); drawBall(skinIdx, colour, 0, 0, size, sx, sy, alpha); ctx.restore(); return; }   // every piece of popcorn sits at its own angle
   const sk = SKINS[skinIdx % SKINS.length];
   if (!settings.reduced) {
     const q = sk.squish || 1, b = Math.sin(now / 1000 * 2.3 * (q > 1 ? 1.6 : 1) + seed * 1.7) * 0.016 * q;
@@ -5722,6 +5784,31 @@ function drawSquircle(colour, x, y, size, cr, sx, sy, alpha, seed, now, wave = 0
 }
 const spring = (t, k = 90, w = 42) => 1 - Math.exp(-t / k) * Math.cos(t / w);   // 0 -> overshoots -> settles at 1
 const hoverAt = { key: '', t0: 0 };
+// (26 Nov) Flowers: when a row clears, the petals burst up, then flutter and tumble down the screen
+const PETALS = [];
+function spawnPetals(x, y, colour) {
+  const sk = SKINS.find(k => k.bloom), col = sk.colours[colour % sk.colours.length], now = performance.now();
+  for (let k = 0; k < 6; k++) {
+    const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, sp = L.c * (6 + Math.random() * 6);   // a bigger burst upward
+    PETALS.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 10, sz: L.c * (0.2 + Math.random() * 0.1),
+      col, t0: now + Math.random() * 60, life: 1800 + Math.random() * 900, ph: Math.random() * 6.28 });
+  }
+  if (PETALS.length > 400) PETALS.splice(0, PETALS.length - 400);
+}
+function drawPetals(now, dt) {
+  for (let i = PETALS.length - 1; i >= 0; i--) {
+    const p = PETALS[i], age = now - p.t0; if (age < 0) continue;
+    if (age > p.life || p.y > L.H + 40) { PETALS.splice(i, 1); continue; }
+    const s = dt / 1000;
+    p.vy += L.c * 8 * s; p.vx *= Math.pow(0.45, s); p.vy = Math.min(p.vy, L.c * 2.4);   // gravity, with air holding them back like real petals
+    p.x += (p.vx + Math.sin(age / 260 + p.ph) * L.c * 1.2) * s; p.y += p.vy * s; p.rot += p.vr * s;   // a side-to-side flutter as they fall
+    const fade = Math.min(1, (p.life - age) / 400);
+    ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rot); ctx.scale(1, 0.55 + 0.45 * Math.abs(Math.sin(age / 180 + p.ph)));   // tumbling
+    ctx.globalAlpha = fade; const g = ctx.createLinearGradient(0, -p.sz, 0, p.sz); g.addColorStop(0, '#ffffff'); g.addColorStop(0.4, p.col); g.addColorStop(1, p.col);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, p.sz * 0.55, p.sz, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+}
+let petalLast = performance.now();
 const dragAt = { on: false, t0: 0 };
 const MORPH = new Map();   // (test 26 Nov) dropped bubbles land as squares, puff out, then melt back into circles
 const MORPH_MS = 650;
@@ -5997,7 +6084,8 @@ function playResult(res, pointerGesture) {
   const placed = new Set(res.piece.shape.cells.map(([x, y]) => Logic.idx(res.gx + x, res.gy + y)));
   FX.land.push({ t0: now, cells: res.piece.shape.cells.map(([x, y]) => cellCentre(res.gx + x, res.gy + y)) });
   for (const [x, y] of res.piece.shape.cells) FX.settle.set(Logic.idx(res.gx + x, res.gy + y), { t0: now + (x + y) * CONFIG.feel.rippleMs, amp: CONFIG.feel.landAmp });
-  if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 90 + k * 55 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.popcorn((at - now) / 1000, (res.gx + x - 3.5) / 5, 2); });   // placing pops as loud as a row popping (26 Nov)
+  if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 90 + k * 55 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.popcorn((at - now) / 1000, (res.gx + x - 3.5) / 5, 1.7); });   // placing pops as loud as a row popping (26 Nov)
+  if (skin().bloom) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 80 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.bloom((at - now + 200) / 1000, (res.gx + x - 3.5) / 5, 1.6); });
   // (26 Nov) square landing test switched off: pieces land as round balls with the normal jiggle
   // nearby bubbles feel the splash and jiggle a little, a beat later
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
@@ -6014,7 +6102,7 @@ function playResult(res, pointerGesture) {
       spawnFluff(...cellCentre(res.gx + x, res.gy + y), sk.colours[(Math.max(1, g | 0) - 1) % sk.colours.length]);
     }
   }
-  else if (skin().popcorn) { /* each kernel makes its own pok as it pops, below */ }
+  else if (skin().popcorn || skin().bloom) { /* each kernel or bud makes its own sound as it opens, below */ }
   else if (skin().hit) { Sound.hit(skin().hit); if (skin().hit === 'bowling') Sound.preload(); } else Sound.place(res.piece.shape.cells.length);
   if (CONFIG.haptics.place) Haptics.pulse(CONFIG.haptics.place);
 
@@ -6063,6 +6151,7 @@ function playResult(res, pointerGesture) {
     // floating score text in the middle of the cleared lines
     let cx = 0, cy = 0;
     res.cleared.forEach(c => { const p = cellCentre(c.x, c.y); cx += p[0]; cy += p[1]; });
+    if (skin().bloom && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => spawnPetals(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 150 + k * 25));
     cx /= n; cy /= n;
     floatText('+' + res.linePts, cx, cy, L.c * 0.6, '#ffffff', 720, 40);
     if (res.lines >= 2) floatText(res.lines + ' lines  ×' + Logic.lineMultiplier(res.lines), cx, cy + L.c * 0.66, L.c * 0.42, '#ffd23f', 800, 80);
@@ -6284,7 +6373,16 @@ function draw(now) {
     const pt = POPT.get(Logic.idx(gx, gy));
     if (pt !== undefined) {
       const t = now - pt;
-      if (t < 0) { HAND = true; drawBubble(state.skin, v - 1, x + Math.sin(now / 18 + gx) * c * 0.03, y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; continue; }   // the kernel jitters, about to go
+      const bl = skin().bloom;
+      if (t < 0) { HAND = true; drawBubble(state.skin, v - 1, x + (bl ? 0 : Math.sin(now / 18 + gx) * c * 0.03), y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; continue; }   // the kernel jitters / the bud waits
+      if (bl) {
+        if (t < 1400) {   // the petals unfold one by one from the bud (about a second), then the finished flower takes over
+          if (t < 200) { HAND = true; drawBubble(state.skin, v - 1, x, y - Math.sin(t / 200 * Math.PI) * c * 0.06, c * 0.96 * (1 + 0.1 * Math.sin(t / 200 * Math.PI)), 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; }   // the bud swells
+          else { drawOpening(x, y, c * 0.96, v - 1, t - 200, gx * 3 + gy * 5); if (t < 420) { HAND = true; drawBubble(state.skin, v - 1, x, y, c * 0.96, 1, 1, 1 - (t - 200) / 220, gx * 3 + gy * 5, now); HAND = false; } }
+          continue;
+        }
+        POPT.delete(Logic.idx(gx, gy));
+      }
       if (t < 420) {
         const grow = t < 80 ? 0.5 + 1.0 * (t / 80) : 1 + 0.5 * Math.exp(-(t - 80) / 90) * Math.cos((t - 80) / 38);
         if (t < 160) { const k = t / 160; ctx.save(); ctx.globalAlpha = (1 - k) * 0.9; ctx.strokeStyle = '#fff'; ctx.lineWidth = c * 0.08 * (1 - k); ctx.beginPath(); ctx.arc(x, y, c * (0.25 + 0.55 * k), 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
@@ -6571,6 +6669,7 @@ function draw(now) {
     }
   }
 
+  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); }
   // dragged piece on top
   const d = Input.dragDraw();
   if (d) {
