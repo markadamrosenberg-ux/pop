@@ -612,7 +612,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 4pm, TNT + detonator (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 4:40pm, TNT removed (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2991,26 +2991,6 @@ const NEW_SKINS = [
       ctx.restore();
     },
   },
-  { name: 'TNT', fw: true, squish: 1.2, fixedColours: true, colours: ['#ff3b3b', '#ff8a1f', '#ffd028', '#e83d8f', '#3aa0ff'],
-    // (26 Nov) round TNT bombs: when a row clears a detonator plunger slams down and they go off in a chain of fireworks
-    draw(ctx, s, c, i) {
-      const r = s * 0.43;
-      ctx.strokeStyle = '#5a3b22'; ctx.lineWidth = Math.max(1.5, s * 0.04); ctx.lineCap = 'round';   // a short fuse
-      ctx.beginPath(); ctx.moveTo(0, -r * 0.92); ctx.quadraticCurveTo(r * 0.2, -r * 1.15, r * 0.1, -r * 1.3); ctx.stroke();
-      ctx.fillStyle = '#ffe36b'; ctx.beginPath(); ctx.arc(r * 0.1, -r * 1.33, r * 0.1, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(r * 0.1, -r * 1.33, r * 0.045, 0, Math.PI * 2); ctx.fill();
-      const g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.1, 0, 0, r);
-      g.addColorStop(0, shade(c, 70)); g.addColorStop(0.55, c); g.addColorStop(1, shade(c, -60));
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
-      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();   // a white label band with TNT on it
-      ctx.fillStyle = '#fff7e6'; ctx.fillRect(-r, -r * 0.3, r * 2, r * 0.6);
-      ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.fillRect(-r, r * 0.22, r * 2, r * 0.08); ctx.restore();
-      ctx.fillStyle = '#2a1414'; ctx.font = `900 ${Math.round(r * 0.52)}px "Arial Black", "Helvetica Neue", Arial, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('TNT', 0, r * 0.02);
-      ctx.fillStyle = '#5a3b22'; ctx.beginPath(); ctx.ellipse(0, -r * 0.92, r * 0.2, r * 0.09, 0, 0, Math.PI * 2); ctx.fill();   // the cap
-      ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.ellipse(-r * 0.4, -r * 0.55, r * 0.22, r * 0.1, -0.6, 0, Math.PI * 2); ctx.fill();
-    },
-  },
   { name: 'Flowers', bloom: true, squish: 1.2, fixedColours: true, colours: ['#ff7eb6', '#b58cff', '#ff8f6b', '#6fc3ff', '#ffd24d'],
     // (26 Nov) closed buds in your hand bloom open into flowers when they land
     draw(ctx, s, c, i) {
@@ -3654,7 +3634,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'bloom', 'hatch', 'morph', 'fw']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on TNT, then Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'bloom', 'hatch', 'morph', 'fw']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
