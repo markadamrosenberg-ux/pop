@@ -604,7 +604,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 12:40pm, step 1c (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 26 Nov, 12:55pm, step 1d (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -5842,7 +5842,7 @@ const Quip = (() => {
       const [col, glow] = PAL[wi % PAL.length]; o.style.setProperty('--c', col); o.style.setProperty('--g', glow);
       inner.textContent = ch; o.appendChild(inner); w.appendChild(o);
     }
-    el.style.setProperty('--qs', Math.round(Math.min(40, Math.max(26, L.c * 0.55)) * (text.length > 22 ? 0.78 : text.length > 14 ? 0.9 : 1)) + 'px');
+    el.style.setProperty('--qs', Math.round(Math.min(58, Math.max(34, L.c * 0.8)) * (text.length > 22 ? 0.72 : text.length > 14 ? 0.86 : 1)) + 'px');   // big (26 Nov)
     const px = Math.max(L.bx + L.B * 0.28, Math.min(L.bx + L.B * 0.72, x)), py = Math.max(L.by + L.c * 0.6, Math.min(L.by + L.B - L.c * 0.6, y));
     el.style.left = px + 'px'; el.style.top = py + 'px';
     el.classList.remove('go', 'out'); void el.offsetWidth; el.classList.add('go');
@@ -5877,7 +5877,7 @@ const Quip = (() => {
     let list = LINES[ev];
     if (ev === 'threeLines') { const lk = LINES.looks[(SKINS[state.skin % SKINS.length] || {}).name]; if (lk) list = lk; }
     const text = pickFrom(list); if (!text) return;
-    setTimeout(() => show(text, cx, cy - L.c * 1.45), 260);
+    setTimeout(() => show(text, cx, cy - L.c * 1.9), 260);   // well clear of the points and combo text
   }
   function fart() {
     if (performance.now() - lastAt < COOLDOWN_MS || Math.random() > 0.4) return;
