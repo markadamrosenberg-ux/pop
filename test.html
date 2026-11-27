@@ -640,7 +640,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 9am, topping pit-pats</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 8:20am, one squeaky stretch</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2282,11 +2282,12 @@ const Sound = (() => {
       if (!ok()) return; const t = ac.currentTime;
       const sb = sample('balstretch');
       if (sb) {
-        const src = ac.createBufferSource(), lp = ac.createBiquadFilter(), g = ac.createGain(); src.buffer = sb; src.playbackRate.setValueAtTime(0.6, t); src.playbackRate.linearRampToValueAtTime(0.45, t + 1.3);
-        lp.type = 'lowpass'; lp.frequency.value = 1300; lp.Q.value = 0.7;
-        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5, t + 0.15); g.gain.setValueAtTime(0.5, t + 1.0); g.gain.linearRampToValueAtTime(0, t + 1.35);
-        src.connect(lp); lp.connect(g); g.connect(out); src.start(t, Math.random() * 0.6); src.stop(t + 1.4);
-        playSample('sponge' + Math.floor(Math.random() * 13), 1.3, SQUISH_VOL * 0.8, R(0.6, 0.7));
+        // (28 Nov) one single stretch, a little squeakier; a new one replaces any still playing so they never layer
+        if (this._chz) { try { this._chz.g.gain.cancelScheduledValues(t); this._chz.g.gain.setTargetAtTime(0, t, 0.03); this._chz.o.stop(t + 0.2); } catch (e) {} }
+        const src = ac.createBufferSource(), lp = ac.createBiquadFilter(), g = ac.createGain(); src.buffer = sb; src.playbackRate.setValueAtTime(0.9, t); src.playbackRate.linearRampToValueAtTime(0.78, t + 1.3);
+        lp.type = 'lowpass'; lp.frequency.value = 2600; lp.Q.value = 0.7;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5, t + 0.12); g.gain.setValueAtTime(0.5, t + 1.0); g.gain.linearRampToValueAtTime(0, t + 1.3);
+        src.connect(lp); lp.connect(g); g.connect(out); src.start(t, 0.15); src.stop(t + 1.35); this._chz = { o: src, g };
         return;
       }
       for (let k = 0; k < Math.min(8, Math.ceil(n / 2)); k++) { const at = t + 0.08 + k * 0.12; if (!playSample('sponge' + Math.floor(Math.random() * 13), at - t, SQUISH_VOL * 0.7, R(0.6, 0.75))) noise(at, { type: 'lowpass', f: 700, f2: 300, q: 0.7, peak: 0.05, attack: 0.01, decay: 0.12 }); }
