@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 7pm, dandelions (+ sunflowers: add &flower=sunflower)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 7:30pm, pizza</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2030,6 +2030,15 @@ const Sound = (() => {
       tone(t, { f: 520 * v, f2: 160, peak: 0.12 * big, attack: 0.001, decay: 0.045, pan });
       noise(t + 0.002, { type: 'highpass', f: 3400, q: 0.7, peak: 0.03 * big, attack: 0.0005, decay: 0.012, pan });
     },
+    toppings(n = 1) {   // (27 Nov) toppings landing on a pizza: a soft little patter
+      if (!ok()) return; const t = ac.currentTime;
+      for (let k = 0; k < Math.min(14, n * 3); k++) noise(t + 0.08 + k * 0.045 + R(0, 0.03), { type: 'bandpass', f: R(700, 1500), q: 1.5, peak: R(0.03, 0.05), attack: 0.002, decay: R(0.02, 0.04), pan: R(-0.5, 0.5) });
+    },
+    cheese(n = 8) {   // (27 Nov) pizza slices pulling apart: soft stretchy squelches and a warm whoosh
+      if (!ok()) return; const t = ac.currentTime;
+      for (let k = 0; k < Math.min(8, Math.ceil(n / 2)); k++) { const at = t + 0.08 + k * 0.12; if (!playSample('sponge' + Math.floor(Math.random() * 13), at - t, SQUISH_VOL * 0.7, R(0.6, 0.75))) noise(at, { type: 'lowpass', f: 700, f2: 300, q: 0.7, peak: 0.05, attack: 0.01, decay: 0.12 }); }
+      noise(t + 0.05, { type: 'bandpass', f: 500, f2: 1200, q: 0.6, peak: 0.04, attack: 0.2, decay: 0.7 });
+    },
     puff(n = 1) {   // (27 Nov) dandelion landing: the softest breath of air
       if (!ok()) return; const t = ac.currentTime;
       noise(t, { type: 'bandpass', f: 900, f2: 500, q: 0.6, peak: 0.05 * Math.min(1.4, 0.8 + n * 0.08), attack: 0.02, decay: 0.22 });
@@ -3119,6 +3128,10 @@ const NEW_SKINS = [
       ctx.restore();
     },
   },
+  { name: 'Pizza', pizza: true, quietClear: true, dry: true, squish: 1.15, fixedColours: true, colours: ['#e8452c', '#3fae3a', '#c98d5a', '#2d7a2a', '#f2b400'],
+    // (27 Nov) plain tomato pizzas in your hand; the toppings rain on when they land; a clear pulls them apart slice by slice with stretchy cheese
+    draw(ctx, s, c, i) { drawPizza(ctx, s * 0.5, i, 1, i); },
+  },
   { name: 'Dandelions', dandelion: true, quietClear: true, dry: true, squish: 1.1, fixedColours: true, colours: ['#ffffff', '#fff4d6', '#ffe3ef', '#e3f1ff', '#eaffea'],
     // (27 Nov) see-through dandelion clocks: a few seeds drift off when you place them; when their row clears, the wind takes them all
     draw(ctx, s, c, i) { drawDandelion(ctx, s * 0.5, c, i, 1); },
@@ -3837,7 +3850,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -4916,6 +4929,82 @@ function drawFliers(now, dt) {
     DeviceMotionEvent.requestPermission().then(r => { if (r === 'granted') start(); }).catch(() => {});
   });
 })();
+// (27 Nov) Pizza: kind 0 pepperoni, 1 capsicum & olive, 2 mushroom, 3 margherita, 4 supreme. prog 0..1 = toppings landing
+function drawTopping(x, type, z, rnd) {
+  if (type === 'pep') { const g = x.createRadialGradient(-z * 0.3, -z * 0.3, z * 0.1, 0, 0, z); g.addColorStop(0, '#ff6a4a'); g.addColorStop(0.7, '#c4251a'); g.addColorStop(1, '#8a1410');
+    x.fillStyle = g; x.beginPath(); x.arc(0, 0, z, 0, Math.PI * 2); x.fill(); x.fillStyle = 'rgba(255,220,180,0.55)'; for (let k = 0; k < 4; k++) { x.beginPath(); x.arc((rnd() - 0.5) * z * 1.2, (rnd() - 0.5) * z * 1.2, z * 0.12, 0, Math.PI * 2); x.fill(); }
+    x.fillStyle = 'rgba(255,255,255,0.45)'; x.beginPath(); x.ellipse(-z * 0.35, -z * 0.4, z * 0.3, z * 0.14, -0.6, 0, Math.PI * 2); x.fill(); }
+  else if (type === 'cap') { x.strokeStyle = rnd() < 0.5 ? '#2fae2f' : '#e8342a'; x.lineWidth = z * 0.38; x.lineCap = 'round'; x.beginPath(); x.arc(0, 0, z * 0.8, 0.3, 2.4); x.stroke();
+    x.strokeStyle = 'rgba(255,255,255,0.5)'; x.lineWidth = z * 0.1; x.beginPath(); x.arc(0, 0, z * 0.85, 0.6, 1.4); x.stroke(); }
+  else if (type === 'olive') { x.strokeStyle = '#1c1a1d'; x.lineWidth = z * 0.32; x.beginPath(); x.arc(0, 0, z * 0.45, 0, Math.PI * 2); x.stroke(); x.strokeStyle = 'rgba(255,255,255,0.35)'; x.lineWidth = z * 0.08; x.beginPath(); x.arc(0, 0, z * 0.55, 3.6, 4.5); x.stroke(); }
+  else if (type === 'mush') { x.fillStyle = '#e9d6b8'; x.beginPath(); x.arc(0, -z * 0.1, z * 0.75, Math.PI, 0); x.quadraticCurveTo(z * 0.75, z * 0.1, z * 0.25, z * 0.1); x.lineTo(z * 0.25, z * 0.7); x.lineTo(-z * 0.25, z * 0.7); x.lineTo(-z * 0.25, z * 0.1); x.quadraticCurveTo(-z * 0.75, z * 0.1, -z * 0.75, -z * 0.1); x.fill();
+    x.strokeStyle = '#a07a52'; x.lineWidth = z * 0.08; x.stroke(); x.fillStyle = 'rgba(140,100,60,0.5)'; x.beginPath(); x.ellipse(0, z * 0.02, z * 0.55, z * 0.08, 0, 0, Math.PI * 2); x.fill(); }
+  else if (type === 'basil') { const g = x.createLinearGradient(-z, 0, z, 0); g.addColorStop(0, '#2c8a2a'); g.addColorStop(1, '#5cc94a'); x.fillStyle = g; x.beginPath(); x.moveTo(-z, 0); x.quadraticCurveTo(0, -z * 0.9, z, 0); x.quadraticCurveTo(0, z * 0.9, -z, 0); x.fill();
+    x.strokeStyle = 'rgba(255,255,255,0.4)'; x.lineWidth = z * 0.07; x.beginPath(); x.moveTo(-z * 0.8, 0); x.lineTo(z * 0.8, 0); x.stroke(); }
+  else if (type === 'moz') { const g = x.createRadialGradient(-z * 0.2, -z * 0.2, z * 0.1, 0, 0, z); g.addColorStop(0, '#ffffff'); g.addColorStop(1, '#f3ead2'); x.fillStyle = g; x.beginPath(); x.arc(0, 0, z, 0, Math.PI * 2); x.fill(); }
+}
+const PIZZA_TOPS = [['pep'], ['cap', 'olive'], ['mush'], ['moz', 'basil'], ['pep', 'cap', 'mush', 'olive']];
+function drawPizza(x, r, kind, prog, seed) {
+  kind = ((kind % 5) + 5) % 5;
+  const cg = x.createRadialGradient(-r * 0.2, -r * 0.25, r * 0.5, 0, 0, r * 0.98); cg.addColorStop(0, '#f6cf86'); cg.addColorStop(0.75, '#e0a050'); cg.addColorStop(1, '#a8652a');
+  x.fillStyle = cg; x.beginPath(); x.arc(0, 0, r * 0.97, 0, Math.PI * 2); x.fill();   // the crust
+  x.fillStyle = 'rgba(120,60,20,0.35)'; for (let k = 0; k < 14; k++) { const a = k * 2.1 + seed, d = r * 0.9; x.beginPath(); x.arc(Math.cos(a) * d, Math.sin(a) * d, r * 0.025, 0, Math.PI * 2); x.fill(); }   // a few charred bubbles
+  const sg = x.createRadialGradient(-r * 0.15, -r * 0.2, r * 0.05, 0, 0, r * 0.82); sg.addColorStop(0, '#ff5a3a'); sg.addColorStop(0.7, '#d8331c'); sg.addColorStop(1, '#a92212');
+  x.fillStyle = sg; x.beginPath(); x.arc(0, 0, r * 0.8, 0, Math.PI * 2); x.fill();   // the tomato
+  const rnd = seeded(300 + kind * 31 + (seed | 0) * 7);
+  if (prog > 0) {   // melted cheese spreads first
+    const cq = Math.min(1, prog * 2.2);
+    x.globalAlpha = cq * 0.7; x.fillStyle = '#ffe7a3';
+    for (let k = 0; k < 6; k++) { const a = rnd() * 6.28, d = rnd() * r * 0.45, z = r * (0.14 + rnd() * 0.1); x.beginPath(); x.ellipse(Math.cos(a) * d, Math.sin(a) * d, z, z * 0.8, a, 0, Math.PI * 2); x.fill(); }
+    x.fillStyle = 'rgba(255,250,220,0.7)'; for (let k = 0; k < 6; k++) { const a = rnd() * 6.28, d = rnd() * r * 0.5; x.beginPath(); x.arc(Math.cos(a) * d, Math.sin(a) * d, r * 0.06, 0, Math.PI * 2); x.fill(); }
+    x.globalAlpha = 1;
+  }
+  const types = PIZZA_TOPS[kind], n = 6;
+  for (let k = 0; k < n; k++) {
+    const a = k / n * Math.PI * 2 + rnd() * 0.5, d = k === 0 ? 0 : r * (0.46 + rnd() * 0.08), ty = types[k % types.length], z = r * (ty === 'pep' ? 0.25 : ty === 'moz' ? 0.24 : ty === 'basil' ? 0.22 : 0.23);
+    const st = 0.25 + k / n * 0.5, u = Math.max(0, Math.min(1, (prog - st) / 0.25));
+    if (u <= 0) continue;
+    const bounce = u < 0.7 ? 1 - Math.pow(u / 0.7, 2) : Math.sin((u - 0.7) / 0.3 * Math.PI) * 0.12;   // drop in from above, with a little bounce
+    x.save(); x.translate(k === 0 ? 0 : Math.cos(a) * d, (k === 0 ? 0 : Math.sin(a) * d) - bounce * r * 1.1); x.rotate(rnd() * 6.28); x.globalAlpha = Math.min(1, u * 3);
+    drawTopping(x, ty, z, rnd); x.restore();
+  }
+  x.globalAlpha = 1;
+  if (prog >= 1) {   // the slices, and a glossy sheen of oil
+    x.strokeStyle = 'rgba(90,30,10,0.28)'; x.lineWidth = Math.max(0.6, r * 0.018);
+    for (let k = 0; k < 6; k++) { const a = k / 6 * Math.PI * 2 + 0.26; x.beginPath(); x.moveTo(0, 0); x.lineTo(Math.cos(a) * r * 0.95, Math.sin(a) * r * 0.95); x.stroke(); }
+    x.fillStyle = 'rgba(255,255,255,0.22)'; x.beginPath(); x.ellipse(-r * 0.35, -r * 0.42, r * 0.32, r * 0.12, -0.6, 0, Math.PI * 2); x.fill();
+  }
+}
+// a clear: each pizza comes apart one slice at a time, every slice dragging a string of melted cheese
+const SLICES = [];
+function releaseSlices(skinIdx, colour, x, y, delay) {
+  const now = performance.now();
+  for (let k = 0; k < 6; k++) { const a0 = k / 6 * Math.PI * 2 + 0.26, a = a0 + Math.PI / 6;
+    SLICES.push({ skinIdx, colour, x, y, a0, a1: a0 + Math.PI / 3, dir: a, t0: now + delay + k * 75, spin: (Math.random() - 0.5) * 2.5, life: 1300 }); }
+}
+function drawSlices(now) {
+  const c = L.c;
+  for (let i = SLICES.length - 1; i >= 0; i--) {
+    const q = SLICES[i], age = now - q.t0; if (age < 0) { continue; }
+    if (age > q.life) { SLICES.splice(i, 1); continue; }
+    const u = age / q.life, out = (1 - Math.pow(1 - Math.min(1, age / 450), 3)) * c * 0.9 + Math.max(0, age - 450) / 1000 * c * 1.6;
+    const fall = Math.max(0, age - 380) / 1000; const dx = Math.cos(q.dir) * out, dy = Math.sin(q.dir) * out + fall * fall * c * 7;
+    const sp = sprite(q.skinIdx, q.colour), w = sp.box * (c * 0.96 / sp.size);
+    // the cheese string: stretches between the gap and the slice, thins, then snaps and droops
+    if (age < 620) {
+      const snap = age > 430, th = Math.max(0.8, c * 0.07 * (1 - age / 620)), mx = q.x + Math.cos(q.dir) * c * 0.15, my = q.y + Math.sin(q.dir) * c * 0.15;
+      ctx.strokeStyle = 'rgba(255,233,160,0.95)'; ctx.lineCap = 'round'; ctx.lineWidth = th;
+      ctx.beginPath(); ctx.moveTo(mx, my);
+      const ex = q.x + dx * 0.9, ey = q.y + dy * 0.9;
+      if (!snap) ctx.quadraticCurveTo((mx + ex) / 2, (my + ey) / 2 + c * 0.12 * (age / 430), ex, ey);
+      else ctx.quadraticCurveTo(mx + (ex - mx) * 0.3, my + c * 0.25, mx + (ex - mx) * 0.35, my + c * 0.35 * ((age - 430) / 190));
+      ctx.stroke();
+    }
+    ctx.save(); ctx.globalAlpha = Math.min(1, (1 - u) * 2.5); ctx.translate(q.x + dx, q.y + dy); ctx.rotate(q.spin * age / 1000);
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, w / 1.3 * 0.75, q.a0, q.a1); ctx.closePath(); ctx.clip();
+    ctx.drawImage(sp.canvas, -w / 2, -w / 2, w, w); ctx.restore();
+  }
+}
 // (27 Nov) Dandelions
 function drawDandelion(x, r, c, seed, keep = 1) {   // keep 0..1: how many seeds are still on the head
   const n = 46, rnd = seeded(77 + seed * 13);
@@ -5210,6 +5299,7 @@ function drawBud(cx, cy, size, sx, sy, alpha, seed, colour) {
   ctx.restore();
 }
 function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, seed = 0, now = performance.now()) {
+  if (HAND && SKINS[skinIdx % SKINS.length].pizza) { ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy); if (alpha !== 1) ctx.globalAlpha = alpha; drawPizza(ctx, size * 0.5, colour, 0, seed); ctx.restore(); return; }
   if (HAND && SKINS[skinIdx % SKINS.length].bloom) { if (isSun()) drawSunBud(cx, cy, size, sx, sy, alpha, seed); else drawBud(cx, cy, size, sx, sy, alpha, seed, colour); return; }
   if (HAND && SKINS[skinIdx % SKINS.length].hatch) { drawEgg(cx, cy, size, sx, sy, alpha, seed, colour); return; }
   if (!HAND && SKINS[skinIdx % SKINS.length].hatch && eggKind() === 'fried' && !settings.reduced) {   // really jelly-like: always wobbling, and the whole plate jiggles when anything lands or gets squished
@@ -6944,6 +7034,10 @@ function playResult(res, pointerGesture) {
     }
   }
   else if (skin().popcorn || skin().bloom || skin().hatch) { /* each kernel or bud makes its own sound as it opens, below */ }
+  else if (skin().pizza) {   // the toppings rain on: a soft patter, one pizza after another
+    res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 40 + k * 120; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); });
+    Sound.toppings(res.piece.shape.cells.length);
+  }
   else if (skin().dandelion) {   // dandelions land with a soft puff, and a few seeds drift off
     Sound.puff(res.piece.shape.cells.length);
     if (!settings.reduced) { const cs = res.piece.shape.cells; for (let k = 0; k < 2 + Math.floor(Math.random() * 2); k++) { const [x, y] = cs[Math.floor(Math.random() * cs.length)]; releaseSeeds(...cellCentre(res.gx + x, res.gy + y), 1); } }
@@ -7006,6 +7100,8 @@ function playResult(res, pointerGesture) {
     if (skin().bloom) Sound.scale(res.lines);
     if (skin().bloom && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => spawnPetals(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 150 + k * 25));
     if (skin().hatch && !settings.reduced) { const ek = eggKind(); res.cleared.forEach((c2, k) => setTimeout(() => { const [qx, qy] = cellCentre(c2.x, c2.y); if (ek === 'chick') { releaseChick(qx, qy); if (k % 2 === 0) spawnFeathers(qx, qy, 2); } else if (ek === 'easter') spawnSprinkles(qx, qy, 6); else squishDrops(qx, qy, '#ffc21a'); }, 150 + k * 25)); }
+    if (skin().pizza && !settings.reduced) { res.cleared.forEach((c2, k) => releaseSlices(state.skin, (c2.v || 1) - 1, ...cellCentre(c2.x, c2.y), 40 + k * 60)); Sound.cheese(res.cleared.length); }
+    else if (skin().pizza) Sound.cheese(res.cleared.length);
     if (skin().dandelion) { Sound.gust(res.lines); if (!settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => releaseSeeds(...cellCentre(c2.x, c2.y), 16, 2), 60 + k * 35)); }
     if (skin().morph) Sound.wings(0.1, Math.min(1.3, 0.8 + res.cleared.length / 40));
     if (skin().morph && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => releaseButterfly(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 120 + k * 30));
@@ -7263,6 +7359,11 @@ function draw(now) {
       }
       const bl = skin().bloom;
       if (t < 0) { HAND = true; drawBubble(state.skin, v - 1, x + (bl ? 0 : Math.sin(now / 18 + gx) * c * 0.03), y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; continue; }   // the kernel jitters / the bud waits
+      if (skin().pizza) {
+        if (t < 0) { ctx.save(); ctx.translate(x, y); drawPizza(ctx, c * 0.48, v - 1, 0, gx * 3 + gy * 5); ctx.restore(); continue; }
+        if (t < 900) { ctx.save(); ctx.translate(x, y); drawPizza(ctx, c * 0.48, v - 1, t / 900, v - 1); ctx.restore(); continue; }
+        POPT.delete(Logic.idx(gx, gy));
+      }
       if (bl && isSun()) {
         if (t < 1300) {
           const sd = gx * 3 + gy * 5, col = SUN_COLS[(v - 1) % SUN_COLS.length];
@@ -7573,7 +7674,7 @@ function draw(now) {
     }
   }
 
-  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); if (SPARKS.length) drawSparks(now, dtp); if (DETS.length) drawDets(now); if (FLIERS.length) drawFliers(now, dtp); if (SEEDS.length) drawSeeds(now, dtp); }
+  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); if (SPARKS.length) drawSparks(now, dtp); if (DETS.length) drawDets(now); if (FLIERS.length) drawFliers(now, dtp); if (SEEDS.length) drawSeeds(now, dtp); if (SLICES.length) drawSlices(now); }
   // dragged piece on top
   const d = Input.dragDraw();
   if (d) {
