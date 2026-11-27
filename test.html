@@ -640,7 +640,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 8:15am, photo pizza</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 8:30am, soap bubbles</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2085,6 +2085,19 @@ const Sound = (() => {
       // a quick scratch in the middle, like a DJ
       for (const [o2, f1, f2] of [[3, 600, 2400], [3.25, 2400, 700], [3.5, 700, 2200], [3.62, 2200, 600]]) noise(m + o2 * beat, { type: 'bandpass', f: f1, f2, q: 3, peak: 0.3, attack: 0.008, decay: 0.08, dest: bus });
     },
+    soapPop(pan = 0) {   // (28 Nov) a big soap bubble popping: soft and wet, not a bang
+      if (!ok()) return; const t = ac.currentTime; if (t - (this._sp || 0) < 0.04) return; this._sp = t;
+      tone(t, { f: R(700, 900), f2: R(1500, 1900), type: 'sine', peak: 0.05, attack: 0.001, decay: 0.05, pan });
+      noise(t, { type: 'bandpass', f: 3000, q: 1.2, peak: 0.035, attack: 0.001, decay: 0.04, pan });
+    },
+    soapPlip(pan = 0, size = 0.1) {   // a little bubble popping: a tiny plip, higher for smaller bubbles; quick runs of them, like popcorn
+      if (!ok()) return; const t = ac.currentTime; if (t - (this._spl || 0) < 0.022) return; this._spl = t;
+      plip(t, (1100 + (0.18 - size) * 9000) * R(0.9, 1.1), 0.022, 0.018, pan * 0.7);
+    },
+    soapLand(n = 1) {   // soft wet bloops as they settle
+      if (!ok()) return; const t = ac.currentTime;
+      for (let k = 0; k < Math.min(n, 4); k++) tone(t + k * 0.05, { f: R(320, 380), f2: R(520, 600), type: 'sine', peak: 0.03, attack: 0.008, decay: 0.09, pan: R(-0.3, 0.3) });
+    },
     balloonStretch(pan = 0) {   // (28 Nov) Mark's own recording of a balloon being stretched: lasts as long as you hold, and quick squeezes play it faster
       if (!ok()) return; const t = ac.currentTime;
       const sb = sample('balstretch');
@@ -3406,6 +3419,11 @@ const NEW_SKINS = [
       ctx.restore();
     },
   },
+  { name: 'Soap Bubbles', soap: true, quietClear: true, dry: true, squish: 0.8, fixedColours: true, colours: ['#ff8fd0', '#7fd8ff', '#9dffb0', '#ffe27a', '#c9a2ff'],
+    // (28 Nov) one big soap bubble per ball, with swirling rainbow colours; a row pops each into lots of little bubbles that float off in every direction and pop
+    draw(ctx, s, c, i) { drawSoap(ctx, s * 0.5, c, 0, i); },
+    anim(ctx, s, c, i, t, seed) { soapSwirl(ctx, s * 0.5, c, HAND ? 0 : t, seed); },
+  },
   { name: 'Balloons', balloon: true, quietClear: true, dry: true, squish: 0.6, fixedColours: true, colours: ['#ff2d55', '#ffb020', '#2ec5ff', '#a259ff', '#2fd67b'],
     // (28 Nov) shiny party balloons that float gently on the board; a row pops them in streamers and confetti
     draw(ctx, s, c, i) { drawBalloon(ctx, s * 0.5, c, i); },
@@ -4178,7 +4196,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'vinyl', 'singer', 'ladybug', 'fish', 'singer', 'vinyl', 'balloon', 'pizza']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'vinyl', 'singer', 'ladybug', 'fish', 'singer', 'vinyl', 'balloon', 'pizza', 'soap']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -5385,6 +5403,53 @@ function drawSlices(now) {
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, w, q.a0, q.a1); ctx.closePath(); ctx.clip();
     ctx.drawImage(sp.canvas, -w / 2, -w / 2, w, w); ctx.restore();
   }
+}
+// (28 Nov) Soap bubbles
+function drawSoap(x, r, tint, t, seed, alpha = 1) {
+  const R0 = r * 0.92;
+  x.save(); x.globalAlpha *= alpha;
+  // almost clear inside, with a faint tint and the rim catching colour
+  const g = x.createRadialGradient(0, 0, R0 * 0.55, 0, 0, R0); g.addColorStop(0, rgba(tint, 0.06)); g.addColorStop(0.8, rgba(tint, 0.18)); g.addColorStop(0.96, rgba(tint, 0.55)); g.addColorStop(1, 'rgba(255,255,255,0.15)');
+  x.fillStyle = g; x.beginPath(); x.arc(0, 0, R0, 0, Math.PI * 2); x.fill();
+  x.strokeStyle = 'rgba(255,255,255,0.35)'; x.lineWidth = Math.max(0.6, r * 0.025); x.beginPath(); x.arc(0, 0, R0 * 0.985, 0, Math.PI * 2); x.stroke();
+  // the window reflection and a little glint
+  x.fillStyle = 'rgba(255,255,255,0.55)'; x.beginPath(); x.ellipse(-R0 * 0.42, -R0 * 0.44, R0 * 0.22, R0 * 0.11, -0.75, 0, Math.PI * 2); x.fill();
+  x.fillStyle = 'rgba(255,255,255,0.9)'; x.beginPath(); x.arc(-R0 * 0.5, -R0 * 0.3, R0 * 0.05, 0, Math.PI * 2); x.fill();
+  x.fillStyle = 'rgba(255,255,255,0.3)'; x.beginPath(); x.ellipse(R0 * 0.45, R0 * 0.48, R0 * 0.14, R0 * 0.05, -0.75, 0, Math.PI * 2); x.fill();
+  x.restore();
+}
+const SOAP_HUES = ['#ff5fa8', '#ffd24a', '#5fe08a', '#4fc3ff', '#a46bff'];
+function soapSwirl(x, r, tint, t, seed) {   // the oily rainbow film swirling slowly round the bubble
+  const R0 = r * 0.92;
+  x.save(); x.beginPath(); x.arc(0, 0, R0, 0, Math.PI * 2); x.clip(); x.globalCompositeOperation = 'lighter';
+  for (let k = 0; k < 5; k++) {
+    const a = t * (0.35 + k * 0.07) + seed * 1.3 + k * 1.26, d = R0 * (0.55 + 0.2 * Math.sin(t * 0.5 + k));
+    const g = x.createRadialGradient(Math.cos(a) * d, Math.sin(a) * d, 0, Math.cos(a) * d, Math.sin(a) * d, R0 * 0.6);
+    g.addColorStop(0, rgba(SOAP_HUES[k], 0.28)); g.addColorStop(1, rgba(SOAP_HUES[k], 0));
+    x.fillStyle = g; x.fillRect(-R0, -R0, R0 * 2, R0 * 2);
+  }
+  x.restore();
+}
+const SOAPS = [];
+function soapBurst(x, y, tint) {   // the big bubble pops into lots of little ones drifting off in every direction
+  const now = performance.now(), n = 12 + Math.floor(Math.random() * 5);
+  for (let k = 0; k < n; k++) { const a = k / n * Math.PI * 2 + Math.random() * 0.5, sp = L.c * (1 + Math.random() * 2.2);
+    SOAPS.push({ x: x + Math.cos(a) * L.c * 0.2, y: y + Math.sin(a) * L.c * 0.2, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: L.c * (0.08 + Math.random() * 0.14), tint: SOAP_HUES[Math.floor(Math.random() * 5)], t0: now, life: 900 + Math.random() * 2600, ph: Math.random() * 6.28, popped: 0 }); }
+  for (let k = 0; k < 8; k++) { const a = Math.random() * 6.28; SPARKS.push({ kind: 'spark', x: x + Math.cos(a) * L.c * 0.4, y: y + Math.sin(a) * L.c * 0.4, vx: Math.cos(a) * L.c * 2, vy: Math.sin(a) * L.c * 2, col: '#ffffff', t0: now, life: 300 }); }   // the film flicking away
+  if (SOAPS.length > 360) SOAPS.splice(0, SOAPS.length - 360);
+}
+function drawSoaps(now, dt) {
+  const s2 = dt / 1000;
+  for (let i = SOAPS.length - 1; i >= 0; i--) { const q = SOAPS[i], age = now - q.t0;
+    if (age > q.life) {   // each little bubble pops on its own: a soft plip and a tiny flick of droplets
+      Sound.soapPlip(Math.max(-1, Math.min(1, (q.x - (L.bx + L.B / 2)) / (L.B / 2))), q.r / L.c);
+      for (let k = 0; k < 4; k++) { const a = Math.random() * 6.28; SPARKS.push({ kind: 'spark', x: q.x, y: q.y, vx: Math.cos(a) * L.c * 1.2, vy: Math.sin(a) * L.c * 1.2, col: '#e8f6ff', t0: now, life: 220 }); }
+      SOAPS.splice(i, 1); continue; }
+    q.vx *= Math.pow(0.35, s2); q.vy = q.vy * Math.pow(0.35, s2) - L.c * 0.25 * s2;   // slowing down and drifting gently upward
+    q.x += (q.vx + Math.sin(age / 400 + q.ph) * L.c * 0.15) * s2; q.y += (q.vy + Math.cos(age / 520 + q.ph) * L.c * 0.1) * s2;
+    const grow = Math.min(1, age / 140);
+    ctx.save(); ctx.translate(q.x, q.y); ctx.scale(1 + Math.sin(age / 90 + q.ph) * 0.04, 1 - Math.sin(age / 90 + q.ph) * 0.04);
+    drawSoap(ctx, q.r * grow, q.tint, now / 1000, q.ph); soapSwirl(ctx, q.r * grow, q.tint, now / 1000, q.ph); ctx.restore(); }
 }
 // (28 Nov) Balloons
 function drawBalloon(x, r, col, seed) {
@@ -7753,6 +7818,7 @@ function playResult(res, pointerGesture) {
   if (skin().hatch) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 120 + Math.random() * 50; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); if (res.lines) { /* this piece makes a line: just the normal clear sound, no cracking */ } else if (res.piece.shape.cells.length === 1) Sound.hatch((at - now + 260) / 1000, (res.gx + x - 3.5) / 5, 1.6); else if (k === 0) Sound.crackRun((at - now + 260) / 1000, res.piece.shape.cells.length, 1.6); if (!res.lines && k === 0 && eggKind() === 'fried') Sound.sizzle((at - now + 420) / 1000, 1 + Math.min(1, res.piece.shape.cells.length / 6)); });
   if (skin().bloom) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 80 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.bloom((at - now + 200) / 1000, (res.gx + x - 3.5) / 5, 1.6, k); });
   if (skin().name === 'Fishbowls' && !FISHJ) { const cells = res.piece.shape.cells.map(([x, y]) => (res.gy + y) * CONFIG.gridSize + res.gx + x); setTimeout(() => { if (FISHJ || skin().name !== 'Fishbowls') return; const t2 = performance.now(); for (const i of cells.sort(() => Math.random() - 0.5)) if (fishJumpFrom(i, t2)) break; }, 1300); }   // (27 Nov) once they settle, one leaps next door and back
+  if (skin().soap) { res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + k * 50)); Sound.soapLand(res.piece.shape.cells.length); }   // (28 Nov) soap bubbles settle with a wobble
   if (skin().balloon) { res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + k * 40)); Sound.balloonLand(res.piece.shape.cells.length); }   // (28 Nov) balloons bounce in on their strings
   if (skin().vinyl) { res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + 40 + k * 60)); Sound.crackle(); }   // (27 Nov) the needle drops and the record crackles
   if (skin().singer) res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + 60 + k * 50));   // (27 Nov) the mouths close as they land
@@ -7945,6 +8011,7 @@ function updateFX(now, dt) {
       if (sk.face) fireworkBurst(x, y, p.I || 1);
       else if (sk.bounce && !settings.reduced) FX.particles.push({ k: 'ball', x, y, vx: ((p.gx - 3.5) / 3.5 + (Math.random() - 0.5)) * L.c * 4, vy: -L.c * (7 + Math.random() * 4), skin: p.skin, colour: p.colour, life: 0, max: 2.2, spin: (Math.random() - 0.5) * 8, floor: L.by + L.B + L.c * 0.2, bounces: 0 });
       else if (sk.fizz) fizzBurst(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);
+      else if (sk.soap) { soapBurst(x, y, sk.colours[p.colour % sk.colours.length]); Sound.soapPop(((p.gx - 3.5) / 3.5) * 0.6); }
       else if (sk.balloon) { balloonBurst(x, y, sk.colours[p.colour % sk.colours.length]); Sound.balloonPop(((p.gx - 3.5) / 3.5) * 0.6); }
       else if (sk.vinyl) { recordBurst(x, y, sk.colours[p.colour % sk.colours.length]); Sound.balloonPop(((p.gx - 3.5) / 3.5) * 0.6); }
       else if (sk.candle) { snuffCandle(x, y, p.gx < 3.5 ? 1 : -1); Sound.snuff(((p.gx - 3.5) / 3.5) * 0.6); }
@@ -8123,6 +8190,11 @@ function draw(now) {
       }
       const bl = skin().bloom;
       if (t < 0) { HAND = true; drawBubble(state.skin, v - 1, x + (bl ? 0 : Math.sin(now / 18 + gx) * c * 0.03), y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; continue; }   // the kernel jitters / the bud waits
+      if (skin().soap) {
+        if (t < 800) { const u = Math.max(0, t) / 800, w = t < 0 ? 0 : Math.sin(u * Math.PI * 4) * Math.exp(-u * 3.5) * 0.1;
+          drawBubble(state.skin, v - 1, x, y, c * 0.96, 1 + w, 1 - w, 1, gx * 3 + gy * 5, now); continue; }
+        POPT.delete(Logic.idx(gx, gy));
+      }
       if (skin().balloon) {
         if (t < 700) { const u = Math.max(0, t) / 700, dy = t < 0 ? 0 : -Math.sin(u * Math.PI * 2.5) * Math.exp(-u * 3) * c * 0.18;
           drawBubble(state.skin, v - 1, x, y + dy, c * 0.96, 1 + (t > 0 && t < 120 ? 0.06 : 0), 1 - (t > 0 && t < 120 ? 0.06 : 0), 1, gx * 3 + gy * 5, now); continue; }
@@ -8477,7 +8549,7 @@ function draw(now) {
   }
 
   if (SKINS[state.skin % SKINS.length].lights) drawWires(now);
-  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); if (SPARKS.length) drawSparks(now, dtp); if (DETS.length) drawDets(now); if (FLIERS.length) drawFliers(now, dtp); if (SEEDS.length) drawSeeds(now, dtp); if (SLICES.length) drawSlices(now); if (SHARDS.length) drawShards(now, dtp); if (SMOKE.length) drawSmoke(now); fishJumps(now); if (DISCS.length) drawDiscs(now, dtp); if (STREAMS.length) drawStreams(now, dtp); }
+  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); if (SPARKS.length) drawSparks(now, dtp); if (DETS.length) drawDets(now); if (FLIERS.length) drawFliers(now, dtp); if (SEEDS.length) drawSeeds(now, dtp); if (SLICES.length) drawSlices(now); if (SHARDS.length) drawShards(now, dtp); if (SMOKE.length) drawSmoke(now); fishJumps(now); if (DISCS.length) drawDiscs(now, dtp); if (STREAMS.length) drawStreams(now, dtp); if (SOAPS.length) drawSoaps(now, dtp); }
   // dragged piece on top
   const d = Input.dragDraw();
   if (d) {
