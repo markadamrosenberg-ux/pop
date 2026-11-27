@@ -104,6 +104,8 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .ladhead b{color:#fff;font-size:18px}
 .ladrow{display:grid;grid-template-columns:34px 1fr auto;align-items:center;gap:8px;padding:9px 12px;border-radius:12px;font-size:17px}
 .ladrow:nth-child(odd){background:rgba(255,255,255,.04)}
+.ladscroll{position:relative;max-height:46vh;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -2px;padding:0 2px;overscroll-behavior:contain}
+.ladrow.can{cursor:pointer}.ladrow .add{font-size:13px;color:#4de8d6;margin-left:6px;font-weight:700}
 .ladrow .r{font-weight:700;color:var(--muted)}
 .ladrow.top1 .r{color:#ffd23f}.ladrow.top2 .r{color:#d7dde8}.ladrow.top3 .r{color:#ffa86b}
 .ladrow .v{font-weight:700}
@@ -623,7 +625,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Version 26 Nov, 7:45pm</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Version 27 Nov, 5:15pm</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2016,6 +2018,11 @@ const Sound = (() => {
       tone(t, { f: 520 * v, f2: 160, peak: 0.12 * big, attack: 0.001, decay: 0.045, pan });
       noise(t + 0.002, { type: 'highpass', f: 3400, q: 0.7, peak: 0.03 * big, attack: 0.0005, decay: 0.012, pan });
     },
+    juicyLand(n = 1) {   // (26 Nov) a citrus piece landing: one soft recorded squish, a touch brighter than a squeeze
+      if (!ok()) return;
+      if (playSample('sponge' + Math.floor(Math.random() * 13), 0, SQUISH_VOL * Math.min(1.25, 0.85 + n * 0.06), R(1.0, 1.12))) return;
+      this.place(n);
+    },
     // Butterflies (26 Nov): real wing flaps as they fly away from a cleared row, slightly sped up so they sound light
     wings(delay = 0, big = 1) {
       if (!ok()) return;
@@ -2489,7 +2496,15 @@ function fizzBurst(x, y, colourHex, I = 1, dir = 0) {
   for (let k = 0; k < 8; k++) P.push({ k: 'glow', x: x + (Math.random() - 0.5) * c * 0.8, y: y - Math.random() * c * 0.8, r: c * (0.35 + Math.random() * 0.3), life: 0, max: 0.35 + Math.random() * 0.2, tint: '#ffffff' });
   try { Sound.fizz(I); } catch (_) {}
 }
-// a drop of juice swells at the bottom of a drip, falls and splashes away
+// (26 Nov) citrus: no drips; now and then a glint catches on the wet flesh, and a soft shine slides across it
+function animGlisten(ctx, s, c, i, t, seed) {
+  const r = s * 0.45, g = (t * 0.22 + seed * 0.61) % 1;
+  if (g < 0.12) { const q = Math.sin(g / 0.12 * Math.PI), a = seed * 2.4; starGlint(ctx, Math.cos(a) * r * 0.42, Math.sin(a) * r * 0.42 - r * 0.1, r * 0.55 * q, q); }
+  const sh = (t * 0.18 + seed * 0.33) % 1;
+  if (sh < 0.25) { const u = sh / 0.25; ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r * 0.82, 0, Math.PI * 2); ctx.clip(); ctx.globalAlpha = Math.sin(u * Math.PI) * 0.35;
+    ctx.fillStyle = '#ffffff'; ctx.rotate(-0.6); ctx.fillRect(-r + u * r * 2.2 - r * 0.3, -r, r * 0.22, r * 2); ctx.restore(); ctx.globalAlpha = 1; }
+}
+// (no longer used: citrus used to drip) a drop of juice swells at the bottom of a drip, falls and splashes away
 function animJuice(ctx, s, c, i, t, seed) {
   const r = s * 0.45, x0 = 0.1 * r, y0 = Math.sqrt(r * r - x0 * x0) - r * 0.06 + 0.42 * r * 0.6, ph = (t * 0.55 + seed * 0.37) % 1;
   let y = y0, z = r * 0.06 + r * 0.06 * Math.min(1, ph / 0.6);
@@ -2834,9 +2849,9 @@ const NEW_SKINS = [
       ctx.fillStyle = sh; ctx.fillRect(-r, -r, r * 2, r * 2);
       ctx.restore(); nlGloss(ctx, r);
     } },
-  { name: 'Citrus Slices', colours: NEW_COLS,
-    squish: 1.4, anim: animJuice,
-    // a juicy fruit slice: rind, pith and glistening segments
+  { name: 'Citrus Slices', colours: NEW_COLS, citrus: true,
+    squish: 1.4, anim: animGlisten,
+    // a juicy fruit slice: rind, pith and glistening segments (26 Nov: no drips; it glistens instead, so it stays round)
     draw(ctx, s, c, i) {
       const r = s * 0.45;
       ctx.fillStyle = mix(c, '#3a1000', 0.15); ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
@@ -2850,19 +2865,19 @@ const NEW_SKINS = [
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.beginPath(); ctx.ellipse(Math.cos((a0 + a1) / 2) * r * 0.5, Math.sin((a0 + a1) / 2) * r * 0.5, r * 0.04, r * 0.09, (a0 + a1) / 2, 0, Math.PI * 2); ctx.fill();
       }
-      // juice beading on the flesh
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      for (let k = 0; k < 7; k++) { const a = k * 2.3 + i, d = r * (0.25 + (k % 3) * 0.17); ctx.beginPath(); ctx.arc(Math.cos(a) * d, Math.sin(a) * d, r * (0.025 + (k % 2) * 0.015), 0, Math.PI * 2); ctx.fill(); }
-      // juice running off the bottom of the slice
-      const juice = rgba(c, 0.9);
-      [[-0.45, 0.28], [0.1, 0.42], [0.55, 0.22]].forEach(([u, len], k) => {
-        const x0 = u * r, y0 = Math.sqrt(Math.max(0, r * r - x0 * x0)) - r * 0.06, w = r * (0.09 + (k % 2) * 0.03), L = len * r;
-        ctx.fillStyle = juice; ctx.beginPath(); ctx.moveTo(x0 - w * 1.6, y0 - w * 0.4);
-        ctx.quadraticCurveTo(x0 - w, y0, x0 - w, y0 + L * 0.6); ctx.arc(x0, y0 + L * 0.6, w, Math.PI, 0, true);
-        ctx.quadraticCurveTo(x0 + w, y0, x0 + w * 1.6, y0 - w * 0.4); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(x0 - w * 0.35, y0 + L * 0.35, w * 0.22, L * 0.22, 0, 0, Math.PI * 2); ctx.fill();
-      });
-      nlGloss(ctx, r, 0.7);
+      // a wet sheen across the flesh
+      ctx.save(); ctx.beginPath(); ctx.arc(0, 0, r * 0.82, 0, Math.PI * 2); ctx.clip();
+      const wet = ctx.createLinearGradient(-r, -r, r * 0.4, r * 0.6); wet.addColorStop(0, 'rgba(255,255,255,0.55)'); wet.addColorStop(0.35, 'rgba(255,255,255,0.12)'); wet.addColorStop(0.6, 'rgba(255,255,255,0)');
+      ctx.fillStyle = wet; ctx.fillRect(-r, -r, r * 2, r * 2); ctx.restore();
+      // beads of juice sitting on the surface, each with a bright highlight and a soft shadow
+      const rnd = seeded(900 + i * 13);
+      for (let k = 0; k < 9; k++) {
+        const a = rnd() * Math.PI * 2, d = r * (0.18 + rnd() * 0.55), z = r * (0.03 + rnd() * 0.045), bx = Math.cos(a) * d, by = Math.sin(a) * d;
+        ctx.fillStyle = rgba(mix(c, '#000000', 0.35), 0.35); ctx.beginPath(); ctx.arc(bx + z * 0.25, by + z * 0.35, z, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.beginPath(); ctx.arc(bx, by, z, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.beginPath(); ctx.arc(bx - z * 0.35, by - z * 0.35, z * 0.4, 0, Math.PI * 2); ctx.fill();
+      }
+      nlGloss(ctx, r, 0.85);
     } },
   { name: 'Gummy Drops', colours: NEW_COLS,
     squish: 2.2, anim: animGlitter(6),
@@ -6743,6 +6758,12 @@ function playResult(res, pointerGesture) {
     }
   }
   else if (skin().popcorn || skin().bloom || skin().hatch) { /* each kernel or bud makes its own sound as it opens, below */ }
+  else if (skin().citrus) {   // citrus lands with a soft squish and a drop or two of juice, and that's it
+    Sound.juicyLand(res.piece.shape.cells.length);
+    if (!settings.reduced) { const cs = res.piece.shape.cells, sk = skin(), n = 1 + (Math.random() < 0.5 ? 1 : 0);
+      for (let k = 0; k < n; k++) { const [x, y] = cs[Math.floor(Math.random() * cs.length)], [px, py] = cellCentre(res.gx + x, res.gy + y), a = -Math.PI / 2 + (Math.random() - 0.5) * 1.6, sp = L.c * (1.4 + Math.random() * 1.2);
+        FX.particles.push({ k: 'drop', x: px, y: py - L.c * 0.1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: L.c * (0.05 + Math.random() * 0.03), life: 0, max: 0.45 + Math.random() * 0.2, tint: sk.colours[(res.piece.color || 0) % sk.colours.length] }); } }
+  }
   else if (skin().hit) { Sound.hit(skin().hit); if (skin().hit === 'bowling') Sound.preload(); } else Sound.place(res.piece.shape.cells.length);
   { const cs = res.piece.shape.cells, [jx, jy] = cellCentre(res.gx + cs.reduce((a, c2) => a + c2[0], 0) / cs.length, res.gy + cs.reduce((a, c2) => a + c2[1], 0) / cs.length); window._jelly = { t: performance.now(), x: jx, y: jy, amp: 1 }; }   // fried eggs ripple out from where a piece lands
   if (CONFIG.haptics.place) Haptics.pulse(CONFIG.haptics.place);
@@ -7556,9 +7577,11 @@ const Net = (() => {
   function keepFriends(f) { if (f && f.rows) { Store.set('friends', { ...f, at: Date.now() }); if (typeof UI !== 'undefined') UI.update(true); } return f; }
   async function friends() { const p = player(); if (!enabled() || !p) return null; try { return keepFriends(await rpc('pop_friends', { p_id: p.id, p_token: p.token })); } catch (e) { forget(e); return null; } }
   async function addFriend(code, via = 'code') { const p = player(); return keepFriends(await rpc('pop_add_friend', { p_id: p.id, p_token: p.token, p_code: cleanCode(code), p_via: via })); }
+  async function addFriendById(id) { const p = player(); return keepFriends(await rpc('pop_add_friend_id', { p_id: p.id, p_token: p.token, p_friend: id })); }
+  async function nameTaken(name) { if (!enabled()) return false; try { return (await rpc('pop_name_taken', { p_name: name })) === true; } catch (e) { return false; } }
   async function removeFriend(id) { const p = player(); return keepFriends(await rpc('pop_remove_friend', { p_id: p.id, p_token: p.token, p_friend: id })); }
   return { enabled, player, register, rename, refresh, report, flush, board: () => Store.get('board', null),
-    fmtCode, cleanCode, myCode, lookup, friends, addFriend, removeFriend, friendsBoard: () => Store.get('friends', null) };
+    fmtCode, cleanCode, myCode, lookup, friends, addFriend, addFriendById, nameTaken, removeFriend, friendsBoard: () => Store.get('friends', null) };
 })();
 
 const Celebrate = (() => {
@@ -8562,13 +8585,19 @@ const UI = (() => {
       if (!b) html += '<div class="ladhead"><span>loading…</span></div>';
       else {
         html += `<div class="ladhead"><b>World ladder</b><span>${b.total} ${b.total === 1 ? 'player' : 'players'}</span></div>`;
-        html += b.top.slice(0, 10).map(row).join('');
-        const shownMe = b.top.slice(0, 10).some(r => r.me);
-        if (!shownMe && b.me.rank) { html += '<div class="ladgap">• • •</div>' + (b.near.length ? b.near.map(row).join('') : b.top.filter(r => Math.abs(r.rank - b.me.rank) <= 2).map(row).join('')); }
+        const fr = new Set(((fb && fb.rows) || []).map(r => r.name));
+        const wrow = r => { const can = r.id && !r.me && !fr.has(r.name); return `<div class="ladrow${r.me ? ' me' : ''}${r.rank <= 3 ? ' top' + r.rank : ''}${can ? ' can' : ''}"${can ? ` data-id="${esc(r.id)}" data-n="${esc(r.name)}"` : ''}><span class="r">${r.rank}</span><span>${esc(r.name)}${r.me ? ' (you)' : ''}${can ? '<span class="add">＋</span>' : ''}</span><span class="v">${r.best.toLocaleString()}</span></div>`; };
+        html += '<div class="ladscroll" id="ladScroll">' + b.top.map(wrow).join('');
+        const shownMe = b.top.some(r => r.me);
+        if (!shownMe && b.me.rank) { html += '<div class="ladgap">• • •</div>' + b.near.map(wrow).join(''); }
+        html += '</div>';
+        if (b.top.some(r => r.id)) html += '<div class="ladhead"><span>Tap ＋ on a name to add them to your Friends ladder</span></div>';
         if (!b.me.rank) html += `<div class="ladrow me"><span class="r">–</span><span>${esc(b.me.name)} (you)</span><span class="v">play a game</span></div>`;
       }
       html += tail();
       el.innerHTML = html;
+      const ls = $('ladScroll'); if (ls) { const mr = ls.querySelector('.ladrow.me'); if (mr) ls.scrollTop = Math.max(0, mr.offsetTop - ls.clientHeight / 2); }   // you, in the middle of the list
+      el.querySelectorAll('.ladrow.can').forEach(rw => rw.onclick = () => { mp.classList.remove('show'); openFriendCard({ mode: 'confirm', id: rw.dataset.id, name: rw.dataset.n, via: 'ladder' }); });
       note.textContent = !b ? '' : b.me.rank === 1 ? "You're top of the ladder! Keep it that way." : b.me.rank ? `Beat ${b.top.find(r => r.rank === b.me.rank - 1) ? esc(b.top.find(r => r.rank === b.me.rank - 1).name) : 'the player above'} to move up.` : 'Finish a game to get on the ladder.';
     }
     $('mpRename').onclick = () => { mp.classList.remove('show'); showNameCard(true, true); };
@@ -8632,7 +8661,7 @@ const UI = (() => {
       }
       if (o.mode === 'confirm') {
         if (!Net.player()) { fc.classList.remove('show'); showNameCard(true, false, o); return; }
-        await Net.addFriend(o.code, o.via || 'code');
+        if (o.id) await Net.addFriendById(o.id); else await Net.addFriend(o.code, o.via || 'code');
         fc.classList.remove('show'); fcState = null; ladTab = 'friends';
         try { Sound.mysteryAppear(0); } catch (_) {}
         toast(`${o.name} is on your Friends ladder!`); return;
@@ -8649,14 +8678,16 @@ const UI = (() => {
   // an invite link (…/pop/?f=CODE): nothing happens until the player says so
   async function handleInvite() {
     const code = Store.get('pendingInvite', null); if (!code || !Net.enabled()) return false;
-    Store.set('pendingInvite', null);
-    const who = await Net.lookup(code); if (!who) return false;
-    if (Net.player()) {
+    const who = await Net.lookup(code); if (!who) { Store.set('pendingInvite', null); return false; }
+    if (Net.player()) {   // (27 Nov) already on the ladder: tapping a friend's link makes you friends straight away, no extra step
+      Store.set('pendingInvite', null);
       const mine = await Net.myCode(); if (mine === code) return false;
       const f = Net.friendsBoard(); if (f && f.rows && f.rows.some(r => r.name === who.name && !r.you)) return false;
-      openFriendCard({ mode: 'confirm', code, name: who.name, via: 'link' }); return true;
+      try { await Net.addFriend(code, 'link'); ladTab = 'friends'; try { Sound.mysteryAppear(0); } catch (_) {} toast(`You and ${who.name} are now on each other's Friends ladder!`); update(true); }
+      catch (e) { openFriendCard({ mode: 'confirm', code, name: who.name, via: 'link' }); return true; }
+      return false;
     }
-    showNameCard(true, false, { code, name: who.name, via: 'link' }); return true;
+    showNameCard(true, false, { code, name: who.name, via: 'link' }); return true;   // the invite stays saved until they join
   }
   // ---- your name: asked once, changeable from Your Pop
   const nc = $('nameCard');
@@ -8679,14 +8710,19 @@ const UI = (() => {
     nc.classList.add('show');
   }
   $('ncInit').addEventListener('input', e => { e.target.value = e.target.value.replace(/[^A-Za-zÀ-ÿ]/g, '').toUpperCase(); });
-  $('ncLater').addEventListener('click', () => { nc.classList.remove('show'); if (!nc._renaming) Store.set('nameLater', dayKey()); });
+  $('ncLater').addEventListener('click', () => { nc.classList.remove('show'); if (!nc._renaming && !nc._invite) Store.set('nameLater', dayKey()); });   // an invite isn't lost by tapping Not now: it's offered again next time
   $('ncGo').addEventListener('click', async () => {
     const first = $('ncFirst').value.trim().replace(/\s+/g, ' '), init = $('ncInit').value.trim(), nt = $('ncNote');
     const bad = m => { nt.className = 'ncnote err'; nt.textContent = m; };
     if (first.length < 1 || !/^[A-Za-zÀ-ÿ' -]+$/.test(first)) return bad('Type your first name');
     if (!/^[A-Za-zÀ-ÿ]$/.test(init)) return bad('Add the first letter of your surname');
     const name = first.charAt(0).toUpperCase() + first.slice(1) + ' ' + init.toUpperCase();
-    const go = $('ncGo'); go.disabled = true; go.textContent = nc._renaming ? 'Saving…' : 'Joining…';
+    const go = $('ncGo');
+    if (!nc._renaming && nc._warned !== name) {   // (27 Nov) the same person on two phones (or Safari and the home-screen app) shows up twice: ask first
+      go.disabled = true; const taken = await Net.nameTaken(name); go.disabled = false;
+      if (taken) { nc._warned = name; nt.className = 'ncnote err'; nt.textContent = `${name} is already on the ladder. If that's you on another phone or the home-screen Pop, please keep playing there so you're only on the ladder once. Not you? Tap the button again.`; return; }
+    }
+    go.disabled = true; go.textContent = nc._renaming ? 'Saving…' : 'Joining…';
     let got = name;
     try {
       if (nc._renaming) got = (await Net.rename(name)).me.name; else got = (await Net.register(name)).name || name;
@@ -8701,6 +8737,7 @@ const UI = (() => {
     try { Sound.mysteryAppear(0); } catch (_) {}
     const taken = got !== name ? `${name} was taken, so you're ${got}. ` : '';
     const inv0 = nc._invite; nc._invite = null;
+    if (inv0) Store.set('pendingInvite', null);
     if (inv0 && !nc._renaming) {
       try { await Net.addFriend(inv0.code, inv0.via || 'link'); ladTab = 'friends'; toast(`${taken}You're on the ladder, and ${inv0.name} is your friend!`); update(true); Net.myCode(); return; }
       catch (e) { /* joined fine; the add can be done later */ }
