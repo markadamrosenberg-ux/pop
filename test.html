@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 7pm, ladybugs</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 7:15pm, singers</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2030,6 +2030,19 @@ const Sound = (() => {
       tone(t, { f: 520 * v, f2: 160, peak: 0.12 * big, attack: 0.001, decay: 0.045, pan });
       noise(t + 0.002, { type: 'highpass', f: 3400, q: 0.7, peak: 0.03 * big, attack: 0.0005, decay: 0.012, pan });
     },
+    sing(k = 0, pan = 0) {   // (27 Nov) a soft sung 'aah' (placeholder notes until Mark sends his): each colour has its own note
+      if (!ok()) return; const t = ac.currentTime, f = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33][k % 7];
+      if (this._voice) { try { this._voice.g.gain.cancelScheduledValues(t); this._voice.g.gain.setTargetAtTime(0, t, 0.05); this._voice.o.stop(t + 0.3); } catch (e) {} }
+      const o = ac.createOscillator(), vib = ac.createOscillator(), vg = ac.createGain(), g = ac.createGain(), pn = ac.createStereoPanner ? ac.createStereoPanner() : null;
+      o.type = 'sawtooth'; o.frequency.value = f; vib.frequency.value = 5.2; vg.gain.value = 0; vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(f * 0.012, t + 0.5);
+      vib.connect(vg); vg.connect(o.frequency);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.11, t + 0.09); g.gain.setTargetAtTime(0.07, t + 0.2, 0.3); g.gain.setTargetAtTime(0, t + 1.1, 0.25);
+      const mixr = ac.createGain(); mixr.gain.value = 1;
+      for (const [ff, q, a] of [[750, 8, 1], [1150, 9, 0.55], [2800, 12, 0.18]]) { const b = ac.createBiquadFilter(), ga = ac.createGain(); b.type = 'bandpass'; b.frequency.value = ff; b.Q.value = q; ga.gain.value = a; o.connect(b); b.connect(ga); ga.connect(g); }
+      if (pn) { pn.pan.value = pan * 0.6; g.connect(pn); pn.connect(out); } else g.connect(out);
+      o.start(t); vib.start(t); o.stop(t + 2.4); vib.stop(t + 2.4);
+      this._voice = { o, g };
+    },
     bugs(n = 1) {   // (27 Nov) ladybugs lifting off: a soft high whirr of little wings, never piled up
       if (!ok()) return; const t = ac.currentTime + 0.3;
       if (!playSample('wings', 0.3, 0.18, R(1.7, 1.9))) noise(t, { type: 'bandpass', f: 180, q: 4, peak: 0.03, attack: 0.08, decay: 0.6 });
@@ -2274,6 +2287,7 @@ const Sound = (() => {
         if (Math.random() < 0.5) { if (this._held) this.squishUp(); this.fart(t); return; }
         this._fartOnRelease = true;
       }
+      if (typeof skin === 'function' && skin().singer) { this.sing(((window._sqV || 1) - 1), pan); return; }   // singers: press one and it sings its note (no squish, no farts)
       if (typeof skin === 'function' && skin().drum) { this.drum(['kick', 'tom1', 'tom2', 'floor', 'snare', 'hihat', 'ride', 'crash'][Math.floor(Math.random() * 8)], pan, 0.9); if (this._held) this.squishUp(); return; }   // drums: squeeze to play the kit
       if (typeof skin === 'function' && skin().hatch && eggKind() === 'chick' && playSample('squeak' + (1 + Math.floor(Math.random() * 5)), 0, 0.6, R(0.95, 1.12))) { if (this._held) this.squishUp(); return; }   // chicks: a cute squeaky-toy squeak, no splash
       let si; do { si = Math.floor(Math.random() * 13); } while (si === this._lastSponge); this._lastSponge = si;
@@ -3180,6 +3194,13 @@ const NEW_SKINS = [
       ctx.restore();
     },
   },
+  { name: 'Singers', singer: true, squish: 0.4, fixedColours: true, colours: ['#e8c3a6', '#c9967a', '#9c6b4e', '#6e4632', '#f0d2bd'],
+    // (27 Nov) a smooth round face of just a mouth: open in your hand, it closes when it lands; press one and it opens and sings its note
+    draw(ctx, s, c, i) { const r = s * 0.46, g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.05, 0, 0, r); g.addColorStop(0, mix(c, '#ffffff', 0.4)); g.addColorStop(0.65, c); g.addColorStop(1, shade(c, -35));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.ellipse(-r * 0.4, -r * 0.45, r * 0.22, r * 0.1, -0.6, 0, Math.PI * 2); ctx.fill(); },
+    anim(ctx, s, c, i, t, seed) { drawMouth(ctx, s * 0.46, mouthOpen(), t, seed); },
+  },
   { name: 'Ladybugs', ladybug: true, quietClear: true, dry: true, squish: 0.6, fixedColours: true, colours: ['#d4161c', '#e5621a', '#f0b81c', '#141418', '#b8122e'],
     // (27 Nov) glossy ladybugs from above, real markings, no cartoon faces; on a row they open their shells and fly off
     draw(ctx, s, c, i) { drawLadybug(ctx, s * 0.5, c, i, 0, 0); },
@@ -3919,7 +3940,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'ladybug']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'ladybug', 'singer']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -5093,6 +5114,39 @@ function drawSlices(now) {
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, w / 1.3 * 0.75, q.a0, q.a1); ctx.closePath(); ctx.clip();
     ctx.drawImage(sp.canvas, -w / 2, -w / 2, w, w); ctx.restore();
   }
+}
+// (27 Nov) Singers: how open this mouth is right now (in the hand, landing, or being pressed)
+let MOUTH_OPEN = null;
+function mouthOpen() {
+  if (HAND) return 1;
+  if (MOUTH_OPEN != null) return MOUTH_OPEN;
+  const p = window._poke, pos = window._animPos; if (!p || !pos) return 0;
+  const gx = Math.floor((pos[0] - L.ix) / L.c), gy = Math.floor((pos[1] - L.iy) / L.c); if (Logic.idx(gx, gy) !== p.i) return 0;
+  const now = performance.now();
+  if (!p.rel) return Math.min(1, (now - p.t0) / 110);
+  return Math.max(0, 1 - (now - p.rel.t0) / 260);
+}
+function drawMouth(x, r, open, t, seed) {
+  const w = r * 0.62, my = r * 0.18, h = r * 0.5 * open, lip = '#a8424c', lipLo = '#8c2f3a';
+  if (open > 0.04) {   // the open mouth: dark inside, a row of top teeth, a tongue
+    x.save(); x.beginPath(); x.ellipse(0, my + h * 0.15, w * (0.78 - open * 0.12), h * 0.7 + r * 0.02, 0, 0, Math.PI * 2); x.clip();
+    x.fillStyle = '#2a0c12'; x.fillRect(-w, my - h, w * 2, h * 2.4);
+    x.fillStyle = '#f4efe6'; x.fillRect(-w * 0.5, my - h * 0.58, w, h * 0.28);
+    x.fillStyle = '#c45a68'; x.beginPath(); x.ellipse(0, my + h * 0.78, w * 0.42, h * 0.32, 0, 0, Math.PI * 2); x.fill();
+    x.restore();
+  }
+  // upper lip with its cupid's bow, lower lip fuller, both glossy
+  const top = my - h * 0.55, bot = my + h * 0.85;
+  x.fillStyle = lip; x.beginPath(); x.moveTo(-w, my);
+  x.bezierCurveTo(-w * 0.6, top - r * 0.16, -w * 0.2, top - r * 0.2, 0, top - r * 0.1);
+  x.bezierCurveTo(w * 0.2, top - r * 0.2, w * 0.6, top - r * 0.16, w, my);
+  x.bezierCurveTo(w * 0.5, top - r * 0.01, -w * 0.5, top - r * 0.01, -w, my); x.fill();
+  const lg = x.createLinearGradient(0, bot - r * 0.05, 0, bot + r * 0.2); lg.addColorStop(0, lip); lg.addColorStop(1, lipLo);
+  x.fillStyle = lg; x.beginPath(); x.moveTo(-w, my);
+  x.bezierCurveTo(-w * 0.5, bot + r * 0.01, w * 0.5, bot + r * 0.01, w, my);
+  x.bezierCurveTo(w * 0.6, bot + r * 0.26, -w * 0.6, bot + r * 0.26, -w, my); x.fill();
+  x.strokeStyle = 'rgba(60,10,20,0.6)'; x.lineWidth = Math.max(0.6, r * 0.025); if (open <= 0.04) { x.beginPath(); x.moveTo(-w * 0.95, my); x.bezierCurveTo(-w * 0.4, my + r * 0.03, w * 0.4, my + r * 0.03, w * 0.95, my); x.stroke(); }
+  x.fillStyle = 'rgba(255,255,255,0.4)'; x.beginPath(); x.ellipse(-w * 0.15, bot + r * 0.12, w * 0.22, r * 0.035, 0, 0, Math.PI * 2); x.fill();   // gloss on the lower lip
 }
 // (27 Nov) Ladybugs: open 0..1 lifts the wing cases apart; flap 0..1 beats the clear wings underneath
 function drawLadybug(x, r, col, seed, open = 0, flap = 0) {
@@ -7294,6 +7348,7 @@ function playResult(res, pointerGesture) {
   if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 90 + k * 55 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.popcorn((at - now) / 1000, (res.gx + x - 3.5) / 5, 2.1); });   // placing pops as loud as a row popping (26 Nov)
   if (skin().hatch) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 120 + Math.random() * 50; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); if (res.lines) { /* this piece makes a line: just the normal clear sound, no cracking */ } else if (res.piece.shape.cells.length === 1) Sound.hatch((at - now + 260) / 1000, (res.gx + x - 3.5) / 5, 1.6); else if (k === 0) Sound.crackRun((at - now + 260) / 1000, res.piece.shape.cells.length, 1.6); if (!res.lines && k === 0 && eggKind() === 'fried') Sound.sizzle((at - now + 420) / 1000, 1 + Math.min(1, res.piece.shape.cells.length / 6)); });
   if (skin().bloom) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 80 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.bloom((at - now + 200) / 1000, (res.gx + x - 3.5) / 5, 1.6, k); });
+  if (skin().singer) res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + 60 + k * 50));   // (27 Nov) the mouths close as they land
   if (skin().eye) res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + 120 + k * 90 + Math.random() * 60));   // (27 Nov) each eye wakes up in turn
   // (26 Nov) square landing test switched off: pieces land as round balls with the normal jiggle
   // nearby bubbles feel the splash and jiggle a little, a beat later
@@ -7658,6 +7713,10 @@ function draw(now) {
       }
       const bl = skin().bloom;
       if (t < 0) { HAND = true; drawBubble(state.skin, v - 1, x + (bl ? 0 : Math.sin(now / 18 + gx) * c * 0.03), y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; continue; }   // the kernel jitters / the bud waits
+      if (skin().singer) {
+        if (t < 320) { MOUTH_OPEN = t < 0 ? 1 : 1 - t / 320; drawBubble(state.skin, v - 1, x, y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); MOUTH_OPEN = null; continue; }
+        POPT.delete(Logic.idx(gx, gy));
+      }
       if (skin().eye) {
         if (t < 900) { const u = Math.max(0, t) / 900; EYE_OPEN = t < 0 ? 0 : u < 0.35 ? 0.55 * Math.sin(u / 0.35 * Math.PI / 2) : u < 0.5 ? 0.55 - (u - 0.35) / 0.15 * 0.4 : 0.15 + 0.85 * Math.sin((u - 0.5) / 0.5 * Math.PI / 2);
           drawBubble(state.skin, v - 1, x, y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); EYE_OPEN = 1; continue; }
@@ -8684,7 +8743,7 @@ const Input = (() => {
           e.preventDefault(); const now = performance.now();
           // the bubble goes flat and wide under your finger and sticks to it: drag and it stretches after you, but stays in its cell
           if (poke) releasePoke(now);
-          poke = { i: Logic.idx(gx, gy), pid: e.pointerId, x0: x, y0: y, x, y, t0: now, rel: null };
+          poke = { i: Logic.idx(gx, gy), pid: e.pointerId, x0: x, y0: y, x, y, t0: now, rel: null }; window._poke = poke;
           FX.settle.delete(poke.i);
           try { cv.setPointerCapture(e.pointerId); } catch (err) {}
           for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
@@ -8692,7 +8751,7 @@ const Input = (() => {
             if (nx >= 0 && ny >= 0 && nx < N && ny < N && state.grid[Logic.idx(nx, ny)] && !FX.settle.has(Logic.idx(nx, ny))) FX.settle.set(Logic.idx(nx, ny), { t0: now + 70, amp: 0.12 });
           }
           { const [bx, by] = cellCentre(gx, gy), v = state.grid[Logic.idx(gx, gy)], cols = skin().colours;
-            lastSquishAt = { x: bx, y: by - L.c * 0.15 };
+            lastSquishAt = { x: bx, y: by - L.c * 0.15 }; window._sqV = v;
             window._jelly = { t: performance.now(), x: bx, y: by, amp: 1 };
             if (skin().hatch && eggKind() === 'fried') { state.yolks = state.yolks || {}; if (!state.yolks[Logic.idx(gx, gy)]) state.yolks[Logic.idx(gx, gy)] = performance.now(); }   // the yolk breaks and runs
             const sn = skin().name, col = cols[(v - 1) % cols.length];
