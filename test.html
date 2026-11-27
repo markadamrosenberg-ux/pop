@@ -640,7 +640,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 8am, records explode</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 7:45am, bigger balloon pops</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2087,7 +2087,10 @@ const Sound = (() => {
     },
     balloonPop(pan = 0) {   // (28 Nov) a balloon popping: one of Mark's recorded pops, never piled up
       if (!ok()) return; const t = ac.currentTime; if (t - (this._bp || 0) < 0.05) return; this._bp = t;
-      if (!this.openPop(0, pan, 0.55, 'pop')) noise(t, { type: 'bandpass', f: 1800, q: 0.8, peak: 0.08, attack: 0.001, decay: 0.06, pan });
+      this.openPop(0, pan, 1, 'pop');   // (28 Nov) fuller: Mark's recorded pop at full strength, plus the snap of the rubber and a little thump of air
+      noise(t, { type: 'highpass', f: 2500, q: 0.6, peak: 0.13, attack: 0.0005, decay: 0.035, pan });
+      noise(t, { type: 'bandpass', f: 900, q: 0.9, peak: 0.1, attack: 0.001, decay: 0.07, pan });
+      tone(t, { f: 180, f2: 70, type: 'sine', peak: 0.12, attack: 0.001, decay: 0.09, pan });
     },
     balloonLand(n = 1) {   // a soft rubbery squeak as balloons bump in
       if (!ok()) return; const t = ac.currentTime;
@@ -4143,7 +4146,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'vinyl', 'singer', 'ladybug', 'fish', 'singer', 'balloon', 'vinyl']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'vinyl', 'singer', 'ladybug', 'fish', 'singer', 'vinyl', 'balloon']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
