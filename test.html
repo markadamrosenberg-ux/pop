@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 10:55pm, held notes</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 11pm, soft vinyl</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2057,18 +2057,18 @@ const Sound = (() => {
       if (this._vin) { try { this._vin.g.gain.setTargetAtTime(0, ac.currentTime, 0.05); this._vin.src.stop(ac.currentTime + 0.3); } catch (e) {} }
       // (27 Nov) Mark's own recording of real vinyl static, from the moment the needle touches down
       const vb = sample('vinyl');
-      if (vb) { const src = ac.createBufferSource(), g = ac.createGain(); src.buffer = vb; g.gain.value = 1; src.connect(g); g.connect(out); src.start(t - 0.02); this._vin = { src, g }; }
+      if (vb) { const src = ac.createBufferSource(), g = ac.createGain(); src.buffer = vb; g.gain.value = 0.2; src.connect(g); g.connect(out); src.start(t - 0.02); this._vin = { src, g }; }
       // the needle hitting the vinyl
-      noise(t, { type: 'lowpass', f: 220, q: 0.8, peak: 0.32, attack: 0.002, decay: 0.09 });
+      noise(t, { type: 'lowpass', f: 220, q: 0.8, peak: 0.07, attack: 0.002, decay: 0.09 });
       // the needle skidding across the grooves: a loud raspy zzzrrrt
-      noise(t + 0.01, { type: 'bandpass', f: 3800, f2: 900, q: 2.2, peak: 0.34, attack: 0.004, decay: 0.22 });
-      noise(t + 0.01, { type: 'bandpass', f: 1600, f2: 500, q: 3, peak: 0.22, attack: 0.004, decay: 0.2 });
-      for (let k = 0; k < 9; k++) noise(t + 0.01 + k * 0.022, { type: 'bandpass', f: R(1500, 4000), q: 4, peak: 0.12, attack: 0.001, decay: 0.012 });   // the rasp of the grooves
+      noise(t + 0.01, { type: 'bandpass', f: 3800, f2: 900, q: 2.2, peak: 0.07, attack: 0.004, decay: 0.22 });
+      noise(t + 0.01, { type: 'bandpass', f: 1600, f2: 500, q: 3, peak: 0.05, attack: 0.004, decay: 0.2 });
+      for (let k = 0; k < 9; k++) noise(t + 0.01 + k * 0.022, { type: 'bandpass', f: R(1500, 4000), q: 4, peak: 0.03, attack: 0.001, decay: 0.012 });   // the rasp of the grooves
       // the music, through an old-record filter (no deep bass, no shiny top), with crackle over it
       const bus = ac.createGain(), hp = ac.createBiquadFilter(), lp = ac.createBiquadFilter();
       hp.type = 'highpass'; hp.frequency.value = 180; lp.type = 'lowpass'; lp.frequency.value = 3200; bus.connect(hp); hp.connect(lp); lp.connect(out);
       const m = t + 0.35, beat = 0.27, end = m + beat * 9;
-      bus.gain.setValueAtTime(0, m - 0.05); bus.gain.linearRampToValueAtTime(1, m + 0.15); bus.gain.setValueAtTime(1, end - 0.6); bus.gain.linearRampToValueAtTime(0, end);
+      bus.gain.setValueAtTime(0, m - 0.05); bus.gain.linearRampToValueAtTime(0.22, m + 0.15); bus.gain.setValueAtTime(0.22, end - 0.6); bus.gain.linearRampToValueAtTime(0, end);
       this._rec = bus;
       const bass = [110, 110, 130.8, 98, 110, 110, 146.8, 130.8];
       for (let k = 0; k < 8; k++) { const b = m + k * beat;
@@ -4094,7 +4094,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'vinyl', 'singer', 'ladybug', 'fish', 'vinyl', 'singer']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'vinyl', 'singer', 'ladybug', 'fish', 'singer', 'vinyl']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
