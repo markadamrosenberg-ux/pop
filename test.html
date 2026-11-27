@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 7:30pm, pizza</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 7:40pm, sunflowers open petal by petal</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -5062,7 +5062,7 @@ const isSun = () => { try { return flowerKind() === 'sunflower'; } catch (_) { r
 function drawSunflower(x, r, col, seed, grow = 1, petalsT = 1, discT = 1) {
   const n = 18, rot = seed * 0.7;
   for (const layer of [0, 1]) for (let k = 0; k < n; k++) {
-    const idx = layer * n + k, u = Math.max(0, Math.min(1, petalsT * 1.25 - (idx / (2 * n)) * 0.25)), e = u <= 0 ? 0 : 1 - Math.pow(1 - u, 3);
+    const ord = k * 2 + layer, st = ord / (2 * n) * 0.8, u = petalsT >= 1 ? 1 : Math.max(0, Math.min(1, (petalsT - st) / 0.2)), e = u <= 0 ? 0 : 1 - Math.pow(1 - u, 3);   // petal by petal, round the flower
     if (e <= 0) continue;
     const a = rot + (k + layer * 0.5) / n * Math.PI * 2, len = r * (layer ? 0.52 : 0.58) * e, w = r * 0.11 * Math.min(1, e * 1.5);
     x.save(); x.rotate(a);
@@ -7365,14 +7365,14 @@ function draw(now) {
         POPT.delete(Logic.idx(gx, gy));
       }
       if (bl && isSun()) {
-        if (t < 1300) {
+        if (t < 2100) {
           const sd = gx * 3 + gy * 5, col = SUN_COLS[(v - 1) % SUN_COLS.length];
           if (t < 350) drawSunBud(x, y, c * 0.96, 1, 1, 1, sd, t / 350);   // the bud swells and a hint of gold shows
           else {
-            const u = t - 350, lift = u > 800 ? Math.sin(Math.min(1, (u - 800) / 150) * Math.PI) * c * 0.06 : 0;
+            const u = t - 350, lift = u > 1600 ? Math.sin(Math.min(1, (u - 1600) / 150) * Math.PI) * c * 0.06 : 0;
             if (u < 200) drawSunBud(x, y, c * 0.96, 1, 1, 1 - u / 200, sd, 1);
             ctx.save(); ctx.translate(x, y - lift); ctx.rotate(((sd * 2.39996) % (Math.PI * 2)));
-            drawSunflower(ctx, c * 0.96 * 0.5 * 1.02, col, v - 1, 1, Math.min(1, Math.max(0, (u - 120) / 650)), Math.min(1, 0.35 + u / 400));
+            drawSunflower(ctx, c * 0.96 * 0.5 * 1.02, col, v - 1, 1, Math.min(1, Math.max(0, (u - 150) / 1400)), Math.min(1, 0.35 + u / 400));
             ctx.restore();
           }
           continue;
