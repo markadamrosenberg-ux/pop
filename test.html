@@ -81,7 +81,8 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .iconbtn.pinbtn{position:relative}
 .iconbtn.pinbtn svg{width:30px;height:30px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}
 .iconbtn.pinbtn.none{visibility:hidden}   /* no Pin, no button (Mark, 25 Nov) */
-#undoBtn,#swapBtn,#bonusBtn,#friendBtn,#shareBtn,#hint,#coach,#coachPt{display:none!important}   /* simpler main screen (Mark, 25 Nov) */
+#undoBtn,#swapBtn,#bonusBtn,#friendBtn,#shareBtn,#hint{display:none!important}
+#coach{font-size:18px!important;line-height:1.35}   /* simpler main screen (Mark, 25 Nov) */
 .iconbtn.pinbtn .pcount{position:absolute;bottom:3px;right:4px;min-width:16px;height:16px;border-radius:8px;background:#ff2d8a;color:#fff;font-size:11px;font-weight:700;line-height:16px;padding:0 3px}
 .iconbtn.pinbtn .pcount:empty{display:none}
 .iconbtn.pinbtn.active{background:#ffd23f;box-shadow:0 0 18px rgba(255,184,28,.8)}
@@ -226,6 +227,13 @@ header,.meter{width:100%;max-width:600px;margin-left:auto;margin-right:auto}
 .ubub svg{width:32px;height:32px;filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
 @keyframes ububFloat{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-5px) rotate(8deg)}}
 .undocard h2{font-size:32px;margin-bottom:6px}
+#guide{z-index:45}
+.gcard{padding:22px 20px 18px}
+.gcard h2{font-size:26px;margin:4px 0 6px}
+.gcard .gtxt{font-size:20px;line-height:1.35;margin:0 0 12px;opacity:.95}
+.gcard canvas{position:static!important;inset:auto!important;width:100%!important;height:230px!important;display:block;margin:0 auto 12px;border-radius:16px;background:rgba(0,0,0,.25)}
+.gdots{display:flex;justify-content:center;gap:8px;margin:2px 0 12px}.gdots i{width:9px;height:9px;border-radius:50%;background:rgba(255,255,255,.25)}.gdots i.on{background:#ffd23f}
+.gask .gtxt{margin-bottom:18px}
 .ulead{font-size:18px;color:var(--ink);opacity:.85;margin-bottom:14px;line-height:1.3}
 .ucost{display:flex;align-items:baseline;justify-content:center;gap:8px;margin-bottom:12px}
 .unum{font-size:56px;font-weight:700;line-height:1;position:relative;color:transparent;-webkit-text-fill-color:transparent;
@@ -528,6 +536,9 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       </div>
     </div>
     <div id="tapStart"><div class="tsball"><span><i>P</i><i>o</i><i>p</i></span></div><div class="tsgo">Tap Pop to play</div><div class="tssnd">🔊 Sound on</div></div>
+    <div class="overlay" id="guide">
+      <div class="card gcard" id="guideCard"></div>
+    </div>
     <div class="overlay" id="nameCard">
       <div class="card undocard">
         <div class="ubub ladbub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 17.5L3.5 8.5l5 4 3.5-6 3.5 6 5-4-1 9z"/><path d="M5 20.5h14"/></svg></div>
@@ -625,13 +636,14 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 5:15pm, same as live (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 6pm, first-time guide (not live, ladder off)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
           <div class="seg" id="modeSeg"><button data-m="easy">😌 Easy<small>½ pts</small></button><button data-m="medium">👌 Medium<small>1× pts</small></button><button data-m="hard">🔥 Hard<small>2× pts</small></button></div></div>
         <div class="row"><span>Ball library<div class="note" id="libNote"></div></span><button class="bgbtn" id="libBtn">See all ›</button></div>
         <div class="row"><span>Background</span><button class="bgbtn" id="bgBtn"><span id="bgNow">Automatic</span> ›</button></div>
+        <button class="btn ghost" id="setGuide" style="margin:0 0 10px">Show me how to play</button>
         <details class="howto"><summary>How to play</summary>Drag pieces onto the grid. Fill a row or column to pop it. Pop enough lines and a golden ball appears: pop a line through it to win the ★ Frame Bubble, then drop that anywhere to clear the frame and unlock a new look. Emptying the whole board yourself clears the frame too, with a bonus. Your score multiplies when you clear lines on back-to-back moves. A glowing ? piece is a mystery piece: pick it up to reveal a special shape. When you earn a Pin it appears at the top left: tap it, then tap up to 3 bubbles to pop them.</details>
         <button class="btn" id="closeSettings">Done</button>
         <div class="setbtns"><button class="btn ghost" id="restart2">New game</button><button class="btn ghost" id="setInvite">Invite friends</button></div>
@@ -3240,6 +3252,82 @@ const theme = () => withScene(themeFor(skin()));
 // are unlocked with your best score and then join the rotation. You can also pin one in Settings.
 // Ball library: every look you've reached in a game is collected for good. A new game always starts on the
 // first look and moves on one per frame, so getting further into a game is how you collect them all.
+// (27 Nov) Guide: for someone who has never played a game like this. Asked once, on their very first visit.
+// Three short pages with a moving picture each, then one-off tips as the special things first appear.
+const Guide = (() => {
+  const COLS = ['#ff5aa5', '#4fc3ff', '#ffd23f', '#9b5cff', '#3fe08a'];
+  const PAGES = [
+    { t: 'Drag a piece onto the board', d: 'Pick up one of the pieces at the bottom with your finger and drop it on the board.' },
+    { t: 'Fill a line, and it pops!', d: 'Fill a whole row across, or a column down, and those balls pop and clear away.' },
+    { t: 'Take your time', d: "There's no timer. Keep going as long as you can. The game ends when none of your pieces fit. We'll explain the special balls when you first see them." },
+  ];
+  let page = -1, raf = 0, after = null;
+  const el = () => document.getElementById('guide'), card = () => document.getElementById('guideCard');
+  function ball(g, x, y, r, c, a = 1) {
+    g.globalAlpha = a; const gr = g.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
+    gr.addColorStop(0, '#fff'); gr.addColorStop(0.3, c); gr.addColorStop(1, c);
+    g.fillStyle = gr; g.beginPath(); g.arc(x, y, r, 0, 6.29); g.fill(); g.globalAlpha = 1;
+  }
+  function demo(cv, kind) {   // a little moving picture of the board
+    const g = cv.getContext('2d'), D = Math.min(3, devicePixelRatio || 1), W = cv.clientWidth, H = cv.clientHeight;
+    cv.width = W * D; cv.height = H * D;
+    const n = 6, cs = Math.min(W * 0.84 / n, H * 0.62 / n), ox = (W - cs * n) / 2, oy = H * 0.06, r = cs * 0.4;
+    const base = kind === 0 ? [[0, 5], [1, 5], [4, 5], [5, 4], [5, 5]] : [[0, 3], [1, 3], [2, 3], [5, 3], [0, 5], [5, 5]];
+    const piece = kind === 0 ? [[0, 0], [0, 1], [1, 1]] : [[0, 0], [1, 0]], target = kind === 0 ? [2, 3] : [3, 3];
+    const tray = [W * 0.5 - cs * 0.5, oy + cs * n + cs * 1.0];
+    const t0 = performance.now();
+    function frame(now) {
+      if (page !== kind) return; raf = requestAnimationFrame(frame);
+      const T = ((now - t0) / 1000) % 3.4;
+      g.setTransform(D, 0, 0, D, 0, 0); g.clearRect(0, 0, W, H);
+      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { g.fillStyle = 'rgba(255,255,255,.07)'; g.beginPath(); g.roundRect(ox + x * cs + 2, oy + y * cs + 2, cs - 4, cs - 4, cs * 0.22); g.fill(); }
+      const move = Math.min(1, Math.max(0, (T - 0.6) / 1.0)), ease = move < 0.5 ? 2 * move * move : 1 - Math.pow(-2 * move + 2, 2) / 2;
+      const landed = T > 1.6, popT = kind === 1 ? Math.max(0, T - 1.9) : 0;
+      const tx = ox + target[0] * cs, ty = oy + target[1] * cs, px = tray[0] + (tx - tray[0]) * ease, py = tray[1] + (ty - tray[1]) * ease;
+      const inRow = (x, y) => kind === 1 && y === 3;
+      for (const [x, y] of base) {
+        if (inRow(x, y) && popT > 0) { const q = Math.min(1, popT / 0.35); if (q < 1) ball(g, ox + x * cs + cs / 2, oy + y * cs + cs / 2, r * (1 + q * 0.5), COLS[(x + y) % 5], 1 - q); continue; }
+        ball(g, ox + x * cs + cs / 2, oy + y * cs + cs / 2, r, COLS[(x + y) % 5]);
+      }
+      for (const [x, y] of piece) {
+        const cx = (landed ? tx : px) + x * cs + cs / 2, cy = (landed ? ty : py) + y * cs + cs / 2;
+        if (kind === 1 && landed && popT > 0) { const q = Math.min(1, popT / 0.35); if (q < 1) ball(g, cx, cy, r * (1 + q * 0.5), '#ffd23f', 1 - q); continue; }
+        ball(g, cx, cy, r * (landed || move > 0 ? 1 : 0.85), '#ffd23f');
+      }
+      if (kind === 1 && popT > 0 && popT < 0.5) { g.strokeStyle = 'rgba(255,255,255,' + (1 - popT * 2) + ')'; g.lineWidth = 3; g.beginPath(); g.roundRect(ox, oy + 3 * cs, cs * n, cs, cs * 0.3); g.stroke(); }
+      if (!landed) { g.font = Math.round(cs * 0.9) + 'px system-ui'; g.fillText('👆', px + cs * 0.25, py + cs * 1.7); }
+      if (kind === 1 && T > 2.4) { g.fillStyle = '#ffd23f'; g.font = '800 ' + Math.round(cs * 0.6) + 'px Fredoka, system-ui'; g.textAlign = 'center'; g.fillText('Pop!', W / 2, oy + 3 * cs + cs * 0.7); g.textAlign = 'left'; }
+    }
+    raf = requestAnimationFrame(frame);
+  }
+  function render() {
+    cancelAnimationFrame(raf);
+    const c = card();
+    if (page < 0) {   // the question
+      c.className = 'card gcard gask';
+      c.innerHTML = `<h2>Welcome to Pop! 🫧</h2><div class="gtxt">New to games like this? Would you like a quick guide? It takes about 30 seconds.</div>
+        <button class="btn ubtn" id="gYes">Yes, show me</button><button class="btn ghost" id="gNo">No thanks, I'll work it out</button>`;
+      document.getElementById('gYes').onclick = () => { Sound.pickup(); Store.set('guideOn', true); page = 0; render(); };
+      document.getElementById('gNo').onclick = () => { Sound.pickup(); close(); };
+      return;
+    }
+    const P = PAGES[page], last = page === PAGES.length - 1;
+    c.className = 'card gcard';
+    c.innerHTML = `<h2>${P.t}</h2>${page < 2 ? '<canvas id="gDemo"></canvas>' : '<div style="font-size:64px;margin:6px 0 10px">🫧</div>'}<div class="gtxt">${P.d}</div>
+      <div class="gdots">${PAGES.map((_, i) => `<i class="${i === page ? 'on' : ''}"></i>`).join('')}</div>
+      <button class="btn ubtn" id="gNext">${last ? "Let's play!" : 'Next'}</button>${last ? '' : '<button class="btn ghost" id="gSkip">Skip</button>'}`;
+    if (page < 2) demo(document.getElementById('gDemo'), page);
+    document.getElementById('gNext').onclick = () => { Sound.pickup(); if (last) close(); else { page++; render(); } };
+    const sk = document.getElementById('gSkip'); if (sk) sk.onclick = () => { Sound.pickup(); close(); };
+  }
+  function close() { cancelAnimationFrame(raf); page = -2; el().classList.remove('show'); const f = after; after = null; if (f) setTimeout(f, 300); }
+  return {
+    // first visit only: someone who has played before never sees it
+    maybe(then) { if (Store.get('guideAsked', false) || Store.get('games', 0) > 1 || navigator.webdriver) return false; Store.set('guideAsked', true); this.open(then, true); return true; },
+    open(then = null, ask = false) { after = then; page = ask ? -1 : 0; if (!ask) Store.set('guideOn', true); render(); el().classList.add('show'); },
+    showing: () => el().classList.contains('show'),
+  };
+})();
 // Coach: one-time tips that pop up the first time each extra turns up, pointing at it
 const Coach = (() => {
   let cur = null, lastHide = 0;
@@ -3257,32 +3345,25 @@ const Coach = (() => {
   const leftIdx = () => { const a = []; for (let i = 0; i < N * N; i++) if (state.grid[i]) a.push(i); return a; };
   const fewLeft = () => { const n = state.grid.filter(Boolean).length; return n >= 1 && n <= 4 && !(Input.partyMode && Input.partyMode()); };
   const leftCells = () => leftIdx().map(cellRect);
-  const TIPS = [
-    { id: 'golden', when: () => state.golden, at: () => cellRect(state.golden.i),
-      text: () => `✨ <b>Golden bubble!</b> Clear its row or column within <b>${state.golden.left} moves</b> to win a <b>Frame Bubble</b>.` },
-    { id: 'frameBubble', when: () => state.tray.some(p => p && p.mystery && p.frame), at: () => traySlot(p => p.mystery && p.frame),
-      text: () => `🌟 <b>Frame Bubble</b>: drop it anywhere to pop the <b>whole board</b> and clear the frame. Best saved for a crowded board.` },
-    { id: 'mystery', when: () => state.tray.some(p => p && p.mystery && !p.frame), at: () => traySlot(p => p.mystery && !p.frame),
-      text: () => `❓ <b>Mystery piece</b>: pick it up to reveal a special shape, then place it like any piece.` },
-    { id: 'party', when: () => Input.partyMode && Input.partyMode(), at: () => null,
-      text: () => `🎉 <b>Pop Party</b>: tap bubbles to pop them for points. Pick the ones that open up lines. Picking up a piece ends it.` },
-    // the first time only a few bubbles are left and you have a pin: show how to finish the frame with it
+  const TIPS = [   // (27 Nov) shown once each, the first time it turns up, only to players who asked for the guide
+    { id: 'golden', when: () => state.golden, at: () => cellRect(state.golden.i), point: 'down',
+      text: () => `✨ <b>A golden ball!</b> Fill its row or column within <b>${state.golden.left} moves</b> and you win a <b>★ Frame Bubble</b>.` },
+    { id: 'frameBubble', when: () => state.tray.some(p => p && p.mystery && p.frame), at: () => traySlot(p => p.mystery && p.frame), point: 'down',
+      text: () => `🌟 <b>You won a Frame Bubble!</b> Drag it onto the board anywhere. Every ball pops and you get a <b>brand-new look</b>.` },
+    { id: 'mystery', when: () => state.tray.some(p => p && p.mystery && !p.frame), at: () => traySlot(p => p.mystery && !p.frame), point: 'down',
+      text: () => `❓ <b>A mystery piece.</b> Pick it up and it turns into a special shape. Then place it like any other piece.` },
     { id: 'pinFinish', always: true, when: () => pinsLeft() > 0 && !Input.pinShots() && fewLeft(), at: () => elRect('pinBtn'), point: 'up', extra: leftCells,
-      text: () => `📍 Only <b>${state.grid.filter(Boolean).length} left!</b> Tap the <b>Pin</b> up here, then pop the last bubbles to <b>clear the frame</b>.` },
+      text: () => `📍 Only <b>${state.grid.filter(Boolean).length} left!</b> Tap the <b>Pin</b> up here, then tap the last balls to pop them and finish the board.` },
     { id: 'pinFinishTap', always: true, when: () => Input.pinShots() > 0 && fewLeft(), at: () => null, card: 'tray', extra: leftCells,
-      text: () => `👇 Now <b>tap each bubble</b> to pop it. Pop them all and the frame is cleared!` },
+      text: () => `👇 Now <b>tap each ball</b> to pop it.` },
     { id: 'pin', when: () => (Store.get('pins', 0) + Store.get('pinSpare', 0)) > 0 && !Input.pinShots() && (state.frameMoves | 0) >= 3 && state.grid.filter(Boolean).length >= 5, at: () => elRect('pinBtn'),
-      point: 'up', text: () => `📍 <b>Pin</b>: tap the Pin up here to pick it up. Then tap a bubble to pop it.` },
+      point: 'up', text: () => `📍 <b>This is a Pin.</b> It pops any ball you choose. Use it when a ball is in your way: tap the Pin, then tap the ball.` },
     { id: 'pinTap', when: () => Input.pinShots() > 0 && !(Input.partyMode && Input.partyMode()) && state.grid.some(Boolean), at: () => cellRect(pinTarget()),
-      point: 'down', text: () => `👇 Now <b>tap a bubble</b> to pop it, like this one. Pick bubbles that are <b>in the way</b> of filling a line.` },
+      point: 'down', text: () => `👇 Now <b>tap a ball</b> to pop it.` },
     { id: 'combo', when: () => (state.combo | 0) >= 2, at: () => elRect('combo'),
-      text: () => `🔥 <b>Combo!</b> Clear lines on back-to-back moves and your points multiply.` },
-    { id: 'bonus', when: () => Store.get('bonusPieces', 0) > 0 && (state.frameMoves | 0) >= 7, at: () => elRect('bonusBtn'),
-      text: () => `★ <b>Bonus piece</b>: tap this when you're stuck to get an extra piece.` },
-    { id: 'undo', when: () => { const b = document.getElementById('undoBtn'); return b && !b.disabled && (state.frameMoves | 0) >= 9; }, at: () => elRect('undoBtn'),
-      text: () => `↩️ <b>Undo</b> takes back your last move. It costs 10% of your score, so save it for a real mistake.` },
+      text: () => `🔥 <b>Combo!</b> Pop lines on moves in a row and your points multiply.` },
     { id: 'frame', when: () => (state.boardClears | 0) >= 1 && (state.frameMoves | 0) === 0, at: () => null,
-      text: () => `🏆 <b>Frame cleared!</b> Each frame brings new balls, a new scene and a <b>bigger points multiplier</b>. Collect every ball in Settings → Ball library.` },
+      text: () => `🏆 <b>New look!</b> Every time you finish a board, the balls change. See them all in Settings, then Ball library.` },
   ];
   function hide(markSeen = true) {
     if (!cur) return; if (markSeen) Store.set('tipsSeen', seen().concat(cur.id));
@@ -3331,11 +3412,10 @@ const Coach = (() => {
     if (cur.ring) cur.ring.classList.add('coachring');
   }
   return {
-    tick(now) { return;   // no tips during play: players discover things themselves; How to play is in Settings (Mark, 25 Nov)
+    tick(now) { if (!Store.get('guideOn', false)) return;   // (27 Nov) tips only for players who said yes to the guide; everyone else discovers things themselves
       // tips are only for a beginner's first (guided) game; never again after that
       // (except the pin-to-finish tip, which shows the first time it's useful in any game)
-      const pool = state.tutorial ? TIPS : TIPS.filter(q => q.always);
-      if (!state.tutorial && cur && !TIPS.find(q => q.id === cur.id && q.always)) { hide(false); return; }
+      const pool = TIPS;
       const blocked = !!document.querySelector('.overlay.show');
       if (cur && blocked) { hide(false); return; }
       if (cur) {   // the tip goes away once its moment has passed (but counts as seen)
@@ -8821,6 +8901,7 @@ const UI = (() => {
   $('shareBtn').addEventListener('click', openInvite);
   $('friendBtn').addEventListener('click', openInvite);
   $('setInvite').addEventListener('click', openInvite);
+  $('setGuide').addEventListener('click', () => { st.classList.remove('show'); Store.set('tipsSeen', []); Guide.open(); });   // replay the guide, and the one-off tips come back too
   $('goInvite').addEventListener('click', openInvite);
   $('closeInvite').addEventListener('click', () => { inv.classList.remove('show'); if (state.over) go.classList.add('show'); });
   async function copyInvite() {
@@ -8858,7 +8939,7 @@ const UI = (() => {
     Input.armSwap(!Input.swapArmed()); if (Input.swapArmed()) toast('Tap the piece you want to swap'); UI.update(true);
   });
   $('bonusBtn').addEventListener('click', () => { Sound.unlock(); Input.dropStale(); if (!useBonusPiece()) toast(state.tray.some(p => !p) ? 'Try again in a moment' : 'Place a piece first to make room in your tray'); });
-  return { update, placeHint, showHint, dismissHint, toast, askDifficulty, showGameOver, hideGameOver, modalOpen: () => document.getElementById('tapStart').classList.contains('show') || go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show') || askEl.classList.contains('show') || mp.classList.contains('show') || pinInfoEl.classList.contains('show') || nc.classList.contains('show') || fc.classList.contains('show') || document.getElementById('diffAsk').classList.contains('show') || document.getElementById('libPick').classList.contains('show') || document.getElementById('bgPick').classList.contains('show'),
+  return { update, placeHint, showHint, dismissHint, toast, askDifficulty, showGameOver, hideGameOver, modalOpen: () => document.getElementById('tapStart').classList.contains('show') || document.getElementById('guide').classList.contains('show') || go.classList.contains('show') || st.classList.contains('show') || inv.classList.contains('show') || rescueEl.classList.contains('show') || askEl.classList.contains('show') || mp.classList.contains('show') || pinInfoEl.classList.contains('show') || nc.classList.contains('show') || fc.classList.contains('show') || document.getElementById('diffAsk').classList.contains('show') || document.getElementById('libPick').classList.contains('show') || document.getElementById('bgPick').classList.contains('show'),
     showRescue() { rescueEl.classList.add('show'); },
     pinInfo: n => pinInfo(n),
     pinEarned: () => pinEarned(),
@@ -9209,7 +9290,7 @@ const TapStart = (() => {
   return { show };
 })();
 (() => { const m = location.search.match(/[?&]f=([^&]+)/); if (m) { Store.set('pendingInvite', Net.cleanCode(decodeURIComponent(m[1]))); try { history.replaceState(null, '', location.pathname + location.search.replace(/[?&]f=[^&]+/, '').replace(/^&/, '?') + location.hash); } catch (_) {} } })();
-TapStart.show(async () => { if (Celebrate.active() || UI.modalOpen()) return; if (await UI.handleInvite()) return; UI.showNameCard(); });
+TapStart.show(async () => { if (Celebrate.active() || UI.modalOpen()) return; if (Guide.maybe(async () => { if (await UI.handleInvite()) return; UI.showNameCard(); })) return; if (await UI.handleInvite()) return; UI.showNameCard(); });
 Net.flush(); Net.refresh();
 document.addEventListener('visibilitychange', () => { if (document.hidden) Net.flush(); else Net.refresh(); });
 setInterval(() => { if (!document.hidden) Net.refresh(); }, 90000);
