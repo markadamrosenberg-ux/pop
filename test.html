@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 8:10pm, shinier ladybirds</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 10:30pm, leaping fish</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2030,6 +2030,11 @@ const Sound = (() => {
       tone(t, { f: 520 * v, f2: 160, peak: 0.12 * big, attack: 0.001, decay: 0.045, pan });
       noise(t + 0.002, { type: 'highpass', f: 3400, q: 0.7, peak: 0.03 * big, attack: 0.0005, decay: 0.012, pan });
     },
+    fishLeap(out = true) {   // (27 Nov) a little 'plip' as the fish leaves the water, a soft 'plop' as it lands
+      if (!ok()) return; const t = ac.currentTime;
+      if (out) plip(t, R(700, 850), 0.06, 0.05);
+      else { tone(t, { f: R(380, 460), f2: R(900, 1100), peak: 0.06, attack: 0.002, decay: 0.07 }); noise(t, { type: 'bandpass', f: 1800, q: 1, peak: 0.025, attack: 0.002, decay: 0.08 }); }
+    },
     crackle() {   // (27 Nov) the needle dropping: a loud thump and burst of static, then a short scratchy old-record groove plays
       if (!ok()) return; const t = ac.currentTime + 0.42;
       if (this._rec) { try { this._rec.gain.cancelScheduledValues(ac.currentTime); this._rec.gain.setTargetAtTime(0, ac.currentTime, 0.04); } catch (e) {} }   // a new drop takes over from the last one
@@ -2663,8 +2668,57 @@ function animSnow(ctx, s, c, i, t, seed) {
   ctx.restore(); ctx.globalAlpha = 1;
 }
 // the fish swims to and fro, blinks, blows bubbles, and the water sloshes
+// (27 Nov) Fishbowls: once the fish have settled, one leaps out of its bowl into the bowl next door, has a quick look round, and leaps back home
+let FISHJ = null, FISH_NEXT = 0;
+function fishJumpFrom(i, now) {   // start a jump from cell i to a random filled neighbour; false if it has none
+  const N = CONFIG.gridSize, ax = i % N, ay = Math.floor(i / N);
+  const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [ax + dx, ay + dy]).filter(([x, y]) => x >= 0 && y >= 0 && x < N && y < N && state.grid[y * N + x]);
+  if (!nb.length || !state.grid[i]) return false;
+  const [bx, by] = nb[Math.floor(Math.random() * nb.length)];
+  FISHJ = { ax, ay, bx, by, v: state.grid[i], t0: now, seed: ax * 3 + ay * 5, splashed: 0 };
+  return true;
+}
+function fishJumps(now) {
+  const sk = skin(); if (sk.name !== 'Fishbowls' || settings.reduced) { FISHJ = null; return; }
+  if (!FISHJ) {
+    if (FISH_NEXT && now > FISH_NEXT) { FISH_NEXT = now + 6000 + Math.random() * 6000;   // now and then on its own too
+      const filled = []; for (let i = 0; i < state.grid.length; i++) if (state.grid[i]) filled.push(i);
+      for (let k = 0; k < 6 && filled.length; k++) if (fishJumpFrom(filled[Math.floor(Math.random() * filled.length)], now)) break; }
+    if (!FISH_NEXT) FISH_NEXT = now + 4000;
+    return;
+  }
+  const J = FISHJ, u = now - J.t0, A = cellCentre(J.ax, J.ay), B = cellCentre(J.bx, J.by), c = L.c;
+  if (!state.grid[J.ay * CONFIG.gridSize + J.ax] || !state.grid[J.by * CONFIG.gridSize + J.bx] || u > 2700) { FISHJ = null; return; }
+  const col = sk.colours[(J.v - 1) % sk.colours.length], LEAP = 650, STAY = 1300;
+  let x, y, rot = 0, dir;
+  const arc = (P, Q, q) => { const e = q < 0.5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2; return [P[0] + (Q[0] - P[0]) * e, P[1] + (Q[1] - P[1]) * e - Math.sin(q * Math.PI) * c * 1.15]; };
+  const splash = (P, k) => { if (J.splashed & k) return; J.splashed |= k; Sound.fishLeap(k === 1 || k === 4);
+    for (let n = 0; n < 7; n++) SPARKS.push({ kind: 'spark', x: P[0] + (Math.random() - 0.5) * c * 0.3, y: P[1] - c * 0.15, vx: (Math.random() - 0.5) * c * 3, vy: -c * (2 + Math.random() * 2.5), col: '#bfe9ff', t0: now, life: 450 + Math.random() * 250 }); };
+  if (u < LEAP) { const q = u / LEAP; [x, y] = arc(A, B, q); dir = B[0] >= A[0] ? 1 : -1; rot = (q - 0.5) * 1.6 * dir; if (B[0] === A[0]) rot = (B[1] > A[1] ? 1 : -1) * (q - 0.5) * 2; splash(A, 1); }
+  else if (u < LEAP + STAY) { const q = (u - LEAP) / STAY; splash(B, 2); x = B[0] + Math.sin(q * Math.PI * 2) * c * 0.12; y = B[1] + c * 0.1 + Math.sin(q * Math.PI * 4) * c * 0.03; dir = Math.cos(q * Math.PI * 2) >= 0 ? 1 : -1; }
+  else { const q = Math.min(1, (u - LEAP - STAY) / LEAP); [x, y] = arc(B, A, q); dir = A[0] >= B[0] ? 1 : -1; rot = (q - 0.5) * 1.6 * dir; if (B[0] === A[0]) rot = (A[1] > B[1] ? 1 : -1) * (q - 0.5) * 2; splash(B, 4); if (q >= 1) splash(A, 8); }
+  const inside = u >= LEAP && u < LEAP + STAY;
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(dir, 1); if (inside) ctx.globalAlpha = 0.85;
+  drawFishOnly(ctx, c * 0.45 * 0.52, col, now / 1000, J.seed);
+  ctx.restore();
+}
+function drawFishOnly(x, fl, c, t, seed) {   // the same little fish as in the bowls, on its own
+  const tail = Math.sin(t * 14 + seed) * 0.4;
+  x.fillStyle = mixH(c, '#000000', 0.15);
+  x.beginPath(); x.moveTo(-fl * 0.75, 0); x.lineTo(-fl * 1.25, -fl * (0.45 + tail * 0.3)); x.lineTo(-fl * 1.2, fl * (0.45 - tail * 0.3)); x.closePath(); x.fill();
+  const fg = x.createRadialGradient(fl * 0.1, -fl * 0.2, fl * 0.05, 0, 0, fl); fg.addColorStop(0, mixH(c, '#ffffff', 0.45)); fg.addColorStop(1, c);
+  x.fillStyle = fg; x.beginPath(); x.ellipse(0, 0, fl * 0.85, fl * 0.55, 0, 0, Math.PI * 2); x.fill();
+  const ex = fl * 0.36, ey = -fl * 0.1, er = fl * 0.31;
+  x.fillStyle = '#fff'; x.beginPath(); x.arc(ex, ey, er, 0, Math.PI * 2); x.fill();
+  const ig = x.createRadialGradient(ex + er * 0.1, ey - er * 0.1, er * 0.05, ex + er * 0.25, ey, er * 0.62); ig.addColorStop(0, '#9fdcff'); ig.addColorStop(0.6, '#1f8fe8'); ig.addColorStop(1, '#0a3f8a');
+  x.fillStyle = ig; x.beginPath(); x.arc(ex + er * 0.25, ey, er * 0.62, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#05070f'; x.beginPath(); x.arc(ex + er * 0.32, ey, er * 0.3, 0, Math.PI * 2); x.fill();
+  x.fillStyle = '#fff'; x.beginPath(); x.arc(ex + er * 0.1, ey - er * 0.22, er * 0.16, 0, Math.PI * 2); x.fill();
+}
 function animFish(ctx, s, c, i, t, seed) {
   const r = s * 0.45, sw = Math.sin(t * 0.9 + seed);
+  let away = false;   // (27 Nov) a fish that's jumped out to visit next door isn't drawn at home
+  if (FISHJ && !HAND && window._animPos) { const p2 = window._animPos, gx = Math.floor((p2[0] - L.ix) / L.c), gy = Math.floor((p2[1] - L.iy) / L.c); away = gx === FISHJ.ax && gy === FISHJ.ay; }
   const fx = sw * r * 0.14, fy = r * 0.18 + Math.sin(t * 2.1 + seed) * r * 0.05, fl = r * 0.52;
   // where's the piece? the fish turns to face it and its eyes follow it
   const pos = window._animPos, dp = pos && typeof Input !== 'undefined' && Input.dragPoint ? Input.dragPoint() : null;
@@ -2677,6 +2731,7 @@ function animFish(ctx, s, c, i, t, seed) {
   for (let k = 0; k <= 20; k++) { const x = -r + k / 20 * r * 2, y = -r * 0.38 + Math.sin(k * 0.8 + t * 4 + seed) * r * 0.035 + sw * (x / r) * r * 0.05; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
   ctx.stroke();
   // fish
+  if (!away) {
   ctx.save(); ctx.translate(fx, fy); ctx.scale(dir, 1);
   const tail = Math.sin(t * 9 + seed) * 0.35;
   ctx.fillStyle = mixH(c, '#000000', 0.15);
@@ -2697,6 +2752,7 @@ function animFish(ctx, s, c, i, t, seed) {
     ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ix - ir * 0.3, iy - ir * 0.35, ir * 0.25, 0, Math.PI * 2); ctx.fill();
   }
   ctx.restore();
+  }
   // bubbles rising
   ctx.fillStyle = 'rgba(255,255,255,0.75)';
   for (let k = 0; k < 2; k++) { const ph = (t * 0.6 + seed * 0.3 + k * 0.5) % 1, bx = fx + dir * fl * 0.8 + Math.sin(ph * 9) * r * 0.03, by = fy - ph * r * 0.6; if (by > -r * 0.36) { ctx.beginPath(); ctx.arc(bx, by, r * (0.03 + ph * 0.02), 0, Math.PI * 2); ctx.fill(); } }
@@ -3167,7 +3223,7 @@ const NEW_SKINS = [
       ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.beginPath(); ctx.ellipse(-gr * 0.42, gy - gr * 0.5, gr * 0.22, gr * 0.09, -0.6, 0, Math.PI * 2); ctx.fill();
     },
   },
-  { name: 'Fishbowls', colours: NEW_COLS, squish: 1.5, anim: animFish,
+  { name: 'Fishbowls', fish: true, colours: NEW_COLS, squish: 1.5, anim: animFish,
     // a round glass fishbowl with sloshing water and a little fish who swims about and blinks
     draw(ctx, s, c, i) {
       const r = s * 0.45;
@@ -3979,7 +4035,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'vinyl', 'singer', 'ladybug']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'vinyl', 'singer', 'ladybug', 'fish']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -7461,6 +7517,7 @@ function playResult(res, pointerGesture) {
   if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 90 + k * 55 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.popcorn((at - now) / 1000, (res.gx + x - 3.5) / 5, 2.1); });   // placing pops as loud as a row popping (26 Nov)
   if (skin().hatch) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 120 + Math.random() * 50; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); if (res.lines) { /* this piece makes a line: just the normal clear sound, no cracking */ } else if (res.piece.shape.cells.length === 1) Sound.hatch((at - now + 260) / 1000, (res.gx + x - 3.5) / 5, 1.6); else if (k === 0) Sound.crackRun((at - now + 260) / 1000, res.piece.shape.cells.length, 1.6); if (!res.lines && k === 0 && eggKind() === 'fried') Sound.sizzle((at - now + 420) / 1000, 1 + Math.min(1, res.piece.shape.cells.length / 6)); });
   if (skin().bloom) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 80 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.bloom((at - now + 200) / 1000, (res.gx + x - 3.5) / 5, 1.6, k); });
+  if (skin().name === 'Fishbowls' && !FISHJ) { const cells = res.piece.shape.cells.map(([x, y]) => (res.gy + y) * CONFIG.gridSize + res.gx + x); setTimeout(() => { if (FISHJ || skin().name !== 'Fishbowls') return; const t2 = performance.now(); for (const i of cells.sort(() => Math.random() - 0.5)) if (fishJumpFrom(i, t2)) break; }, 1300); }   // (27 Nov) once they settle, one leaps next door and back
   if (skin().vinyl) { res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + 40 + k * 60)); Sound.crackle(); }   // (27 Nov) the needle drops and the record crackles
   if (skin().singer) res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + 60 + k * 50));   // (27 Nov) the mouths close as they land
   if (skin().eye) res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + 120 + k * 90 + Math.random() * 60));   // (27 Nov) each eye wakes up in turn
@@ -8178,7 +8235,7 @@ function draw(now) {
   }
 
   if (SKINS[state.skin % SKINS.length].lights) drawWires(now);
-  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); if (SPARKS.length) drawSparks(now, dtp); if (DETS.length) drawDets(now); if (FLIERS.length) drawFliers(now, dtp); if (SEEDS.length) drawSeeds(now, dtp); if (SLICES.length) drawSlices(now); if (SHARDS.length) drawShards(now, dtp); if (SMOKE.length) drawSmoke(now); if (DISCS.length) drawDiscs(now, dtp); }
+  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); if (SPARKS.length) drawSparks(now, dtp); if (DETS.length) drawDets(now); if (FLIERS.length) drawFliers(now, dtp); if (SEEDS.length) drawSeeds(now, dtp); if (SLICES.length) drawSlices(now); if (SHARDS.length) drawShards(now, dtp); if (SMOKE.length) drawSmoke(now); fishJumps(now); if (DISCS.length) drawDiscs(now, dtp); }
   // dragged piece on top
   const d = Input.dragDraw();
   if (d) {
