@@ -640,7 +640,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 7:45am, bigger balloon pops</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 7:50am, balloon stretch</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2085,6 +2085,20 @@ const Sound = (() => {
       // a quick scratch in the middle, like a DJ
       for (const [o2, f1, f2] of [[3, 600, 2400], [3.25, 2400, 700], [3.5, 700, 2200], [3.62, 2200, 600]]) noise(m + o2 * beat, { type: 'bandpass', f: f1, f2, q: 3, peak: 0.3, attack: 0.008, decay: 0.08, dest: bus });
     },
+    balloonStretch(pan = 0) {   // (28 Nov) fingers squeezing a balloon: the rubber squeaks and creaks as it stretches (stick-slip friction), rising then easing back
+      if (!ok()) return; const t = ac.currentTime; if (t - (this._bs || 0) < 0.15) return; this._bs = t;
+      const dur = R(0.38, 0.55), f0 = R(300, 380);
+      for (const [mul, pk] of [[1, 0.05], [2.01, 0.022]]) {
+        const o = ac.createOscillator(), bp = ac.createBiquadFilter(), am = ac.createGain(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
+        o.type = 'sawtooth'; o.frequency.setValueAtTime(f0 * mul, t); o.frequency.linearRampToValueAtTime(f0 * 1.55 * mul, t + dur * 0.6); o.frequency.linearRampToValueAtTime(f0 * 1.25 * mul, t + dur);
+        bp.type = 'bandpass'; bp.frequency.value = 1300 * mul; bp.Q.value = 2.5;
+        lfo.frequency.setValueAtTime(R(28, 36), t); lfo.frequency.linearRampToValueAtTime(R(45, 60), t + dur); lg.gain.value = 0.5; am.gain.value = 0.5; lfo.connect(lg); lg.connect(am.gain);   // the judder of rubber catching and slipping
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(pk, t + 0.05); g.gain.setValueAtTime(pk, t + dur * 0.7); g.gain.linearRampToValueAtTime(0, t + dur);
+        o.connect(bp); bp.connect(am); am.connect(g);
+        if (ac.createStereoPanner) { const pn = ac.createStereoPanner(); pn.pan.value = pan * 0.5; g.connect(pn); pn.connect(out); } else g.connect(out);
+        o.start(t); lfo.start(t); o.stop(t + dur + 0.05); lfo.stop(t + dur + 0.05);
+      }
+    },
     balloonPop(pan = 0) {   // (28 Nov) a balloon popping: one of Mark's recorded pops, never piled up
       if (!ok()) return; const t = ac.currentTime; if (t - (this._bp || 0) < 0.05) return; this._bp = t;
       this.openPop(0, pan, 1, 'pop');   // (28 Nov) fuller: Mark's recorded pop at full strength, plus the snap of the rubber and a little thump of air
@@ -2415,6 +2429,7 @@ const Sound = (() => {
         if (Math.random() < 0.5) { if (this._held) this.squishUp(); this.fart(t); return; }
         this._fartOnRelease = true;
       }
+      if (typeof skin === 'function' && skin().balloon) { this.balloonStretch(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) balloons: a rubbery stretch and squeak
       if (typeof skin === 'function' && skin().vinyl) { this.djScratch(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) records: a squeeze is a proper DJ scratch
       if (typeof skin === 'function' && skin().singer) { this.sing(window._sqCol | 0, pan, window._sqIdx); return; }   // singers: press one and it sings its note (no squish, no farts)
       if (typeof skin === 'function' && skin().drum) { this.drum(['kick', 'tom1', 'tom2', 'floor', 'snare', 'hihat', 'ride', 'crash'][Math.floor(Math.random() * 8)], pan, 0.9); if (this._held) this.squishUp(); return; }   // drums: squeeze to play the kit
