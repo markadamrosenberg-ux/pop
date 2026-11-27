@@ -640,7 +640,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 7:45am, balloons</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 8am, records explode</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2093,6 +2093,30 @@ const Sound = (() => {
       if (!ok()) return; const t = ac.currentTime;
       for (let k = 0; k < Math.min(n, 3); k++) tone(t + k * 0.06, { f: R(520, 620), f2: R(760, 880), type: 'sine', peak: 0.025, attack: 0.01, decay: 0.12, pan: R(-0.3, 0.3) });
     },
+    djScratch(pan = 0) {   // (28 Nov) a DJ scratch: the record pushed back and forth under the needle ("wikka-wikka")
+      if (!ok()) return; const t = ac.currentTime; if (t - (this._djs || 0) < 0.12) return; this._djs = t;
+      const vb = sample('vinyl');
+      if (vb) {   // Mark's own vinyl static, rocked back and forth in speed so it sounds like a hand on the record
+        const src = ac.createBufferSource(), g = ac.createGain(), bp = ac.createBiquadFilter(); src.buffer = vb; bp.type = 'bandpass'; bp.frequency.value = 1400; bp.Q.value = 0.8;
+        const r = src.playbackRate; r.setValueAtTime(0.4, t); r.linearRampToValueAtTime(2.6, t + 0.07); r.linearRampToValueAtTime(0.3, t + 0.15); r.linearRampToValueAtTime(2.2, t + 0.23); r.linearRampToValueAtTime(0.4, t + 0.32);
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5, t + 0.02); g.gain.setValueAtTime(0.5, t + 0.28); g.gain.linearRampToValueAtTime(0, t + 0.34);
+        src.connect(bp); bp.connect(g); g.connect(out); src.start(t, 0.3); src.stop(t + 0.36);
+      }
+      for (const [o2, f1, f2] of [[0, 600, 2600], [0.08, 2600, 500], [0.16, 600, 2300], [0.24, 2300, 500]]) noise(t + o2, { type: 'bandpass', f: f1, f2, q: 3.5, peak: 0.07, attack: 0.008, decay: 0.08, pan });
+    },
+    recordStingOld() {},
+    recordSting(lines = 1) {   // (28 Nov) a row of records: the groove cuts, then a bright little musical flourish with a drum hit and a crash
+      if (!ok()) return; const t = ac.currentTime + 0.05;
+      if (this._rec) { try { this._rec.gain.cancelScheduledValues(t); this._rec.gain.setTargetAtTime(0, t, 0.03); } catch (e) {} }
+      if (this._vin) { try { this._vin.g.gain.setTargetAtTime(0, t, 0.1); } catch (e) {} }
+      const bus = ac.createGain(), lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 5000; bus.gain.value = 0.55; bus.connect(lp); lp.connect(out);
+      const up = [523.25, 659.25, 783.99, 1046.5, 1318.5];   // C E G C E, quick and happy
+      up.forEach((f, k) => { tone(t + k * 0.07, { f, type: 'triangle', peak: 0.09, attack: 0.005, decay: 0.35, dest: bus }); tone(t + k * 0.07, { f: f * 2, type: 'sine', peak: 0.025, attack: 0.005, decay: 0.25, dest: bus }); });
+      const ch = t + up.length * 0.07;
+      for (const f of [261.63, 329.63, 392, 523.25]) tone(ch, { f, type: 'square', peak: 0.025, attack: 0.01, decay: 0.7, dest: bus });   // a big chord
+      tone(ch, { f: 130, f2: 45, peak: 0.3, attack: 0.002, decay: 0.3, dest: bus });   // kick
+      noise(ch, { type: 'highpass', f: 4500, q: 0.4, peak: 0.08 * Math.min(1.4, 0.8 + lines * 0.2), attack: 0.002, decay: 1.1, dest: bus });   // crash
+    },
     needleDrag() {   // (28 Nov) the needle dragged across the record: a raspy zzzzrrrip that slides down and fades, with the music stopping
       if (!ok()) return; const t = ac.currentTime + 0.05;
       if (this._rec) { try { this._rec.gain.cancelScheduledValues(t); this._rec.gain.setTargetAtTime(0, t, 0.03); } catch (e) {} }
@@ -2388,7 +2412,7 @@ const Sound = (() => {
         if (Math.random() < 0.5) { if (this._held) this.squishUp(); this.fart(t); return; }
         this._fartOnRelease = true;
       }
-      if (typeof skin === 'function' && skin().vinyl) { this.scratch(pan, 0.8); if (this._held) this.squishUp(); return; }   // records: a squeeze is a little scratch
+      if (typeof skin === 'function' && skin().vinyl) { this.djScratch(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) records: a squeeze is a proper DJ scratch
       if (typeof skin === 'function' && skin().singer) { this.sing(window._sqCol | 0, pan, window._sqIdx); return; }   // singers: press one and it sings its note (no squish, no farts)
       if (typeof skin === 'function' && skin().drum) { this.drum(['kick', 'tom1', 'tom2', 'floor', 'snare', 'hihat', 'ride', 'crash'][Math.floor(Math.random() * 8)], pan, 0.9); if (this._held) this.squishUp(); return; }   // drums: squeeze to play the kit
       if (typeof skin === 'function' && skin().hatch && eggKind() === 'chick' && playSample('squeak' + (1 + Math.floor(Math.random() * 5)), 0, 0.6, R(0.95, 1.12))) { if (this._held) this.squishUp(); return; }   // chicks: a cute squeaky-toy squeak, no splash
@@ -4119,7 +4143,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'vinyl', 'singer', 'ladybug', 'fish', 'singer', 'vinyl']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'vinyl', 'singer', 'ladybug', 'fish', 'singer', 'balloon', 'vinyl']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -5328,7 +5352,8 @@ function drawStreams(now, dt) {
   for (let i = STREAMS.length - 1; i >= 0; i--) { const q = STREAMS[i], age = now - q.t0; if (age > q.life) { STREAMS.splice(i, 1); continue; }
     q.vx *= Math.pow(0.12, s2); q.vy = q.vy * Math.pow(0.2, s2) + L.c * 4 * s2; q.x += q.vx * s2 + Math.sin(age / 180 + q.ph) * L.c * 0.6 * s2; q.y += q.vy * s2;
     ctx.save(); ctx.globalAlpha = Math.min(1, (q.life - age) / 400); ctx.translate(q.x, q.y);
-    if (q.conf) { ctx.rotate(q.rot + age / 120); ctx.scale(1, Math.cos(age / 90 + q.ph)); ctx.fillStyle = q.col; ctx.fillRect(-L.c * 0.06, -L.c * 0.03, L.c * 0.12, L.c * 0.06); }
+    if (q.note) { ctx.rotate(Math.sin(age / 200 + q.ph) * 0.3); ctx.fillStyle = q.col; ctx.font = `900 ${Math.round(L.c * 0.5)}px Fredoka, system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(q.ph > 3 ? '♫' : '♪', 0, 0); }
+    else if (q.conf) { ctx.rotate(q.rot + age / 120); ctx.scale(1, Math.cos(age / 90 + q.ph)); ctx.fillStyle = q.col; ctx.fillRect(-L.c * 0.06, -L.c * 0.03, L.c * 0.12, L.c * 0.06); }
     else { ctx.strokeStyle = q.col; ctx.lineWidth = Math.max(1.5, L.c * 0.07); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, 0);
       for (let k = 1; k <= 8; k++) { const u = k / 8; ctx.lineTo(Math.sin(u * 7 + age / 110 + q.ph) * L.c * 0.12, -u * q.len); } ctx.stroke(); }
     ctx.restore(); }
@@ -5372,6 +5397,14 @@ function drawTonearm(x, r, arm) {   // arm 0 = resting off to the side, 1 = need
   x.restore();
 }
 const DISCS = [];
+function recordBurst(x, y, col) {   // (28 Nov) a record explodes: vinyl shards, a flash and a spray of colour, streamers and music notes
+  const now = performance.now(), C = [col, '#ff2d55', '#ffb020', '#2ec5ff', '#a259ff', '#2fd67b'];
+  SHARDS.push({ flash: true, x, y, col, t0: now, life: 260 });
+  for (let k = 0; k < 9; k++) { const a = Math.random() * 6.28, sp = L.c * (3 + Math.random() * 5); SHARDS.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - L.c * 2, col: k % 3 ? '#151519' : col, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 16, t0: now, life: 600 + Math.random() * 400, sz: L.c * (0.07 + Math.random() * 0.07) }); }
+  for (let k = 0; k < 3; k++) { const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.6, sp = L.c * (5 + Math.random() * 5); STREAMS.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, col: C[k % 6], t0: now, life: 1300 + Math.random() * 600, ph: Math.random() * 6, len: L.c * (0.5 + Math.random() * 0.4), conf: false }); }
+  for (let k = 0; k < 10; k++) { const a = Math.random() * 6.28, sp = L.c * (2 + Math.random() * 5); STREAMS.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - L.c * 3, col: C[k % 6], t0: now, life: 1200 + Math.random() * 700, ph: Math.random() * 6, rot: Math.random() * 6, conf: true }); }
+  for (let k = 0; k < 2; k++) STREAMS.push({ x, y, vx: (Math.random() - 0.5) * L.c * 3, vy: -L.c * (5 + Math.random() * 3), col: C[1 + k], t0: now, life: 1500, ph: Math.random() * 6, note: true });
+}
 function flingRecord(x, y, colour, dir) {   // a record spins up and sails off the board
   DISCS.push({ x, y, vx: dir * L.c * (4 + Math.random() * 4), vy: -L.c * (5 + Math.random() * 4), rot: 0, vr: 14 + Math.random() * 10, colour, t0: performance.now(), life: 1600 });
 }
@@ -7759,7 +7792,7 @@ function playResult(res, pointerGesture) {
     else if (skin().pizza) Sound.cheese(res.cleared.length);
     if (skin().dandelion) { Sound.gust(res.lines); if (!settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => releaseSeeds(...cellCentre(c2.x, c2.y), 16, 2), 60 + k * 35)); }
     if (skin().ladybug) Sound.bugs(res.cleared.length);
-    if (skin().vinyl) Sound.needleDrag();
+    if (skin().vinyl) Sound.recordSting(res.lines);
     if (skin().ladybug && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => releaseLadybug(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 60 + k * 45));
     if (skin().morph) Sound.wings(0.1, Math.min(1.3, 0.8 + res.cleared.length / 40));
     if (skin().morph && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => releaseButterfly(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 120 + k * 30));
@@ -7845,7 +7878,7 @@ function updateFX(now, dt) {
       else if (sk.bounce && !settings.reduced) FX.particles.push({ k: 'ball', x, y, vx: ((p.gx - 3.5) / 3.5 + (Math.random() - 0.5)) * L.c * 4, vy: -L.c * (7 + Math.random() * 4), skin: p.skin, colour: p.colour, life: 0, max: 2.2, spin: (Math.random() - 0.5) * 8, floor: L.by + L.B + L.c * 0.2, bounces: 0 });
       else if (sk.fizz) fizzBurst(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);
       else if (sk.balloon) { balloonBurst(x, y, sk.colours[p.colour % sk.colours.length]); Sound.balloonPop(((p.gx - 3.5) / 3.5) * 0.6); }
-      else if (sk.vinyl) flingRecord(x, y, p.colour, p.gx < 3.5 ? -1 : 1);
+      else if (sk.vinyl) { recordBurst(x, y, sk.colours[p.colour % sk.colours.length]); Sound.balloonPop(((p.gx - 3.5) / 3.5) * 0.6); }
       else if (sk.candle) { snuffCandle(x, y, p.gx < 3.5 ? 1 : -1); Sound.snuff(((p.gx - 3.5) / 3.5) * 0.6); }
       else if (sk.drum) { drumBurst(x, y, sk.colours[p.colour % sk.colours.length]); Sound.drum(['tom1', 'tom2', 'floor', 'snare'][Math.floor(Math.random() * 4)], ((p.gx - 3.5) / 3.5) * 0.6, 0.6); }
       else if (sk.lights) { shatterBulb(x, y, sk.colours[p.colour % sk.colours.length]); Sound.bulbPop(((p.gx - 3.5) / 3.5) * 0.6); }
