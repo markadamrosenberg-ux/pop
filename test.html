@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 6:30pm, sunflowers (add &flower=sunflower to try them now)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 7pm, dandelions (+ sunflowers: add &flower=sunflower)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2030,6 +2030,16 @@ const Sound = (() => {
       tone(t, { f: 520 * v, f2: 160, peak: 0.12 * big, attack: 0.001, decay: 0.045, pan });
       noise(t + 0.002, { type: 'highpass', f: 3400, q: 0.7, peak: 0.03 * big, attack: 0.0005, decay: 0.012, pan });
     },
+    puff(n = 1) {   // (27 Nov) dandelion landing: the softest breath of air
+      if (!ok()) return; const t = ac.currentTime;
+      noise(t, { type: 'bandpass', f: 900, f2: 500, q: 0.6, peak: 0.05 * Math.min(1.4, 0.8 + n * 0.08), attack: 0.02, decay: 0.22 });
+    },
+    gust(lines = 1) {   // (27 Nov) dandelions clearing: a gust of wind that swells and passes
+      if (!ok()) return; const t = ac.currentTime + 0.05, big = Math.min(1.6, 0.9 + lines * 0.3);
+      noise(t, { type: 'bandpass', f: 400, f2: 1400, q: 0.5, peak: 0.09 * big, attack: 0.35, decay: 1.3, pan: -0.4 });
+      noise(t + 0.15, { type: 'lowpass', f: 900, f2: 300, q: 0.3, peak: 0.07 * big, attack: 0.3, decay: 1.4, pan: 0.4 });
+      noise(t + 0.2, { type: 'highpass', f: 4000, q: 0.4, peak: 0.02 * big, attack: 0.25, decay: 0.9 });
+    },
     juicyLand(n = 1) {   // (26 Nov) a citrus piece landing: one soft recorded squish, a touch brighter than a squeeze
       if (!ok()) return;
       if (playSample('sponge' + Math.floor(Math.random() * 13), 0, SQUISH_VOL * Math.min(1.25, 0.85 + n * 0.06), R(1.0, 1.12))) return;
@@ -2135,7 +2145,8 @@ const Sound = (() => {
     pop(i = 0, combo = 1, pan = 0) {
       if (!ok()) return;
       if (typeof skin === 'function' && skin().popcorn) { const t = ac.currentTime; if (t - (this._pc || 0) < 0.075) return; this._pc = t; return this.popcorn(0, pan, R(0.35, 0.5)); }   // a row of popcorn: soft, spaced-out pops (ASMR), never a pile-up
-      if (typeof skin === 'function' && skin().bloom) return;   // flowers play a whole scale when a row clears (scale below)
+      if (typeof skin === 'function' && skin().bloom) return;
+      if (typeof skin === 'function' && skin().quietClear) return;   // looks with their own clear sound (dandelions' gust of wind...)   // flowers play a whole scale when a row clears (scale below)
       if (typeof skin === 'function' && skin().morph) return;   // the wing flaps are the clear sound for butterflies
       if (typeof skin === 'function' && skin().fw) return;   // fireworks make their own launch and bang   // popcorn pops instead of bubble pops
       const t = ac.currentTime;
@@ -3108,6 +3119,10 @@ const NEW_SKINS = [
       ctx.restore();
     },
   },
+  { name: 'Dandelions', dandelion: true, quietClear: true, dry: true, squish: 1.1, fixedColours: true, colours: ['#ffffff', '#fff4d6', '#ffe3ef', '#e3f1ff', '#eaffea'],
+    // (27 Nov) see-through dandelion clocks: a few seeds drift off when you place them; when their row clears, the wind takes them all
+    draw(ctx, s, c, i) { drawDandelion(ctx, s * 0.5, c, i, 1); },
+  },
   { name: 'Flowers', bloom: true, squish: 1.2, fixedColours: true, colours: ['#ff7eb6', '#b58cff', '#ff8f6b', '#6fc3ff', '#ffd24d'],
     // (26 Nov) closed buds in your hand bloom open into flowers when they land
     draw(ctx, s, c, i) {
@@ -3822,7 +3837,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'bloom', 'hatch', 'morph', 'fw']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -4901,6 +4916,51 @@ function drawFliers(now, dt) {
     DeviceMotionEvent.requestPermission().then(r => { if (r === 'granted') start(); }).catch(() => {});
   });
 })();
+// (27 Nov) Dandelions
+function drawDandelion(x, r, c, seed, keep = 1) {   // keep 0..1: how many seeds are still on the head
+  const n = 46, rnd = seeded(77 + seed * 13);
+  const glow = x.createRadialGradient(0, 0, 0, 0, 0, r * 0.95); glow.addColorStop(0, rgba(c, 0.28)); glow.addColorStop(0.7, rgba(c, 0.08)); glow.addColorStop(1, rgba(c, 0));
+  x.fillStyle = glow; x.beginPath(); x.arc(0, 0, r * 0.95, 0, Math.PI * 2); x.fill();
+  x.lineCap = 'round';
+  for (let k = 0; k < n; k++) {
+    const gone = rnd() > keep; const a = k * 2.39996 + rnd() * 0.2, tilt = Math.sqrt((k + 0.5) / n), L = r * (0.5 + 0.38 * tilt);
+    const ex = Math.cos(a) * L, ey = Math.sin(a) * L * (0.9 + 0.1 * tilt);
+    if (gone) continue;
+    x.strokeStyle = 'rgba(255,255,255,0.45)'; x.lineWidth = Math.max(0.5, r * 0.012); x.beginPath(); x.moveTo(Math.cos(a) * r * 0.1, Math.sin(a) * r * 0.1); x.lineTo(ex, ey); x.stroke();   // the fine stalk
+    x.strokeStyle = rgba(c, 0.85); x.lineWidth = Math.max(0.4, r * 0.008);   // the fluffy parachute
+    for (let j = 0; j < 7; j++) { const b = a + (j - 3) * 0.32, fl = r * 0.13; x.beginPath(); x.moveTo(ex, ey); x.lineTo(ex + Math.cos(b) * fl, ey + Math.sin(b) * fl); x.stroke(); }
+  }
+  const cg = x.createRadialGradient(-r * 0.03, -r * 0.03, 0, 0, 0, r * 0.13); cg.addColorStop(0, '#f3e6c8'); cg.addColorStop(1, '#a88f5e');
+  x.fillStyle = cg; x.beginPath(); x.arc(0, 0, r * 0.12, 0, Math.PI * 2); x.fill();
+}
+const SEEDS = [];   // dandelion seeds on the wind
+function releaseSeeds(x, y, n, gust = 1) {
+  const now = performance.now(), wind = gust > 1 ? 1 : (Math.random() < 0.5 ? -1 : 1) * 0.4;
+  for (let k = 0; k < n; k++) {
+    const a = Math.random() * Math.PI * 2, d = L.c * 0.35 * Math.random();
+    SEEDS.push({ x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, vx: (wind * (2.5 + Math.random() * 3) + (Math.random() - 0.5)) * L.c, vy: -(0.6 + Math.random() * 1.6) * L.c,
+      rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 3, t0: now + (gust > 1 ? Math.random() * 350 : 0), life: 2600 + Math.random() * 1600, ph: Math.random() * 6.28, sz: L.c * (0.13 + Math.random() * 0.06) });
+  }
+  if (SEEDS.length > 900) SEEDS.splice(0, SEEDS.length - 900);
+}
+function drawSeeds(now, dt) {
+  const s2 = dt / 1000;
+  ctx.save(); ctx.lineCap = 'round';
+  for (let i = SEEDS.length - 1; i >= 0; i--) {
+    const q = SEEDS[i], age = now - q.t0; if (age < 0) continue;
+    if (age > q.life || q.x < -60 || q.x > L.W + 60 || q.y < -60) { SEEDS.splice(i, 1); continue; }
+    q.vx += Math.sin(age / 400 + q.ph) * L.c * 0.6 * s2; q.vy += (Math.cos(age / 330 + q.ph) * 0.4 - 0.15) * L.c * s2;   // floating, drifting up a touch
+    q.x += q.vx * s2; q.y += q.vy * s2; q.rot = Math.sin(age / 500 + q.ph) * 0.5;
+    const a = Math.min(1, (q.life - age) / 700) * 0.95, z = q.sz;
+    ctx.globalAlpha = a; ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.rot);
+    ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.lineWidth = Math.max(0.6, z * 0.08); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, z * 1.3); ctx.stroke();
+    ctx.fillStyle = '#b89c66'; ctx.beginPath(); ctx.ellipse(0, z * 1.4, z * 0.08, z * 0.18, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)'; ctx.lineWidth = Math.max(0.4, z * 0.05);
+    for (let j = 0; j < 9; j++) { const b = -Math.PI / 2 + (j - 4) * 0.33; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(b) * z, Math.sin(b) * z * 0.8); ctx.stroke(); }
+    ctx.restore();
+  }
+  ctx.restore(); ctx.globalAlpha = 1;
+}
 const FLOWER_KINDS = ['flower', 'sunflower'], FLOWER_FORCE = (location.search.match(/[?&]flower=(flower|sunflower)/) || [])[1];
 const SUN_COLS = ['#ffc21a', '#ff9a1a', '#ffe14d', '#e8a317', '#d9622b'];   // sunflower varieties: golden, orange, lemon, amber, bronze-red
 function flowerKind() {   // (27 Nov) each Flowers frame is a surprise: the original flowers or sunflowers
@@ -6884,6 +6944,10 @@ function playResult(res, pointerGesture) {
     }
   }
   else if (skin().popcorn || skin().bloom || skin().hatch) { /* each kernel or bud makes its own sound as it opens, below */ }
+  else if (skin().dandelion) {   // dandelions land with a soft puff, and a few seeds drift off
+    Sound.puff(res.piece.shape.cells.length);
+    if (!settings.reduced) { const cs = res.piece.shape.cells; for (let k = 0; k < 2 + Math.floor(Math.random() * 2); k++) { const [x, y] = cs[Math.floor(Math.random() * cs.length)]; releaseSeeds(...cellCentre(res.gx + x, res.gy + y), 1); } }
+  }
   else if (skin().citrus) {   // citrus lands with a soft squish and a drop or two of juice, and that's it
     Sound.juicyLand(res.piece.shape.cells.length);
     if (!settings.reduced) { const cs = res.piece.shape.cells, sk = skin(), n = 1 + (Math.random() < 0.5 ? 1 : 0);
@@ -6910,9 +6974,9 @@ function playResult(res, pointerGesture) {
     const sq = (settings.reduced ? 30 : T.squashMs) / 1000 + faceShock / 1000;
     if (SKINS[state.skin % SKINS.length].hit && SKINS[state.skin % SKINS.length].hit !== 'bowling') setTimeout(() => Sound.rally(SKINS[state.skin % SKINS.length].hit, res.lines), sq * 1000);
     if (SKINS[state.skin % SKINS.length].hit === 'bowling' && res.lines) Sound.strike(res.lines, sq);
-    if (!SKINS[state.skin % SKINS.length].bounce && SKINS[state.skin % SKINS.length].hit !== 'pingpong' && !SKINS[state.skin % SKINS.length].fizz && SKINS[state.skin % SKINS.length].hit !== 'tennis' && SKINS[state.skin % SKINS.length].hit !== 'golf' && !SKINS[state.skin % SKINS.length].bloom && !SKINS[state.skin % SKINS.length].popcorn) Sound.splat(sq, intensity, Math.max(-0.6, Math.min(0.6, (ox - 3.5) / 3.5 * 0.6)));
+    if (!SKINS[state.skin % SKINS.length].bounce && SKINS[state.skin % SKINS.length].hit !== 'pingpong' && !SKINS[state.skin % SKINS.length].fizz && SKINS[state.skin % SKINS.length].hit !== 'tennis' && SKINS[state.skin % SKINS.length].hit !== 'golf' && !SKINS[state.skin % SKINS.length].bloom && !SKINS[state.skin % SKINS.length].popcorn && !SKINS[state.skin % SKINS.length].quietClear) Sound.splat(sq, intensity, Math.max(-0.6, Math.min(0.6, (ox - 3.5) / 3.5 * 0.6)));
     const level = (res.lines - 1) + (res.combo - 1);
-    if (level >= 1 && !SKINS[state.skin % SKINS.length].bounce && SKINS[state.skin % SKINS.length].hit !== 'pingpong' && !SKINS[state.skin % SKINS.length].fizz && SKINS[state.skin % SKINS.length].hit !== 'tennis' && SKINS[state.skin % SKINS.length].hit !== 'golf' && !SKINS[state.skin % SKINS.length].bloom && !SKINS[state.skin % SKINS.length].popcorn) Sound.rush(sq + 0.06, level);
+    if (level >= 1 && !SKINS[state.skin % SKINS.length].bounce && SKINS[state.skin % SKINS.length].hit !== 'pingpong' && !SKINS[state.skin % SKINS.length].fizz && SKINS[state.skin % SKINS.length].hit !== 'tennis' && SKINS[state.skin % SKINS.length].hit !== 'golf' && !SKINS[state.skin % SKINS.length].bloom && !SKINS[state.skin % SKINS.length].popcorn && !SKINS[state.skin % SKINS.length].quietClear) Sound.rush(sq + 0.06, level);
     const sk0 = SKINS[state.skin % SKINS.length];
     BG.pulse(sk0.colours[(res.piece.color) % sk0.colours.length], 0.35 * intensity);
     const n = res.cleared.length;
@@ -6942,6 +7006,7 @@ function playResult(res, pointerGesture) {
     if (skin().bloom) Sound.scale(res.lines);
     if (skin().bloom && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => spawnPetals(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 150 + k * 25));
     if (skin().hatch && !settings.reduced) { const ek = eggKind(); res.cleared.forEach((c2, k) => setTimeout(() => { const [qx, qy] = cellCentre(c2.x, c2.y); if (ek === 'chick') { releaseChick(qx, qy); if (k % 2 === 0) spawnFeathers(qx, qy, 2); } else if (ek === 'easter') spawnSprinkles(qx, qy, 6); else squishDrops(qx, qy, '#ffc21a'); }, 150 + k * 25)); }
+    if (skin().dandelion) { Sound.gust(res.lines); if (!settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => releaseSeeds(...cellCentre(c2.x, c2.y), 16, 2), 60 + k * 35)); }
     if (skin().morph) Sound.wings(0.1, Math.min(1.3, 0.8 + res.cleared.length / 40));
     if (skin().morph && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => releaseButterfly(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 120 + k * 30));
     if (skin().fw && !settings.reduced) detonate(res);
@@ -7025,7 +7090,7 @@ function updateFX(now, dt) {
       if (sk.face) fireworkBurst(x, y, p.I || 1);
       else if (sk.bounce && !settings.reduced) FX.particles.push({ k: 'ball', x, y, vx: ((p.gx - 3.5) / 3.5 + (Math.random() - 0.5)) * L.c * 4, vy: -L.c * (7 + Math.random() * 4), skin: p.skin, colour: p.colour, life: 0, max: 2.2, spin: (Math.random() - 0.5) * 8, floor: L.by + L.B + L.c * 0.2, bounces: 0 });
       else if (sk.fizz) fizzBurst(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);
-      else spawnSplash(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);
+      else if (!sk.dry) spawnSplash(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);   // dry looks (dandelions) make their own effect instead of a splash
       if (!sk.bounce && sk.hit !== 'pingpong' && sk.hit !== 'tennis' && sk.hit !== 'golf' && !sk.fizz) Sound.pop(p.rank, p.combo, ((p.gx - 3.5) / 3.5) * 0.65);   // basketballs stay quiet: the boings say it all
       shownTarget += p.share;
     }
@@ -7508,7 +7573,7 @@ function draw(now) {
     }
   }
 
-  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); if (SPARKS.length) drawSparks(now, dtp); if (DETS.length) drawDets(now); if (FLIERS.length) drawFliers(now, dtp); }
+  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); if (SPARKS.length) drawSparks(now, dtp); if (DETS.length) drawDets(now); if (FLIERS.length) drawFliers(now, dtp); if (SEEDS.length) drawSeeds(now, dtp); }
   // dragged piece on top
   const d = Input.dragDraw();
   if (d) {
