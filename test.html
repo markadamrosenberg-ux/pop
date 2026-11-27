@@ -640,7 +640,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 8:30am, soap bubbles</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 8:45am, one slice pulls out</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2270,8 +2270,17 @@ const Sound = (() => {
       if (!ok()) return; const t = ac.currentTime;
       for (let k = 0; k < Math.min(14, n * 3); k++) noise(t + 0.08 + k * 0.045 + R(0, 0.03), { type: 'bandpass', f: R(700, 1500), q: 1.5, peak: R(0.03, 0.05), attack: 0.002, decay: R(0.02, 0.04), pan: R(-0.5, 0.5) });
     },
-    cheese(n = 8) {   // (27 Nov) pizza slices pulling apart: soft stretchy squelches and a warm whoosh
+    cheese(n = 8) {   // (28 Nov) a slice pulled out: a slow gooey stretch (Mark's balloon stretch, slowed and muffled), then a soft squelch as the cheese lets go
       if (!ok()) return; const t = ac.currentTime;
+      const sb = sample('balstretch');
+      if (sb) {
+        const src = ac.createBufferSource(), lp = ac.createBiquadFilter(), g = ac.createGain(); src.buffer = sb; src.playbackRate.setValueAtTime(0.6, t); src.playbackRate.linearRampToValueAtTime(0.45, t + 1.3);
+        lp.type = 'lowpass'; lp.frequency.value = 1300; lp.Q.value = 0.7;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5, t + 0.15); g.gain.setValueAtTime(0.5, t + 1.0); g.gain.linearRampToValueAtTime(0, t + 1.35);
+        src.connect(lp); lp.connect(g); g.connect(out); src.start(t, Math.random() * 0.6); src.stop(t + 1.4);
+        playSample('sponge' + Math.floor(Math.random() * 13), 1.3, SQUISH_VOL * 0.8, R(0.6, 0.7));
+        return;
+      }
       for (let k = 0; k < Math.min(8, Math.ceil(n / 2)); k++) { const at = t + 0.08 + k * 0.12; if (!playSample('sponge' + Math.floor(Math.random() * 13), at - t, SQUISH_VOL * 0.7, R(0.6, 0.75))) noise(at, { type: 'lowpass', f: 700, f2: 300, q: 0.7, peak: 0.05, attack: 0.01, decay: 0.12 }); }
       noise(t + 0.05, { type: 'bandpass', f: 500, f2: 1200, q: 0.6, peak: 0.04, attack: 0.2, decay: 0.7 });
     },
@@ -5366,24 +5375,23 @@ function drawPizza(x, r, kind, prog, seed) {
 // a clear: each pizza comes apart one slice at a time, every slice dragging a string of melted cheese
 const SLICES = [];
 function releaseSlices(skinIdx, colour, x, y, delay) {   // (28 Nov) the slices pull apart slowly, so you can watch the cheese stretch between them
-  const now = performance.now(), id = Math.random();
-  for (let k = 0; k < 6; k++) { const a0 = k / 6 * Math.PI * 2 + 0.26, a = a0 + Math.PI / 6;
-    SLICES.push({ id, k, skinIdx, colour, x, y, a0, a1: a0 + Math.PI / 3, dir: a, t0: now + delay, spin: (Math.random() - 0.5) * 1.6, life: 2300 }); }
+  const now = performance.now(), k = Math.floor(Math.random() * 6), a0 = k / 6 * Math.PI * 2 + 0.26;   // (28 Nov) just one slice pulls out; the rest of the pizza stays, then fades
+  SLICES.push({ one: true, skinIdx, colour, x, y, a0, a1: a0 + Math.PI / 3, dir: a0 + Math.PI / 6, t0: now + delay, spin: (Math.random() - 0.5) * 1.2, life: 2300 });
 }
 const SLICE_PULL = 1250;   // how long the slices take to pull apart before the cheese lets go
-function sliceOut(age, c) { const u = Math.min(1, age / SLICE_PULL); return c * 0.3 * (1 - Math.pow(1 - u, 2)) + Math.max(0, age - SLICE_PULL) / 1000 * c * 2.2; }
+function sliceOut(age, c) { const u = Math.min(1, age / SLICE_PULL); return c * 0.55 * (u * u * (3 - 2 * u)) + Math.max(0, age - SLICE_PULL) / 1000 * c * 2.2; }
 function drawSlices(now) {
   const c = L.c, R = c * 0.47;
   // the cheese first, so the slices sit on top of it
   for (const q of SLICES) {
     const age = now - q.t0; if (age < 0 || age > SLICE_PULL + 450) continue;
-    const o1 = sliceOut(age, c), d1x = Math.cos(q.dir) * o1, d1y = Math.sin(q.dir) * o1, nd = q.dir - Math.PI / 3, d2x = Math.cos(nd) * o1, d2y = Math.sin(nd) * o1;   // this slice and the one beside it
+    const o1 = sliceOut(age, c), d1x = Math.cos(q.dir) * o1, d1y = Math.sin(q.dir) * o1, d2x = 0, d2y = 0;   // the slice, and the pizza it's leaving
     const snapT = age - SLICE_PULL, stretch = Math.min(1, age / SLICE_PULL);
-    for (const f of [0.35, 0.6, 0.85]) {
-      const px = q.x + Math.cos(q.a0) * R * f, py = q.y + Math.sin(q.a0) * R * f;
+    for (const [ea, f] of [[q.a0, 0.45], [q.a0, 0.8], [q.a1, 0.4], [q.a1, 0.75], [q.dir, 0.2]]) {
+      const px = q.x + Math.cos(ea) * R * f, py = q.y + Math.sin(ea) * R * f;
       const ax = px + d1x, ay = py + d1y, bx = px + d2x, by = py + d2y, sag = c * 0.05 * stretch * (0.5 + f);
-      ctx.strokeStyle = `rgba(255,236,170,${0.85 * (snapT > 0 ? Math.max(0, 1 - snapT / 450) : 1)})`; ctx.lineCap = 'round';
-      ctx.lineWidth = Math.max(0.6, c * (0.05 - 0.035 * stretch) * (1.1 - f * 0.4));
+      ctx.strokeStyle = `rgba(250,222,150,${0.9 * (snapT > 0 ? Math.max(0, 1 - snapT / 450) : 1)})`; ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(0.6, c * (0.06 - 0.042 * stretch) * (1.1 - f * 0.4));
       ctx.beginPath();
       if (snapT <= 0) { ctx.moveTo(ax, ay); ctx.quadraticCurveTo((ax + bx) / 2, (ay + by) / 2 + sag, bx, by); }
       else { const dr = Math.min(1, snapT / 300); ctx.moveTo(ax, ay); ctx.quadraticCurveTo(ax + (bx - ax) * 0.2, ay + sag + c * 0.15 * dr, ax + (bx - ax) * 0.25, ay + c * 0.22 * dr);
@@ -5391,6 +5399,10 @@ function drawSlices(now) {
       ctx.stroke();
     }
   }
+  for (const q of SLICES) { if (!q.one) continue; const age = now - q.t0;   // the rest of the pizza, still sitting there, then gently fading away
+    const fade = age < SLICE_PULL ? 1 : Math.max(0, 1 - (age - SLICE_PULL) / 500); if (fade <= 0) continue;
+    const sp = sprite(q.skinIdx, q.colour), w = sp.box * (c * 0.96 / sp.size), sc = 1 - (1 - fade) * 0.15;
+    ctx.save(); ctx.globalAlpha = fade; ctx.translate(q.x, q.y); ctx.scale(sc, sc); ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, w, q.a1, q.a0 + Math.PI * 2); ctx.closePath(); ctx.clip(); ctx.drawImage(sp.canvas, -w / 2, -w / 2, w, w); ctx.restore(); }
   for (let i = SLICES.length - 1; i >= 0; i--) {
     const q = SLICES[i], age = now - q.t0; if (age < 0) {
       const sp = sprite(q.skinIdx, q.colour), w = sp.box * (c * 0.96 / sp.size);   // waiting its turn: still sitting whole
@@ -8362,6 +8374,7 @@ function draw(now) {
   faceMood = 1;
   for (const p of FX.pops) {
     const [x, y] = cellCentre(p.gx, p.gy);
+    if (SKINS[p.skin % SKINS.length].pizza && !settings.reduced) continue;   /* (28 Nov) the pulled slice and the rest of the pizza are drawn by drawSlices */
     if (now < p.t0 && SKINS[p.skin % SKINS.length].vinyl) { const sk = SKINS[p.skin % SKINS.length], col = sk.colours[p.colour % sk.colours.length];
       ctx.save(); ctx.translate(x, y); drawRecord(ctx, c * 0.48, col, p.colour, now / 1000 * 9); drawTonearm(ctx, c * 0.48, Math.max(0, Math.min(1, (p.t0 - now) / 300))); ctx.restore(); continue; }   /* spins up fast, the arm lifts away */
     if (now < p.t0 && SKINS[p.skin % SKINS.length].candle) { const sk = SKINS[p.skin % SKINS.length], w = Math.max(0, 1 - (p.t0 - now) / 520), lean = (p.gx < 3.5 ? 1 : -1) * w;
