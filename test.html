@@ -416,7 +416,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
 @keyframes chPop{0%{opacity:0;transform:translateY(60%) scale(.1) rotate(-25deg)}55%{opacity:1;transform:translateY(-18%) scale(1.35) rotate(8deg)}78%{transform:translateY(4%) scale(.92) rotate(-3deg)}100%{opacity:1;transform:none}}
 @keyframes chWob{0%{transform:translateY(0) rotate(-2deg) scale(1)}100%{transform:translateY(-9%) rotate(3deg) scale(1.05)}}
 #quip.go{animation:quipPop 2.7s ease-out forwards}
-#quip.out{transition:opacity .15s;opacity:0!important;animation:none}
+#quip.out{transition:opacity .5s;opacity:0!important;animation:none}
 @keyframes quipPop{0%{opacity:1;transform:translate(-50%,-50%)}88%{opacity:1;transform:translate(-50%,-56%)}100%{opacity:0;transform:translate(-50%,-60%)}}
 /* Combo glow: a shimmering ring round the board while a combo is alive */
 #comboRing{position:absolute;pointer-events:none;z-index:2;border-radius:18px;padding:3px;opacity:0;transition:opacity .35s;
@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 11pm, soft vinyl</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 11pm, remarks linger</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -7494,11 +7494,13 @@ const Quip = (() => {
     w.style.whiteSpace = text.length > 20 ? 'normal' : 'nowrap'; w.style.maxWidth = (L.B * 0.92) + 'px'; w.style.textAlign = 'center';
     el.style.setProperty('--qs', Math.round(Math.min(48, Math.max(28, L.c * 0.66)) * (text.length > 30 ? 0.82 : 1)) + 'px');
     el.style.left = x + 'px'; el.style.top = y + 'px';
-    el.classList.remove('go', 'out'); void el.offsetWidth; el.classList.add('go');
+    clearTimeout(hideT); hideT = 0; el.classList.remove('go', 'out'); void el.offsetWidth; el.classList.add('go');
     clearTimeout(timer); timer = setTimeout(() => { el.classList.remove('go'); showing = false; }, 2700);
   }
-  const hide = () => { const el = document.getElementById('quip'); if (el && el.classList.contains('go')) { el.classList.add('out'); showing = false; } };
-  window.addEventListener('pointerdown', hide, { passive: true });   // the next drag clears it, so it never covers the landing preview
+  let hideT = 0;
+  const hide = () => { const el = document.getElementById('quip'); if (!el || !el.classList.contains('go') || hideT) return;
+    hideT = setTimeout(() => { hideT = 0; if (el.classList.contains('go')) { el.classList.add('out'); showing = false; } }, 1000); };   // (27 Nov) stays up about a second after you touch, so you can finish reading it, then fades
+  window.addEventListener('pointerdown', hide, { passive: true });
   function decide(res) {
     const cleared = res.cleared || [], filledAfter = state.grid.filter(Boolean).length;
     const filledBefore = filledAfter + cleared.length - res.piece.shape.cells.length;
