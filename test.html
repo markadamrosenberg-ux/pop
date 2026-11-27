@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 10:50pm, chords</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 10:55pm, held notes</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2086,6 +2086,13 @@ const Sound = (() => {
       noise(t, { type: 'bandpass', f: 700, f2: 2600, q: 3, peak: 0.08 * big, attack: 0.01, decay: 0.09, pan });
       noise(t + 0.1, { type: 'bandpass', f: 2400, f2: 600, q: 3, peak: 0.07 * big, attack: 0.01, decay: 0.12, pan });
     },
+    singUp(pid) {   // a finger lets go: its note (and only its note) fades out quickly and the mouth closes
+      if (!ac || !this._voices) return; const t = ac.currentTime;
+      for (const v of this._voices) if (v.end === Infinity && (pid == null || v.pid === pid)) {
+        const held = t - (v.o._t0 || 0); try { v.g.gain.cancelScheduledValues(t); v.g.gain.setValueAtTime(v.g.gain.value, t); v.g.gain.setTargetAtTime(0, t + 0.04, 0.06); v.o.stop(t + 0.4); } catch (e) {}
+        v.end = t + 0.3; if (v.cell >= 0 && SING_OPEN.has(v.cell)) SING_OPEN.get(v.cell).end = performance.now() + 150;
+      }
+    },
     sing(k = 0, pan = 0, cell = -1) {   // (27 Nov) Mark's own sung notes: the columns are a keyboard, A B C D E F G left to right, then his high A
       if (!ok()) return;
       k = Math.max(0, Math.min(7, k));
@@ -2094,10 +2101,14 @@ const Sound = (() => {
         const t = ac.currentTime; this._voices = (this._voices || []).filter(v => v.end > t);
         // notes ring together, so squeezing several at once makes a chord; only the same note again (or too many at once) cuts one short
         for (const v of this._voices.filter(v => v.k === k).concat(this._voices.length >= 7 ? [this._voices[0]] : [])) { try { v.g.gain.cancelScheduledValues(t); v.g.gain.setTargetAtTime(0, t, 0.05); v.o.stop(t + 0.3); v.end = t; } catch (e) {} }
-        const src = ac.createBufferSource(), g = ac.createGain(); src.buffer = nb; g.gain.value = 0.75;
+        // the note lasts as long as you hold it: a quick tap is a short note, a long press holds it (the steady middle loops)
+        const src = ac.createBufferSource(), g = ac.createGain(); src.buffer = nb;
+        if (nb.duration > 1) { src.loop = true; src.loopStart = 0.35; src.loopEnd = nb.duration - 0.45; }
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.75, t + 0.02);
         if (ac.createStereoPanner) { const pn = ac.createStereoPanner(); pn.pan.value = pan * 0.5; src.connect(g); g.connect(pn); pn.connect(out); } else { src.connect(g); g.connect(out); }
-        src.start(t); this._voices.push({ o: src, g, k, end: t + nb.duration });
-        if (cell >= 0) SING_OPEN.set(cell, { t0: performance.now(), end: performance.now() + nb.duration * 1000 });   // its mouth stays open while it sings
+        src.start(t); const v = { o: src, g, k, end: Infinity, pid: window._sqPid, cell }; this._voices.push(v);
+        if (cell >= 0) SING_OPEN.set(cell, { t0: performance.now(), end: Infinity });   // its mouth stays open while it sings
+        setTimeout(() => { if (v.end === Infinity) this.singUp(v.pid); }, 12000);   // nobody holds a note forever
         return;
       }
       const t = ac.currentTime, f = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33][k % 7];
@@ -5308,14 +5319,15 @@ function drawDiscs(now, dt) {
     drawRecord(ctx, L.c * 0.48, sk.colours[d.colour % sk.colours.length], d.colour, d.rot); ctx.restore(); }
 }
 // (27 Nov) Singers: how open this mouth is right now (in the hand, landing, or being pressed)
-let MOUTH_OPEN = null; const SING_OPEN = new Map();   // cells whose note is still ringing
+let MOUTH_OPEN = null; const SING_OPEN = new Map();
+for (const ev of ['pointerup', 'pointercancel']) window.addEventListener(ev, e => { try { if (skin().singer) Sound.singUp(e.pointerId); } catch (_) {} }, true);   // cells whose note is still ringing
 function mouthOpen() {
   if (HAND) return 1;
   if (MOUTH_OPEN != null) return MOUTH_OPEN;
   const p = window._poke, pos = window._animPos; if (!pos) return 0;
   const gx = Math.floor((pos[0] - L.ix) / L.c), gy = Math.floor((pos[1] - L.iy) / L.c), ci = Logic.idx(gx, gy), now = performance.now();
   let o = 0;
-  const sn = SING_OPEN.get(ci); if (sn) { if (now > sn.end + 300) SING_OPEN.delete(ci); else o = Math.min(1, (now - sn.t0) / 110, Math.max(0, (sn.end + 250 - now) / 300)); }
+  const sn = SING_OPEN.get(ci); if (sn) { if (now > sn.end + 300) SING_OPEN.delete(ci); else o = Math.min(1, (now - sn.t0) / 60, sn.end === Infinity ? 1 : Math.max(0, (sn.end + 200 - now) / 250)); }
   if (p && ci === p.i) o = Math.max(o, !p.rel ? Math.min(1, (now - p.t0) / 110) : Math.max(0, 1 - (now - p.rel.t0) / 260));
   return o;
 }
@@ -8971,7 +8983,7 @@ const Input = (() => {
           e.preventDefault(); const now = performance.now();
           // the bubble goes flat and wide under your finger and sticks to it: drag and it stretches after you, but stays in its cell
           if (poke) releasePoke(now);
-          poke = { i: Logic.idx(gx, gy), pid: e.pointerId, x0: x, y0: y, x, y, t0: now, rel: null }; window._poke = poke;
+          poke = { i: Logic.idx(gx, gy), pid: e.pointerId, x0: x, y0: y, x, y, t0: now, rel: null }; window._poke = poke; window._sqPid = e.pointerId;
           FX.settle.delete(poke.i);
           try { cv.setPointerCapture(e.pointerId); } catch (err) {}
           for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
