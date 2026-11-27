@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 6pm, first-time guide (not live, ladder off)</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 6:30pm, sunflowers (add &flower=sunflower to try them now)</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -3112,6 +3112,7 @@ const NEW_SKINS = [
     // (26 Nov) closed buds in your hand bloom open into flowers when they land
     draw(ctx, s, c, i) {
       const r = s * 0.5, n = 6;
+      if (isSun()) { drawSunflower(ctx, r * 1.02, SUN_COLS[i % SUN_COLS.length], i); return; }
       for (let k = 0; k < n; k++) {
         ctx.save(); ctx.rotate(k * Math.PI * 2 / n);
         const g = ctx.createLinearGradient(0, 0, 0, -r); g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, c); g.addColorStop(1, c);
@@ -3227,7 +3228,7 @@ if (CONFIG.newLooks) SKINS.push(...NEW_SKINS);
 for (const nm of CONFIG.dropLooks || []) { const k = SKINS.findIndex(x => x.name === nm); if (k >= 0) SKINS.splice(k, 1); }   // looks taken out   // trying out the new looks
 SKINS.forEach(k => { k.baseColours = k.colours.slice(); });
 function applyPalette() {
-  try { if (SKINS[state.skin % SKINS.length].hatch && state._lastPaletteSkin !== state.skin) state._eggKind = null; state._lastPaletteSkin = state.skin; } catch (_) {}   // arriving at an Eggs frame: a new surprise; it then stays the same right through the frame, including its final clear
+  try { if (state._lastPaletteSkin !== state.skin) { if (SKINS[state.skin % SKINS.length].hatch) state._eggKind = null; if (SKINS[state.skin % SKINS.length].bloom) state._flowerKind = null; } state._lastPaletteSkin = state.skin; } catch (_) {}   // arriving at an Eggs frame: a new surprise; it then stays the same right through the frame, including its final clear
   const sk = skin(), f = state.boardClears, P = CONFIG.palettes !== false && f > 0 && !sk.fixedColours ? PALETTES[(f - 1) % PALETTES.length] : null;
   const cols = P ? P.slice(0, sk.baseColours.length) : sk.baseColours;
   if (sk.colours.join() === cols.join()) return;
@@ -3639,7 +3640,7 @@ function serialise() {
   return { grid: state.grid, tray: state.tray.map(packPiece),
     score: state.score, combo: state.combo, sinceClear: state.sinceClear, skin: state.skin, skinOrder: state.skinOrder, boardClears: state.boardClears, frameLines: state.frameLines,
     mysteryLines: state.mysteryLines, mysteryCount: state.mysteryCount, mysteryPending: state.mysteryPending, mysterySinceFrame: state.mysterySinceFrame, rescueGiven: !!state.rescueGiven,
-    eggKind: state._eggKind || null, eggFrame: state._eggFrame, pid: state.pid, nextPid: state.nextPid, golden: state.golden || null, goldenDone: !!state.goldenDone, goldenDue: !!state.goldenDue, frameMoves: state.frameMoves | 0, goldenAt: state.goldenAt | 0, gapQueue: state.gapQueue || [], puzzlePure: !!state.puzzlePure, frameStart: state.frameStart | 0, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted, bgOffset: state.bgOffset | 0, tutorial: !!state.tutorial, easyTest: !!state.easyTest, swaps: state.swaps | 0 };
+    eggKind: state._eggKind || null, eggFrame: state._eggFrame, flowerKind: state._flowerKind || null, pid: state.pid, nextPid: state.nextPid, golden: state.golden || null, goldenDone: !!state.goldenDone, goldenDue: !!state.goldenDue, frameMoves: state.frameMoves | 0, goldenAt: state.goldenAt | 0, gapQueue: state.gapQueue || [], puzzlePure: !!state.puzzlePure, frameStart: state.frameStart | 0, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted, bgOffset: state.bgOffset | 0, tutorial: !!state.tutorial, easyTest: !!state.easyTest, swaps: state.swaps | 0 };
 }
 function saveGame() { if (state.over) Store.set('game', null); else Store.set('game', serialise()); }
 function restoreGame() {
@@ -3650,7 +3651,7 @@ function restoreGame() {
   state.tray = (g.tray || [null, null, null]).map(unpackPiece);
   state.mysteryLines = g.mysteryLines | 0; state.mysteryCount = g.mysteryCount | 0; state.mysteryPending = g.mysteryPending || false; state.mysterySinceFrame = g.mysterySinceFrame | 0; state.rescueGiven = !!g.rescueGiven;
   state.score = g.score | 0; state.combo = g.combo | 0; state.sinceClear = g.sinceClear | 0;
-  state._eggKind = g.eggKind || null; state._eggFrame = g.eggFrame; state._lastPaletteSkin = g.skin | 0;   // a reload keeps the same surprise
+  state._eggKind = g.eggKind || null; state._eggFrame = g.eggFrame; state._flowerKind = g.flowerKind || null; state._lastPaletteSkin = g.skin | 0;   // a reload keeps the same surprise
   state.skin = g.skin | 0; state.skinOrder = Array.isArray(g.skinOrder) ? g.skinOrder : null; state.bgOffset = g.bgOffset | 0; state.tutorial = !!g.tutorial; state.bgFrame = g.boardClears | 0; state.easyTest = !!g.easyTest; state.swaps = g.swaps == null ? 3 : g.swaps | 0; state.boardClears = g.boardClears | 0; state.frameLines = g.frameLines | 0; state.over = false;
   applyPalette();
   // older saves have no piece ids: their bubbles are fixed, new placements are tracked normally
@@ -4136,7 +4137,7 @@ function vivid(hex) {
   return '#' + [f(h + 1 / 3), f(h), f(h - 1 / 3)].map(v => Math.round(v * 255).toString(16).padStart(2, '0')).join('');
 }
 function sprite(skinIdx, colour) {
-  const key = skinIdx + '|' + colour + '|' + (CONFIG.themes !== false) + '|' + onScene() + (SKINS[skinIdx % SKINS.length].hatch ? '|' + eggKind() : '');
+  const key = skinIdx + '|' + colour + '|' + (CONFIG.themes !== false) + '|' + onScene() + (SKINS[skinIdx % SKINS.length].hatch ? '|' + eggKind() : '') + (SKINS[skinIdx % SKINS.length].bloom ? '|' + flowerKind() : '');
   let s = spriteCache.get(key);
   if (s) return s;
   const size = Math.max(24, L.c);
@@ -4900,6 +4901,50 @@ function drawFliers(now, dt) {
     DeviceMotionEvent.requestPermission().then(r => { if (r === 'granted') start(); }).catch(() => {});
   });
 })();
+const FLOWER_KINDS = ['flower', 'sunflower'], FLOWER_FORCE = (location.search.match(/[?&]flower=(flower|sunflower)/) || [])[1];
+const SUN_COLS = ['#ffc21a', '#ff9a1a', '#ffe14d', '#e8a317', '#d9622b'];   // sunflower varieties: golden, orange, lemon, amber, bronze-red
+function flowerKind() {   // (27 Nov) each Flowers frame is a surprise: the original flowers or sunflowers
+  if (FLOWER_FORCE) return FLOWER_FORCE;
+  if (!state._flowerKind) { const last = Store.get('flowerLast', ''); let k; do { k = FLOWER_KINDS[Math.floor(Math.random() * FLOWER_KINDS.length)]; } while (k === last && FLOWER_KINDS.length > 1); state._flowerKind = k; Store.set('flowerLast', k); }
+  return state._flowerKind;
+}
+const isSun = () => { try { return flowerKind() === 'sunflower'; } catch (_) { return false; } };
+// a sunflower head: two rings of golden petals around a dark disc of seeds in a spiral. grow 0..1 lets it unfold.
+function drawSunflower(x, r, col, seed, grow = 1, petalsT = 1, discT = 1) {
+  const n = 18, rot = seed * 0.7;
+  for (const layer of [0, 1]) for (let k = 0; k < n; k++) {
+    const idx = layer * n + k, u = Math.max(0, Math.min(1, petalsT * 1.25 - (idx / (2 * n)) * 0.25)), e = u <= 0 ? 0 : 1 - Math.pow(1 - u, 3);
+    if (e <= 0) continue;
+    const a = rot + (k + layer * 0.5) / n * Math.PI * 2, len = r * (layer ? 0.52 : 0.58) * e, w = r * 0.11 * Math.min(1, e * 1.5);
+    x.save(); x.rotate(a);
+    const g = x.createLinearGradient(0, -r * 0.3, 0, -r * 0.3 - len); g.addColorStop(0, shade(col, layer ? -30 : -15)); g.addColorStop(0.5, col); g.addColorStop(1, shade(col, 35));
+    x.fillStyle = g; x.beginPath(); x.moveTo(-w, -r * 0.3); x.quadraticCurveTo(-w * 1.2, -r * 0.3 - len * 0.6, 0, -r * 0.3 - len); x.quadraticCurveTo(w * 1.2, -r * 0.3 - len * 0.6, w, -r * 0.3); x.closePath(); x.fill();
+    x.strokeStyle = 'rgba(120,60,0,0.25)'; x.lineWidth = Math.max(0.6, r * 0.015); x.beginPath(); x.moveTo(0, -r * 0.32); x.lineTo(0, -r * 0.3 - len * 0.85); x.stroke();   // a crease down each petal
+    x.restore();
+  }
+  const dr = r * 0.36 * discT;
+  if (dr > 0.5) {
+    const dg = x.createRadialGradient(-dr * 0.3, -dr * 0.35, dr * 0.05, 0, 0, dr); dg.addColorStop(0, '#8a5a2b'); dg.addColorStop(0.55, '#4a2c12'); dg.addColorStop(1, '#2a170a');
+    x.fillStyle = dg; x.beginPath(); x.arc(0, 0, dr, 0, Math.PI * 2); x.fill();
+    x.fillStyle = 'rgba(255,200,120,0.35)';   // the seeds, in the golden-angle spiral real sunflowers use
+    for (let k = 1; k < 70; k++) { const d = Math.sqrt(k / 70) * dr * 0.92, a = k * 2.39996; x.beginPath(); x.arc(Math.cos(a) * d, Math.sin(a) * d, dr * 0.04, 0, Math.PI * 2); x.fill(); }
+    x.fillStyle = 'rgba(255,255,255,0.18)'; x.beginPath(); x.ellipse(-dr * 0.35, -dr * 0.4, dr * 0.35, dr * 0.18, -0.6, 0, Math.PI * 2); x.fill();
+  }
+}
+function drawSunBud(cx, cy, size, sx, sy, alpha, seed, swell = 0) {   // a green sunflower bud wrapped in pointed leaves
+  const r = size * 0.5;
+  ctx.save(); ctx.translate(cx, cy); ctx.rotate(Math.sin(seed * 2.3) * 0.12); ctx.scale(sx * (1 + swell * 0.15), sy * (1 + swell * 0.15)); if (alpha !== 1) ctx.globalAlpha = alpha;
+  for (let k = 0; k < 12; k++) {   // soft, overlapping leafy bracts cupping the bud
+    const a = k / 12 * Math.PI * 2 + seed, len = r * (0.56 + (k % 2) * 0.06);
+    ctx.save(); ctx.rotate(a); ctx.fillStyle = k % 2 ? '#3f8f2f' : '#5fb043';
+    ctx.beginPath(); ctx.moveTo(-r * 0.2, 0); ctx.bezierCurveTo(-r * 0.24, -len * 0.6, -r * 0.08, -len * 0.95, 0, -len); ctx.bezierCurveTo(r * 0.08, -len * 0.95, r * 0.24, -len * 0.6, r * 0.2, 0); ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+  const g = ctx.createRadialGradient(-r * 0.15, -r * 0.2, r * 0.05, 0, 0, r * 0.45); g.addColorStop(0, '#9be06a'); g.addColorStop(1, '#3d8a2a');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r * 0.42, 0, Math.PI * 2); ctx.fill();
+  if (swell > 0.3) { ctx.fillStyle = `rgba(255,200,40,${(swell - 0.3) * 1.2})`; ctx.beginPath(); ctx.arc(0, 0, r * 0.2, 0, Math.PI * 2); ctx.fill(); }   // a hint of gold peeking out
+  ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.ellipse(-r * 0.15, -r * 0.2, r * 0.12, r * 0.07, -0.6, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
 const EGG_KINDS = ['chick', 'fried', 'easter'], EGG_FORCE = (location.search.match(/[?&]egg=(chick|fried|easter)/) || [])[1];
 function eggKind() {   // which surprise is inside the eggs this frame (picked once per frame, never the same twice running)
   if (EGG_FORCE) return EGG_FORCE;
@@ -5105,7 +5150,7 @@ function drawBud(cx, cy, size, sx, sy, alpha, seed, colour) {
   ctx.restore();
 }
 function drawBubble(skinIdx, colour, cx, cy, size, sx = 1, sy = 1, alpha = 1, seed = 0, now = performance.now()) {
-  if (HAND && SKINS[skinIdx % SKINS.length].bloom) { drawBud(cx, cy, size, sx, sy, alpha, seed, colour); return; }
+  if (HAND && SKINS[skinIdx % SKINS.length].bloom) { if (isSun()) drawSunBud(cx, cy, size, sx, sy, alpha, seed); else drawBud(cx, cy, size, sx, sy, alpha, seed, colour); return; }
   if (HAND && SKINS[skinIdx % SKINS.length].hatch) { drawEgg(cx, cy, size, sx, sy, alpha, seed, colour); return; }
   if (!HAND && SKINS[skinIdx % SKINS.length].hatch && eggKind() === 'fried' && !settings.reduced) {   // really jelly-like: always wobbling, and the whole plate jiggles when anything lands or gets squished
     const J = window._jelly;   // still until something disturbs them: a ripple spreads out from where a piece lands or you touch, and the whole plate jiggles when you move the phone
@@ -6509,7 +6554,7 @@ const hoverAt = { key: '', t0: 0 };
 // (26 Nov) Flowers: when a row clears, the petals burst up, then flutter and tumble down the screen
 const PETALS = [];
 function spawnPetals(x, y, colour) {
-  const sk = SKINS.find(k => k.bloom), col = sk.colours[colour % sk.colours.length], now = performance.now();
+  const sk = SKINS.find(k => k.bloom), col = isSun() ? SUN_COLS[colour % SUN_COLS.length] : sk.colours[colour % sk.colours.length], now = performance.now();
   for (let k = 0; k < 6; k++) {
     const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.2, sp = L.c * (6 + Math.random() * 6);   // a bigger burst upward
     PETALS.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 10, sz: L.c * (0.2 + Math.random() * 0.1),
@@ -7153,6 +7198,21 @@ function draw(now) {
       }
       const bl = skin().bloom;
       if (t < 0) { HAND = true; drawBubble(state.skin, v - 1, x + (bl ? 0 : Math.sin(now / 18 + gx) * c * 0.03), y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; continue; }   // the kernel jitters / the bud waits
+      if (bl && isSun()) {
+        if (t < 1300) {
+          const sd = gx * 3 + gy * 5, col = SUN_COLS[(v - 1) % SUN_COLS.length];
+          if (t < 350) drawSunBud(x, y, c * 0.96, 1, 1, 1, sd, t / 350);   // the bud swells and a hint of gold shows
+          else {
+            const u = t - 350, lift = u > 800 ? Math.sin(Math.min(1, (u - 800) / 150) * Math.PI) * c * 0.06 : 0;
+            if (u < 200) drawSunBud(x, y, c * 0.96, 1, 1, 1 - u / 200, sd, 1);
+            ctx.save(); ctx.translate(x, y - lift); ctx.rotate(((sd * 2.39996) % (Math.PI * 2)));
+            drawSunflower(ctx, c * 0.96 * 0.5 * 1.02, col, v - 1, 1, Math.min(1, Math.max(0, (u - 120) / 650)), Math.min(1, 0.35 + u / 400));
+            ctx.restore();
+          }
+          continue;
+        }
+        POPT.delete(Logic.idx(gx, gy));
+      }
       if (bl) {
         if (t < 1400) {   // the petals unfold one by one from the bud (about a second), then the finished flower takes over
           if (t < 200) { HAND = true; drawBubble(state.skin, v - 1, x, y - Math.sin(t / 200 * Math.PI) * c * 0.06, c * 0.96 * (1 + 0.1 * Math.sin(t / 200 * Math.PI)), 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; }   // the bud swells
