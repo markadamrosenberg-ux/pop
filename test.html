@@ -640,7 +640,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 7:55am, real balloon stretch</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 8am, fatter balloons</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -5355,7 +5355,7 @@ function drawSlices(now) {
 }
 // (28 Nov) Balloons
 function drawBalloon(x, r, col, seed) {
-  const bw = r * 0.74, bh = r * 0.86, cy = -r * 0.12;
+  const bw = r * 0.88, bh = r * 0.86, cy = -r * 0.1;   // (28 Nov) rounder and fatter
   // the string, curling down from the knot
   x.strokeStyle = 'rgba(235,235,245,0.75)'; x.lineWidth = Math.max(0.6, r * 0.025); x.beginPath(); x.moveTo(0, cy + bh + r * 0.06);
   x.bezierCurveTo(r * 0.12, cy + bh + r * 0.16, -r * 0.1, cy + bh + r * 0.24, r * 0.04, r * 0.98); x.stroke();
@@ -5364,8 +5364,8 @@ function drawBalloon(x, r, col, seed) {
   // the balloon: a slightly tall egg, narrower at the bottom
   const g = x.createRadialGradient(-bw * 0.35, cy - bh * 0.4, r * 0.04, 0, cy, bh * 1.05); g.addColorStop(0, mix(col, '#ffffff', 0.55)); g.addColorStop(0.35, col); g.addColorStop(0.85, shade(col, -35)); g.addColorStop(1, shade(col, -55));
   x.fillStyle = g; x.beginPath(); x.moveTo(0, cy - bh);
-  x.bezierCurveTo(bw * 1.05, cy - bh, bw * 1.1, cy + bh * 0.35, 0, cy + bh);
-  x.bezierCurveTo(-bw * 1.1, cy + bh * 0.35, -bw * 1.05, cy - bh, 0, cy - bh); x.fill();
+  x.bezierCurveTo(bw * 1.02, cy - bh, bw * 1.12, cy + bh * 0.55, 0, cy + bh);
+  x.bezierCurveTo(-bw * 1.12, cy + bh * 0.55, -bw * 1.02, cy - bh, 0, cy - bh); x.fill();
   // the shine: a big soft window and a bright spot, plus a reflected glow at the bottom
   x.fillStyle = 'rgba(255,255,255,0.55)'; x.beginPath(); x.ellipse(-bw * 0.42, cy - bh * 0.38, bw * 0.16, bh * 0.3, 0.45, 0, Math.PI * 2); x.fill();
   x.fillStyle = 'rgba(255,255,255,0.9)'; x.beginPath(); x.ellipse(-bw * 0.38, cy - bh * 0.55, bw * 0.07, bh * 0.08, 0.45, 0, Math.PI * 2); x.fill();
