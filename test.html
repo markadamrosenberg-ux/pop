@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 8pm, festoon lights</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 8:30pm, Pop drums</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2030,6 +2030,22 @@ const Sound = (() => {
       tone(t, { f: 520 * v, f2: 160, peak: 0.12 * big, attack: 0.001, decay: 0.045, pan });
       noise(t + 0.002, { type: 'highpass', f: 3400, q: 0.7, peak: 0.03 * big, attack: 0.0005, decay: 0.012, pan });
     },
+    drum(part = 'kick', pan = 0, big = 1, delay = 0) {   // (27 Nov) a little synthesised kit
+      if (!ok()) return; const t = ac.currentTime + Math.max(0, delay);
+      if (part === 'kick') { tone(t, { f: 150, f2: 42, type: 'sine', peak: 0.36 * big, attack: 0.002, decay: 0.32, pan }); noise(t, { type: 'bandpass', f: 2600, q: 1, peak: 0.05 * big, attack: 0.001, decay: 0.012, pan }); }
+      else if (part === 'snare') { noise(t, { type: 'highpass', f: 1500, q: 0.5, peak: 0.16 * big, attack: 0.001, decay: 0.16, pan }); tone(t, { f: 200, f2: 160, type: 'triangle', peak: 0.12 * big, attack: 0.001, decay: 0.08, pan }); }
+      else if (part === 'tom1' || part === 'tom2' || part === 'floor') { const f = part === 'tom1' ? 260 : part === 'tom2' ? 190 : 120; tone(t, { f, f2: f * 0.62, type: 'sine', peak: 0.28 * big, attack: 0.002, decay: 0.3, pan }); noise(t, { type: 'bandpass', f: f * 6, q: 1, peak: 0.03 * big, attack: 0.001, decay: 0.02, pan }); }
+      else if (part === 'hihat') noise(t, { type: 'highpass', f: 7500, q: 0.6, peak: 0.09 * big, attack: 0.001, decay: 0.05, pan });
+      else if (part === 'ride') { noise(t, { type: 'highpass', f: 7000, q: 0.5, peak: 0.04 * big, attack: 0.001, decay: 0.6, pan }); [3200, 4100, 5350].forEach(f => tone(t, { f, type: 'sine', peak: 0.018 * big, attack: 0.001, decay: 0.9, pan })); }
+      else if (part === 'crash') { noise(t, { type: 'highpass', f: 4500, q: 0.4, peak: 0.13 * big, attack: 0.002, decay: 1.4, pan }); noise(t, { type: 'bandpass', f: 8500, q: 0.8, peak: 0.06 * big, attack: 0.002, decay: 1.0, pan: -pan }); }
+    },
+    drumPlace(n = 1) {   // one drum: a kick; more: a quick snare roll that lands on the kick
+      if (!ok()) return;
+      if (n <= 1) { this.drum('kick'); return; }
+      const hits = Math.min(10, n * 2);
+      for (let k = 0; k < hits; k++) this.drum('snare', R(-0.2, 0.2), 0.35 + 0.5 * k / hits, k * 0.045);
+      this.drum('kick', 0, 1, hits * 0.045); this.drum('tom2', 0, 0.5, hits * 0.045);
+    },
     bulbOn(delay = 0, pan = 0) {   // (27 Nov) a festoon bulb switching on: a soft click and a warm little glow-tone
       if (!ok()) return; const t = ac.currentTime + Math.max(0, delay);
       noise(t, { type: 'bandpass', f: 3200, q: 2, peak: 0.06, attack: 0.001, decay: 0.012, pan });
@@ -2238,6 +2254,7 @@ const Sound = (() => {
         if (Math.random() < 0.5) { if (this._held) this.squishUp(); this.fart(t); return; }
         this._fartOnRelease = true;
       }
+      if (typeof skin === 'function' && skin().drum) { this.drum(['kick', 'tom1', 'tom2', 'floor', 'snare', 'hihat', 'ride', 'crash'][Math.floor(Math.random() * 8)], pan, 0.9); if (this._held) this.squishUp(); return; }   // drums: squeeze to play the kit
       if (typeof skin === 'function' && skin().hatch && eggKind() === 'chick' && playSample('squeak' + (1 + Math.floor(Math.random() * 5)), 0, 0.6, R(0.95, 1.12))) { if (this._held) this.squishUp(); return; }   // chicks: a cute squeaky-toy squeak, no splash
       let si; do { si = Math.floor(Math.random() * 13); } while (si === this._lastSponge); this._lastSponge = si;
       // touch-sensitive: the squish starts soft and slow and keeps getting deeper and slower the longer you hold; let go early and it stops short
@@ -3143,6 +3160,10 @@ const NEW_SKINS = [
       ctx.restore();
     },
   },
+  { name: 'Pop Drums', drum: true, quietClear: true, dry: true, squish: 1.1, fixedColours: true, colours: ['#1a1a22', '#c41e3a', '#1e5bd6', '#d4a017', '#f3efe6'],
+    // (27 Nov) shiny vintage bass drums on their two little legs, with a retro POP logo on the front head (our own lettering, no band or brand)
+    draw(ctx, s, c, i) { drawDrum(ctx, s * 0.5, c, i, 0); },
+  },
   { name: 'Festoon Lights', lights: true, quietClear: true, dry: true, squish: 1.05, fixedColours: true, colours: ['#ffd27a', '#ff9d3a', '#ff4b4b', '#3fe08a', '#4fa8ff'],
     // (27 Nov) glass globe bulbs strung on a wire: dark in your hand, they flicker on when they land; a clear makes them flicker and burst
     draw(ctx, s, c, i) { drawBulb(ctx, s * 0.5, c, 1, i); },
@@ -3869,7 +3890,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -5024,7 +5045,38 @@ function drawSlices(now) {
     ctx.drawImage(sp.canvas, -w / 2, -w / 2, w, w); ctx.restore();
   }
 }
-// (27 Nov) Festoon Lights
+// (27 Nov) Pop Drums: wraps are black oyster, red sparkle, blue sparkle, gold sparkle and white marine pearl
+function drawDrum(x, r, col, seed, vib = 0) {
+  const R0 = r * 0.86, cy = -r * 0.06;
+  // the two spurs: little legs angled out to the floor
+  x.strokeStyle = '#d9dde4'; x.lineWidth = Math.max(1, r * 0.06); x.lineCap = 'round';
+  for (const d of [-1, 1]) { x.beginPath(); x.moveTo(d * R0 * 0.55, cy + R0 * 0.7); x.lineTo(d * R0 * 0.95, cy + R0 * 1.12); x.stroke(); }
+  x.fillStyle = '#2a2a30'; for (const d of [-1, 1]) { x.beginPath(); x.ellipse(d * R0 * 0.97, cy + R0 * 1.13, r * 0.07, r * 0.035, 0, 0, Math.PI * 2); x.fill(); }
+  // the hoop, in the drum's wrap colour, with sparkle
+  const hg = x.createRadialGradient(-R0 * 0.3, cy - R0 * 0.35, R0 * 0.2, 0, cy, R0); hg.addColorStop(0, mix(col, '#ffffff', 0.45)); hg.addColorStop(0.7, col); hg.addColorStop(1, shade(col, -45));
+  x.fillStyle = hg; x.beginPath(); x.arc(0, cy, R0, 0, Math.PI * 2); x.fill();
+  const rnd = seeded(40 + seed * 9);
+  x.fillStyle = col === '#f3efe6' ? 'rgba(180,200,230,0.5)' : 'rgba(255,255,255,0.55)';
+  for (let k = 0; k < 40; k++) { const a = rnd() * 6.28, d = R0 * (0.86 + rnd() * 0.12); x.beginPath(); x.arc(Math.cos(a) * d, cy + Math.sin(a) * d, r * 0.012 + rnd() * r * 0.012, 0, Math.PI * 2); x.fill(); }
+  // chrome inlay rings and the tension lugs
+  x.strokeStyle = '#eef2f8'; x.lineWidth = Math.max(0.8, r * 0.025); x.beginPath(); x.arc(0, cy, R0 * 0.84, 0, Math.PI * 2); x.stroke();
+  x.strokeStyle = 'rgba(255,255,255,0.5)'; x.lineWidth = Math.max(0.5, r * 0.012); x.beginPath(); x.arc(0, cy, R0 * 0.985, 0, Math.PI * 2); x.stroke();
+  for (let k = 0; k < 8; k++) { const a = k / 8 * Math.PI * 2 + Math.PI / 8; const lg = x.createLinearGradient(Math.cos(a) * R0 * 0.88, 0, Math.cos(a) * R0 * 1.02, 0); lg.addColorStop(0, '#ffffff'); lg.addColorStop(1, '#9aa3b2');
+    x.fillStyle = lg; x.beginPath(); x.arc(Math.cos(a) * R0 * 0.93, cy + Math.sin(a) * R0 * 0.93, r * 0.045, 0, Math.PI * 2); x.fill(); }
+  // the front head: creamy white, with a soft dome of light, and a ripple when it's struck
+  const hr = R0 * 0.8, sc = 1 + vib * 0.04;
+  x.save(); x.translate(0, cy); x.scale(sc, 2 - sc);
+  const fg = x.createRadialGradient(-hr * 0.3, -hr * 0.35, hr * 0.05, 0, 0, hr); fg.addColorStop(0, '#ffffff'); fg.addColorStop(0.75, '#f4efe2'); fg.addColorStop(1, '#d8d0bc');
+  x.fillStyle = fg; x.beginPath(); x.arc(0, 0, hr, 0, Math.PI * 2); x.fill();
+  if (vib > 0) { x.strokeStyle = `rgba(160,150,130,${0.35 * vib})`; x.lineWidth = Math.max(0.6, r * 0.02); for (let k = 1; k <= 3; k++) { x.beginPath(); x.arc(0, 0, hr * (0.25 + k * 0.2 + (1 - vib) * 0.1), 0, Math.PI * 2); x.stroke(); } }
+  // the logo: a little banner and a bold retro POP
+  x.fillStyle = shade(col === '#f3efe6' ? '#c41e3a' : col, 5); x.beginPath(); x.roundRect(-hr * 0.62, -hr * 0.2, hr * 1.24, hr * 0.42, hr * 0.08); x.fill();
+  x.fillStyle = '#ffffff'; x.font = `900 ${Math.round(hr * 0.42)}px "Arial Black", "Helvetica Neue", Arial, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.save(); x.scale(1.15, 1); x.fillText('POP', 0, hr * 0.02); x.restore();
+  x.fillStyle = 'rgba(0,0,0,0.55)'; x.font = `700 ${Math.round(hr * 0.12)}px "Helvetica Neue", Arial, sans-serif`; x.fillText('★ DRUMS ★', 0, hr * 0.38);
+  x.restore();
+  x.fillStyle = 'rgba(255,255,255,0.6)'; x.beginPath(); x.ellipse(-R0 * 0.45, cy - R0 * 0.55, R0 * 0.28, R0 * 0.09, -0.7, 0, Math.PI * 2); x.fill();   // the gloss
+}
 function drawBulb(x, r, col, lit, seed) {
   const gy = r * 0.12, gr = r * 0.72;
   if (lit > 0) { const h = x.createRadialGradient(0, gy, gr * 0.3, 0, gy, r * 1.25); h.addColorStop(0, rgba(col, 0.55 * lit)); h.addColorStop(0.5, rgba(col, 0.18 * lit)); h.addColorStop(1, rgba(col, 0)); x.fillStyle = h; x.beginPath(); x.arc(0, gy, r * 1.25, 0, Math.PI * 2); x.fill(); }
@@ -5056,6 +5108,12 @@ function drawWires(now) {   // the festoon cable: sags between neighbouring bulb
   ctx.restore();
 }
 const SHARDS = [];
+function drumBurst(x, y, col) {   // a drum explodes: a flash, glitter from its wrap and chrome sparks
+  const now = performance.now();
+  SHARDS.push({ flash: true, x, y, col: col === '#1a1a22' ? '#c8d0ff' : col, t0: now, life: 300 });
+  for (let k = 0; k < 18; k++) { const a = Math.random() * 6.28, sp = L.c * (3 + Math.random() * 6);
+    SHARDS.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - L.c * 3, col: k % 3 === 0 ? '#ffffff' : k % 3 === 1 ? '#e8edf5' : (col === '#1a1a22' ? '#8a8fa8' : col), glass: k % 4 === 0, rot: Math.random() * 6, vr: (Math.random() - 0.5) * 16, t0: now, life: 600 + Math.random() * 500, sz: L.c * (0.04 + Math.random() * 0.06) }); }
+}
 function shatterBulb(x, y, col) {   // a bulb bursts: a flash, sparks and little shards of glass
   const now = performance.now();
   SHARDS.push({ flash: true, x, y, col, t0: now, life: 260 });
@@ -7106,6 +7164,11 @@ function playResult(res, pointerGesture) {
     }
   }
   else if (skin().popcorn || skin().bloom || skin().hatch) { /* each kernel or bud makes its own sound as it opens, below */ }
+  else if (skin().drum) {   // a single drum: a kick; a bigger piece: a quick roll that lands on the kick
+    const n = res.piece.shape.cells.length;
+    res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + (n > 1 ? k * 70 : 0)));
+    Sound.drumPlace(n);
+  }
   else if (skin().lights) {   // the bulbs flicker on, one after another, with a click
     res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 90; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.bulbOn((at - now) / 1000, (res.gx + x - 3.5) / 5); });
   }
@@ -7176,6 +7239,7 @@ function playResult(res, pointerGesture) {
     if (skin().bloom && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => spawnPetals(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 150 + k * 25));
     if (skin().hatch && !settings.reduced) { const ek = eggKind(); res.cleared.forEach((c2, k) => setTimeout(() => { const [qx, qy] = cellCentre(c2.x, c2.y); if (ek === 'chick') { releaseChick(qx, qy); if (k % 2 === 0) spawnFeathers(qx, qy, 2); } else if (ek === 'easter') spawnSprinkles(qx, qy, 6); else squishDrops(qx, qy, '#ffc21a'); }, 150 + k * 25)); }
     if (skin().lights) Sound.flicker(res.lines);
+    if (skin().drum) { Sound.drum('kick', 0, 1); Sound.drum('crash', 0, Math.min(1.3, 0.8 + res.lines * 0.25)); }
     if (skin().pizza && !settings.reduced) { res.cleared.forEach((c2, k) => releaseSlices(state.skin, (c2.v || 1) - 1, ...cellCentre(c2.x, c2.y), 40 + k * 60)); Sound.cheese(res.cleared.length); }
     else if (skin().pizza) Sound.cheese(res.cleared.length);
     if (skin().dandelion) { Sound.gust(res.lines); if (!settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => releaseSeeds(...cellCentre(c2.x, c2.y), 16, 2), 60 + k * 35)); }
@@ -7262,6 +7326,7 @@ function updateFX(now, dt) {
       if (sk.face) fireworkBurst(x, y, p.I || 1);
       else if (sk.bounce && !settings.reduced) FX.particles.push({ k: 'ball', x, y, vx: ((p.gx - 3.5) / 3.5 + (Math.random() - 0.5)) * L.c * 4, vy: -L.c * (7 + Math.random() * 4), skin: p.skin, colour: p.colour, life: 0, max: 2.2, spin: (Math.random() - 0.5) * 8, floor: L.by + L.B + L.c * 0.2, bounces: 0 });
       else if (sk.fizz) fizzBurst(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);
+      else if (sk.drum) { drumBurst(x, y, sk.colours[p.colour % sk.colours.length]); Sound.drum(['tom1', 'tom2', 'floor', 'snare'][Math.floor(Math.random() * 4)], ((p.gx - 3.5) / 3.5) * 0.6, 0.6); }
       else if (sk.lights) { shatterBulb(x, y, sk.colours[p.colour % sk.colours.length]); Sound.bulbPop(((p.gx - 3.5) / 3.5) * 0.6); }
       else if (!sk.dry) spawnSplash(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);   // dry looks (dandelions) make their own effect instead of a splash
       if (!sk.bounce && sk.hit !== 'pingpong' && sk.hit !== 'tennis' && sk.hit !== 'golf' && !sk.fizz) Sound.pop(p.rank, p.combo, ((p.gx - 3.5) / 3.5) * 0.65);   // basketballs stay quiet: the boings say it all
@@ -7436,6 +7501,11 @@ function draw(now) {
       }
       const bl = skin().bloom;
       if (t < 0) { HAND = true; drawBubble(state.skin, v - 1, x + (bl ? 0 : Math.sin(now / 18 + gx) * c * 0.03), y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; continue; }   // the kernel jitters / the bud waits
+      if (skin().drum) {
+        if (t < 500) { const sk = skin(), col = sk.colours[(v - 1) % sk.colours.length], u = Math.max(0, t), vib = t < 0 ? 0 : Math.exp(-u / 160) * Math.abs(Math.cos(u / 22));
+          ctx.save(); ctx.translate(x, y + (t > 0 && t < 120 ? Math.sin(t / 120 * Math.PI) * c * 0.04 : 0)); drawDrum(ctx, c * 0.48, col, v - 1, vib); ctx.restore(); continue; }
+        POPT.delete(Logic.idx(gx, gy));
+      }
       if (skin().lights) {
         if (t < 420) { const sk = skin(), col = sk.colours[(v - 1) % sk.colours.length], on = t < 0 ? 0 : t > 300 ? 1 : (Math.sin(t * 0.13 + gx * 7) > 0.2 - t / 400 ? 1 : 0.15);
           ctx.save(); ctx.translate(x, y); drawBulb(ctx, c * 0.48, col, on, v - 1); ctx.restore(); continue; }
