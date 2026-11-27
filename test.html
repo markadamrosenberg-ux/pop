@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 8pm, lips and records</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 8:10pm, shinier ladybirds</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2034,8 +2034,12 @@ const Sound = (() => {
       if (!ok()) return; const t = ac.currentTime + 0.42;
       if (this._rec) { try { this._rec.gain.cancelScheduledValues(ac.currentTime); this._rec.gain.setTargetAtTime(0, ac.currentTime, 0.04); } catch (e) {} }   // a new drop takes over from the last one
       // the needle hitting the vinyl
-      noise(t, { type: 'lowpass', f: 220, q: 0.8, peak: 0.28, attack: 0.002, decay: 0.09 });
-      noise(t, { type: 'highpass', f: 1200, q: 0.5, peak: 0.16, attack: 0.002, decay: 0.35 });
+      noise(t, { type: 'lowpass', f: 220, q: 0.8, peak: 0.32, attack: 0.002, decay: 0.09 });
+      noise(t, { type: 'highpass', f: 1200, q: 0.5, peak: 0.2, attack: 0.002, decay: 0.35 });
+      // the needle skidding across the grooves: a loud raspy zzzrrrt
+      noise(t + 0.01, { type: 'bandpass', f: 3800, f2: 900, q: 2.2, peak: 0.34, attack: 0.004, decay: 0.22 });
+      noise(t + 0.01, { type: 'bandpass', f: 1600, f2: 500, q: 3, peak: 0.22, attack: 0.004, decay: 0.2 });
+      for (let k = 0; k < 9; k++) noise(t + 0.01 + k * 0.022, { type: 'bandpass', f: R(1500, 4000), q: 4, peak: 0.12, attack: 0.001, decay: 0.012 });   // the rasp of the grooves
       for (let k = 0; k < 18; k++) noise(t + Math.pow(Math.random(), 2) * 0.5, { type: 'highpass', f: R(1500, 6000), q: 0.7, peak: R(0.08, 0.16), attack: 0.0005, decay: R(0.004, 0.012), pan: R(-0.5, 0.5) });
       // the music, through an old-record filter (no deep bass, no shiny top), with crackle over it
       const bus = ac.createGain(), hp = ac.createBiquadFilter(), lp = ac.createBiquadFilter();
@@ -2052,7 +2056,7 @@ const Sound = (() => {
         if (k % 4 === 0) for (const r of [1, 1.26, 1.5]) tone(b + 0.02, { f: 220 * r * (k === 4 ? 0.89 : 1), type: 'square', peak: 0.02, attack: 0.005, decay: 0.22, dest: bus });   // a chord stab
       }
       // a quick scratch in the middle, like a DJ
-      for (const [o2, f1, f2] of [[3, 600, 2400], [3.25, 2400, 700], [3.5, 700, 2200], [3.62, 2200, 600]]) noise(m + o2 * beat, { type: 'bandpass', f: f1, f2, q: 3, peak: 0.16, attack: 0.008, decay: 0.08, dest: bus });
+      for (const [o2, f1, f2] of [[3, 600, 2400], [3.25, 2400, 700], [3.5, 700, 2200], [3.62, 2200, 600]]) noise(m + o2 * beat, { type: 'bandpass', f: f1, f2, q: 3, peak: 0.3, attack: 0.008, decay: 0.08, dest: bus });
       for (let k = 0; k < 30; k++) noise(m + Math.random() * beat * 8.5, { type: 'highpass', f: R(1500, 5000), q: 0.7, peak: R(0.02, 0.05), attack: 0.0005, decay: R(0.004, 0.01), pan: R(-0.4, 0.4), dest: bus });   // crackle
       noise(m, { type: 'bandpass', f: 3500, q: 0.4, peak: 0.02, attack: 0.1, decay: beat * 8.5, dest: bus });   // hiss
     },
@@ -3236,7 +3240,7 @@ const NEW_SKINS = [
     draw(ctx, s, c, i) { drawMouth(ctx, s * 0.47, 0, 0, i, c); },
     anim(ctx, s, c, i, t, seed) { const o = mouthOpen(); if (o > 0.02) drawMouth(ctx, s * 0.47, o, t, seed, c); },
   },
-  { name: 'Ladybugs', ladybug: true, quietClear: true, dry: true, squish: 0.6, fixedColours: true, colours: ['#d4161c', '#e5621a', '#f0b81c', '#141418', '#b8122e'],
+  { name: 'Ladybugs', ladybug: true, quietClear: true, dry: true, squish: 0.6, fixedColours: true, colours: ['#ff1f2d', '#ff6a1a', '#ffc21f', '#0d0d12', '#ff2d7a'],
     // (27 Nov) glossy ladybugs from above, real markings, no cartoon faces; on a row they open their shells and fly off
     draw(ctx, s, c, i) { drawLadybug(ctx, s * 0.5, c, i, 0, 0); },
   },
@@ -3975,7 +3979,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'ladybug', 'vinyl', 'singer']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'vinyl', 'singer', 'ladybug']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -5247,7 +5251,7 @@ function drawMouth(x, r, open, t, seed, col = '#c8102e') {   // the whole ball i
 }
 // (27 Nov) Ladybugs: open 0..1 lifts the wing cases apart; flap 0..1 beats the clear wings underneath
 function drawLadybug(x, r, col, seed, open = 0, flap = 0) {
-  const R0 = r * 0.8, cy = r * 0.1, dark = col === '#141418', spot = dark ? '#d4161c' : '#111114';
+  const R0 = r * 0.86, cy = r * 0.08, dark = col === '#0d0d12', spot = dark ? '#d4161c' : '#111114';
   // little legs and antennae peeking out
   x.strokeStyle = '#101012'; x.lineWidth = Math.max(0.6, r * 0.035); x.lineCap = 'round';
   for (const d of [-1, 1]) for (const k of [-0.35, 0.15, 0.6]) { x.beginPath(); x.moveTo(d * R0 * 0.75, cy + k * R0); x.lineTo(d * R0 * 1.02, cy + k * R0 + r * 0.06); x.stroke(); }
@@ -5268,8 +5272,11 @@ function drawLadybug(x, r, col, seed, open = 0, flap = 0) {
   for (const d of [-1, 1]) {
     x.save(); x.translate(0, cy - R0 * 0.5); x.rotate(d * open * 0.85); x.translate(d * open * R0 * 0.12, R0 * 0.5);
     x.beginPath(); x.moveTo(0, -R0 * 0.62); x.arc(0, R0 * 0.08, R0 * 0.72, -Math.PI / 2, Math.PI / 2, d < 0); x.closePath(); x.save(); x.clip();
-    const g = x.createRadialGradient(-R0 * 0.3, -R0 * 0.3, R0 * 0.05, 0, R0 * 0.08, R0 * 0.8); g.addColorStop(0, mix(col, '#ffffff', dark ? 0.25 : 0.35)); g.addColorStop(0.55, col); g.addColorStop(1, shade(col, -55));
+    const g = x.createRadialGradient(-R0 * 0.28, -R0 * 0.32, R0 * 0.02, 0, R0 * 0.05, R0 * 0.85); g.addColorStop(0, mix(col, '#ffffff', dark ? 0.3 : 0.5)); g.addColorStop(0.25, mix(col, '#ffffff', dark ? 0.08 : 0.12)); g.addColorStop(0.6, col); g.addColorStop(0.88, shade(col, -60)); g.addColorStop(1, shade(col, -85));
     x.fillStyle = g; x.fillRect(-R0, -R0, R0 * 2, R0 * 2);
+    // a warm reflected glow along the lower rim, like light bouncing back up into lacquer
+    const rg = x.createRadialGradient(0, R0 * 0.9, R0 * 0.1, 0, R0 * 0.9, R0 * 0.7); rg.addColorStop(0, dark ? 'rgba(120,140,255,0.35)' : rgba(mix(col, '#ffffff', 0.4), 0.55)); rg.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = rg; x.fillRect(-R0, -R0, R0 * 2, R0 * 2);
     // real markings, mirrored on both sides: seven-spot, ten-spot, twenty-two-spot, the black two-spot, and the plain two-spot
     const LAY = [[[0, -0.5, 0.13], [0.36, -0.2, 0.13], [0.48, 0.22, 0.11], [0.2, 0.42, 0.1]],
       [[0.24, -0.3, 0.085], [0.5, -0.08, 0.08], [0.2, 0.08, 0.085], [0.46, 0.34, 0.08], [0.18, 0.5, 0.07]],
@@ -5277,15 +5284,24 @@ function drawLadybug(x, r, col, seed, open = 0, flap = 0) {
       [[0.42, 0.2, 0.15]],
       [[0.36, 0.02, 0.12]]][seed % 5];
     x.fillStyle = spot;
-    for (const [u, w, z] of LAY) { x.beginPath(); x.arc(d * u * R0 * (u ? 1 : 0), w * R0, z * R0, 0, Math.PI * 2); x.fill(); }
+    for (const [u, w, z] of LAY) { const px = d * u * R0, py = w * R0, pr = z * R0;
+      const sg = x.createRadialGradient(px - pr * 0.3, py - pr * 0.35, 0, px, py, pr); sg.addColorStop(0, dark ? '#ff6a5a' : '#3a3a44'); sg.addColorStop(0.5, spot); sg.addColorStop(1, spot);
+      x.fillStyle = sg; x.beginPath(); x.arc(px, py, pr, 0, Math.PI * 2); x.fill(); }
     x.restore();
     x.strokeStyle = 'rgba(0,0,0,0.55)'; x.lineWidth = Math.max(0.6, r * 0.025); x.beginPath(); x.moveTo(0, -R0 * 0.62); x.lineTo(0, R0 * 0.8); x.stroke();
     x.restore();
   }
   void rnd;
   // the shine on the dome
-  if (open < 0.2) { x.fillStyle = 'rgba(255,255,255,0.55)'; x.beginPath(); x.ellipse(-R0 * 0.32, cy - R0 * 0.18, R0 * 0.2, R0 * 0.08, -0.6, 0, Math.PI * 2); x.fill();
-    x.fillStyle = 'rgba(255,255,255,0.25)'; x.beginPath(); x.ellipse(R0 * 0.36, cy - R0 * 0.1, R0 * 0.1, R0 * 0.05, 0.6, 0, Math.PI * 2); x.fill(); }
+  if (open < 0.2) {
+    // a curved window of light across the top of the dome, like a polished sweet
+    x.save(); x.translate(-R0 * 0.2, cy - R0 * 0.22); x.rotate(-0.5);
+    const hg = x.createLinearGradient(0, -R0 * 0.16, 0, R0 * 0.16); hg.addColorStop(0, 'rgba(255,255,255,0.9)'); hg.addColorStop(1, 'rgba(255,255,255,0.05)');
+    x.fillStyle = hg; x.beginPath(); x.ellipse(0, 0, R0 * 0.34, R0 * 0.13, 0, Math.PI, Math.PI * 2); x.ellipse(0, 0, R0 * 0.34, R0 * 0.05, 0, 0, Math.PI); x.fill(); x.restore();
+    x.fillStyle = '#ffffff'; x.beginPath(); x.arc(-R0 * 0.42, cy - R0 * 0.32, R0 * 0.045, 0, Math.PI * 2); x.fill();   // the sparkle
+    x.fillStyle = 'rgba(255,255,255,0.35)'; x.beginPath(); x.ellipse(R0 * 0.42, cy + R0 * 0.08, R0 * 0.08, R0 * 0.2, -0.25, 0, Math.PI * 2); x.fill();   // a soft second window on the right
+    x.strokeStyle = 'rgba(255,255,255,0.25)'; x.lineWidth = Math.max(0.5, r * 0.02); x.beginPath(); x.arc(0, cy + R0 * 0.08, R0 * 0.7, Math.PI * 0.15, Math.PI * 0.85); x.stroke();   // rim light
+  }
 }
 function releaseLadybug(x, y, colour) {   // the shell opens, then it lifts off on a wandering path
   const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.8, sp = L.c * (1.5 + Math.random() * 2);
