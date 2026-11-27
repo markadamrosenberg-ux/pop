@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 10:50am, Pop tile and opening</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 11am, bonuses only when stuck</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -3981,7 +3981,15 @@ function rollGolden() {   // (27 Nov) does this frame get a golden bubble? At ra
   state.goldenFrame = recent < G.maxPer && Math.random() < G.frameChance;
   state.goldenAt = state.goldenFrame ? G.minMoves + Math.floor(Math.random() * (G.maxMoves - G.minMoves + 1)) : 0;
 }
-const goldenAllowed = () => !!state.goldenFrame && (state.goldenFrames || []).filter(x => x !== (state.boardClears | 0)).length < CONFIG.golden.maxPer;
+// (28 Nov) is the player getting stuck? a crowded board, or a piece in hand with hardly anywhere to go
+function playerStuck() {
+  const filled = state.grid.filter(Boolean).length, N = CONFIG.gridSize; if (filled >= 34) return true;
+  for (const p of state.tray) { if (!p || p.mystery) continue; let fits = 0;
+    for (let gy = 0; gy <= N - p.shape.h && fits <= 3; gy++) for (let gx = 0; gx <= N - p.shape.w && fits <= 3; gx++) if (Logic.canPlace(state.grid, p.shape, gx, gy)) fits++;
+    if (fits <= 3) return true; }
+  return false;
+}
+const goldenAllowed = () => state.bonusFrame !== (state.boardClears | 0) && !!state.goldenFrame && (state.goldenFrames || []).filter(x => x !== (state.boardClears | 0)).length < CONFIG.golden.maxPer;
 // The golden bubble goes in the fullest unfinished line, so it can be won in a few moves
 function pickGolden() {   // (27 Nov) only ever somewhere a single piece can finish its line, so there's always a way to win it
   if (state.grid.filter(Boolean).length < 6) return -1;
@@ -4083,7 +4091,7 @@ function serialise() {
   return { grid: state.grid, tray: state.tray.map(packPiece),
     score: state.score, combo: state.combo, sinceClear: state.sinceClear, skin: state.skin, skinOrder: state.skinOrder, boardClears: state.boardClears, frameLines: state.frameLines,
     mysteryLines: state.mysteryLines, mysteryCount: state.mysteryCount, mysteryPending: state.mysteryPending, mysterySinceFrame: state.mysterySinceFrame, rescueGiven: !!state.rescueGiven,
-    eggKind: state._eggKind || null, eggFrame: state._eggFrame, flowerKind: state._flowerKind || null, pid: state.pid, nextPid: state.nextPid, golden: state.golden || null, goldenDone: !!state.goldenDone, goldenDue: !!state.goldenDue, frameMoves: state.frameMoves | 0, goldenAt: state.goldenAt | 0, goldenFrames: state.goldenFrames || [], goldenFrame: !!state.goldenFrame, gapQueue: state.gapQueue || [], puzzlePure: !!state.puzzlePure, frameStart: state.frameStart | 0, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted, bgOffset: state.bgOffset | 0, tutorial: !!state.tutorial, easyTest: !!state.easyTest, swaps: state.swaps | 0 };
+    eggKind: state._eggKind || null, eggFrame: state._eggFrame, flowerKind: state._flowerKind || null, pid: state.pid, nextPid: state.nextPid, golden: state.golden || null, goldenDone: !!state.goldenDone, goldenDue: !!state.goldenDue, frameMoves: state.frameMoves | 0, goldenAt: state.goldenAt | 0, goldenFrames: state.goldenFrames || [], goldenFrame: !!state.goldenFrame, bonusFrame: state.bonusFrame == null ? -1 : state.bonusFrame, gapQueue: state.gapQueue || [], puzzlePure: !!state.puzzlePure, frameStart: state.frameStart | 0, repo: state.repo, continues: state.continues | 0, tainted: !!state.tainted, bgOffset: state.bgOffset | 0, tutorial: !!state.tutorial, easyTest: !!state.easyTest, swaps: state.swaps | 0 };
 }
 function saveGame() { if (state.over) Store.set('game', null); else Store.set('game', serialise()); }
 function restoreGame() {
@@ -4100,7 +4108,7 @@ function restoreGame() {
   // older saves have no piece ids: their bubbles are fixed, new placements are tracked normally
   state.pid = validPids(g.pid, state.grid) ? g.pid.slice() : fixedPids(state.grid);
   state.nextPid = Math.max(g.nextPid | 0, 1, ...state.pid) + (validPids(g.pid, state.grid) ? 0 : 1);
-  state.continues = g.continues | 0; state.tainted = !!g.tainted; state.gapQueue = Array.isArray(g.gapQueue) ? g.gapQueue.slice() : []; state.puzzlePure = !!g.puzzlePure; state.golden = g.golden && state.grid[g.golden.i] ? { ...g.golden } : null; state.goldenDone = !!g.goldenDone; state.goldenDue = !!g.goldenDue; state.frameMoves = g.frameMoves | 0; state.goldenAt = g.goldenAt | 0; state.goldenFrames = Array.isArray(g.goldenFrames) ? g.goldenFrames : []; state.goldenFrame = !!g.goldenFrame; state.frameStart = g.frameStart | 0;
+  state.continues = g.continues | 0; state.tainted = !!g.tainted; state.gapQueue = Array.isArray(g.gapQueue) ? g.gapQueue.slice() : []; state.puzzlePure = !!g.puzzlePure; state.golden = g.golden && state.grid[g.golden.i] ? { ...g.golden } : null; state.goldenDone = !!g.goldenDone; state.goldenDue = !!g.goldenDue; state.frameMoves = g.frameMoves | 0; state.goldenAt = g.goldenAt | 0; state.goldenFrames = Array.isArray(g.goldenFrames) ? g.goldenFrames : []; state.goldenFrame = !!g.goldenFrame; state.bonusFrame = g.bonusFrame == null ? -1 : g.bonusFrame; state.frameStart = g.frameStart | 0;
   state.repo = CONFIG.reposition.enabled ? Math.max(0, Math.min(CONFIG.reposition.maxCharges, g.repo | 0)) : 0;
   if (state.tray.every(p => !p)) refillTray(false);
   shownTarget = shownScore = state.score;
@@ -4243,7 +4251,7 @@ function newGame() {
   try { if (typeof Quip !== 'undefined') Quip.reset(); } catch (_) {}   // no repeated lines within a run
   setTimeout(() => flashLook(), 500);
   state.grid = new Array(N * N).fill(0);
-  state.score = 0; state.combo = 0; state.sinceClear = 0; state.over = false; state.boardClears = 0; state.frameLines = 0; state.goldenFrames = []; rollGolden();
+  state.score = 0; state.combo = 0; state.sinceClear = 0; state.over = false; state.boardClears = 0; state.frameLines = 0; state.goldenFrames = []; state.bonusFrame = -1; rollGolden();
   state.mysteryLines = 0; state.mysteryCount = 0; state.mysteryPending = false; state.mysterySinceFrame = 0; state.rescueGiven = false;
   state.golden = null; state.goldenDone = false; state.goldenDue = false; state.frameMoves = 0; rollGolden();
   state.pid = new Array(N * N).fill(0); state.nextPid = 1; state.repo = 0; state.rescue = false; state.continues = 0; state.tainted = false;
@@ -4462,7 +4470,7 @@ function move(slot, gx, gy, repo = null) {
         if (free >= 0) state.tray[free] = makeMystery(true); else state.mysteryPending = 'frame';
         golden = { kind: 'won', i: state.golden.i, slot: free }; state.golden = null;
       } else if (!state.grid[state.golden.i] || --state.golden.left <= 0) { golden = { kind: 'lost', i: state.golden.i }; state.golden = null; state.goldenDone = false; if (CONFIG.frames.enabled) state.frameLines = Math.max(0, frameTarget() - 2); }   // it comes back after two more lines
-    } else if (((!state.goldenDone && state.goldenAt && state.frameMoves >= state.goldenAt) || state.goldenDue) && !G.noSkins.includes(skin().name)) {
+    } else if (((!state.goldenDone && state.goldenAt && state.frameMoves >= state.goldenAt) || state.goldenDue) && state.bonusFrame !== (state.boardClears | 0) && !G.noSkins.includes(skin().name)) {   // (28 Nov) never in a frame that's already had a bonus
       const i = pickGolden();
       if (i >= 0) { state.golden = { i, left: G.moves }; state.goldenDone = true; state.goldenDue = false; golden = { kind: 'new', i }; state.goldenHelpOwed = !giveGoldenHelper(); const fr = state.boardClears | 0; state.goldenFrames = (state.goldenFrames || []).filter(x => x !== fr).concat(fr); }
     }
@@ -4487,10 +4495,14 @@ function move(slot, gx, gy, repo = null) {
       if (state.mysteryLines >= MY.minLines && (Math.random() < MY.chancePerLine || state.mysteryLines >= MY.maxLines)) earned = true;
     const tutFirst = state.tutorial && state.mysteryCount === 0;
     if (tutFirst) earned = true;
+    // (28 Nov) bonuses only when the player needs a hand, never more than one a frame, and never alongside a golden bubble
+    const fNow = state.boardClears | 0, goldenNow = !!state.golden || !!state.goldenDue || (state.goldenFrames || []).includes(fNow);
+    if (earned && !tutFirst && (state.bonusFrame === fNow || goldenNow || !playerStuck())) earned = false;   // keep the count, so help comes quickly once they do get stuck
+    if (earned) state.bonusFrame = fNow;
     const RS = MY.rescue, f = state.boardClears;
     const rescueAt = RS && RS.enabled ? RS.base + RS.perFrame * f + Math.max(0, f - RS.lateFrom) * RS.latePerFrame : Infinity;
     const rescue = !state.rescueGiven && state.frameLines >= rescueAt && !state.tray.some(p => p && p.mystery && p.frame);
-    if (rescue) { state.rescueGiven = true; if (goldenAllowed()) state.goldenDue = true; else if (!state.tray.some(p => p && p.mystery && p.frame)) state.mysteryPending = 'frame'; }   // a frame that drags on gets a golden bubble
+    if (rescue && state.bonusFrame !== f && !earned) { state.rescueGiven = true; state.bonusFrame = f; if (goldenAllowed()) state.goldenDue = true; else if (!state.tray.some(p => p && p.mystery && p.frame)) state.mysteryPending = 'frame'; }   // a frame that drags on gets a golden bubble
     if (earned) {
       state.mysteryLines = 0;
       state.mysteryCount++; mysteryGranted = true;
