@@ -640,7 +640,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 8:45am, one slice pulls out</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 9am, topping pit-pats</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2266,8 +2266,16 @@ const Sound = (() => {
       noise(t, { type: 'bandpass', f: 1800, q: 1, peak: 0.07, attack: 0.001, decay: 0.03, pan });
       for (let k = 0; k < 3; k++) tone(t + 0.01 + k * 0.025, { f: R(3000, 5500), type: 'sine', peak: 0.012, attack: 0.001, decay: 0.1, pan });
     },
-    toppings(n = 1) {   // (27 Nov) toppings landing on a pizza: a soft little patter
+    toppings(n = 1) {   // (28 Nov) each topping landing on the cheese: a soft little pit-pat, in time with what you see
       if (!ok()) return; const t = ac.currentTime;
+      if (Array.isArray(n)) {
+        let last = -1, k = 0;
+        for (const [at, pan, ty] of n.sort((a, b) => a[0] - b[0])) { if (at - last < 0.035 || k > 18) continue; last = at; k++;
+          const soft = ty === 'ibasil', hi = k % 2 ? 1.25 : 1;   // pit, pat, pit, pat; a leaf lands softer
+          noise(t + at, { type: 'lowpass', f: (soft ? 900 : 1500) * hi, q: 0.8, peak: soft ? 0.03 : 0.055, attack: 0.001, decay: soft ? 0.03 : 0.022, pan });
+          tone(t + at, { f: (soft ? 260 : 340) * hi * R(0.95, 1.05), f2: 180, type: 'sine', peak: soft ? 0.015 : 0.03, attack: 0.001, decay: 0.035, pan }); }
+        return;
+      }
       for (let k = 0; k < Math.min(14, n * 3); k++) noise(t + 0.08 + k * 0.045 + R(0, 0.03), { type: 'bandpass', f: R(700, 1500), q: 1.5, peak: R(0.03, 0.05), attack: 0.002, decay: R(0.02, 0.04), pan: R(-0.5, 0.5) });
     },
     cheese(n = 8) {   // (28 Nov) a slice pulled out: a slow gooey stretch (Mark's balloon stretch, slowed and muffled), then a soft squelch as the cheese lets go
@@ -7866,8 +7874,10 @@ function playResult(res, pointerGesture) {
     res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 90; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.bulbOn((at - now) / 1000, (res.gx + x - 3.5) / 5); });
   }
   else if (skin().pizza) {   // the toppings rain on: a soft patter, one pizza after another
-    res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 40 + k * 120; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); });
-    Sound.toppings(res.piece.shape.cells.length);
+    const kind = ((res.piece.color | 0) % 5 + 5) % 5, nt = PIZZA_REAL[kind].length, hits = [];
+    res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 40 + k * 120; POPT.set(Logic.idx(res.gx + x, res.gy + y), at);
+      for (let j = 0; j < nt; j++) hits.push([(at - now + 900 * (0.325 + j / nt * 0.55)) / 1000, (res.gx + x - 3.5) / 5, PIZZA_REAL[kind][j]]); });
+    Sound.toppings(hits);   // (28 Nov) a little pit-pat as each topping lands
   }
   else if (skin().dandelion) {   // dandelions land with a soft puff, and a few seeds drift off
     Sound.puff(res.piece.shape.cells.length);
