@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 10:30pm, leaping fish</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 10:45pm, golden ball 3 goes</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -730,7 +730,7 @@ const CONFIG = {
   // random move between minMoves and maxMoves, in a nearly-full line. Clear a line through it within `moves`
   // moves and you win the Frame Bubble; miss and it gets away. A frame that drags on (mystery.rescue) also
   // gets one. Never on the skins in noSkins (gold doesn't show up well on metal).
-  golden: { enabled: true, chance: 0, minMoves: 12, maxMoves: 35, moves: 4,   // back on (Mark, 26 Nov): it now appears when you reach the frame's line target; 4 moves to pop it
+  golden: { enabled: true, chance: 0, minMoves: 12, maxMoves: 35, moves: 3,   // back on (Mark, 26 Nov): it now appears when you reach the frame's line target; 3 moves to pop it (27 Nov), and the hand always holds a piece that can finish its line
     noSkins: ['Liquid Metal', 'Gold Rush'] },
 
   celebrate: 'burst',   // frame clear: 'burst' = a barrage of water balloons popping, 'water' = the rising-water version
@@ -1226,7 +1226,22 @@ const Logic = (() => {
     opts.sort((a, b) => b.sc - a.sc);
     return opts[Math.floor(Math.random() * Math.min(3, opts.length))].s;
   }
-  return { N, idx, canPlace, anyFit, findLines, apply, solvable, newTray, lineMultiplier, comboMultiplier, randomShape, helperShapes, mysteryShape, helpfulPiece };
+  // (27 Nov) the pieces that, placed somewhere right now, finish the row or column running through cell gi
+  function goldenHelpers(grid, gi) {
+    const gx0 = gi % N, gy0 = Math.floor(gi / N), out = [];
+    for (const s of SHAPES) { if (s.special || !s.weight) continue;
+      let ok = false;
+      for (let gy = 0; gy <= N - s.h && !ok; gy++) for (let gx = 0; gx <= N - s.w && !ok; gx++) {
+        if (!canPlace(grid, s, gx, gy)) continue;
+        const g = grid.slice(); for (const [x, y] of s.cells) g[idx(gx + x, gy + y)] = 1;
+        let row = true, col = true; for (let k = 0; k < N; k++) { if (!g[idx(k, gy0)]) row = false; if (!g[idx(gx0, k)]) col = false; }
+        if (row || col) ok = true;
+      }
+      if (ok) out.push(s);
+    }
+    return out;
+  }
+  return { N, idx, canPlace, anyFit, findLines, apply, solvable, newTray, goldenHelpers, lineMultiplier, comboMultiplier, randomShape, helperShapes, mysteryShape, helpfulPiece };
 })();
 
 /* =====================================================================
@@ -3768,16 +3783,31 @@ function rollGolden() {
   state.goldenAt = Math.random() < G.chance ? G.minMoves + Math.floor(Math.random() * (G.maxMoves - G.minMoves + 1)) : 0;
 }
 // The golden bubble goes in the fullest unfinished line, so it can be won in a few moves
-function pickGolden() {
+function pickGolden() {   // (27 Nov) only ever somewhere a single piece can finish its line, so there's always a way to win it
   if (state.grid.filter(Boolean).length < 6) return -1;
-  let best = -1, bestN = 0;
+  const cands = [];
   for (let k = 0; k < N; k++) for (const row of [true, false]) {
     const cells = [...Array(N).keys()].map(j => row ? Logic.idx(j, k) : Logic.idx(k, j)), n = cells.filter(i => state.grid[i]).length;
-    if (n >= N || n < 4 || n + Math.random() * 0.5 <= bestN) continue;
-    const filledCells = cells.filter(i => state.grid[i]);
-    bestN = n; best = filledCells[Math.floor(Math.random() * filledCells.length)];
+    if (n >= N || n < 4) continue;
+    for (const i of cells.filter(i => state.grid[i])) cands.push({ i, score: n + Math.random() * 0.9 });
   }
-  return best;
+  cands.sort((a, b) => b.score - a.score);
+  for (const c of cands.slice(0, 24)) if (Logic.goldenHelpers(state.grid, c.i).length) return c.i;
+  return -1;
+}
+// (27 Nov) hand over a piece that can finish the golden ball's line, straight away, while the rest of the hand still fits
+function giveGoldenHelper() {
+  if (!state.golden) return false;
+  if (state.tray.every(p => !p)) refillTray(false);   // last piece of the hand: deal the new hand first, then swap the helper in
+  const helpers = Logic.goldenHelpers(state.grid, state.golden.i).sort(() => Math.random() - 0.5).sort((a, b) => a.cells.length - b.cells.length);
+  if (!helpers.length) return false;
+  const colours = skin().colours.length, slots = [0, 1, 2].filter(k => !state.tray[k]).concat([0, 1, 2].filter(k => state.tray[k] && !state.tray[k].mystery));
+  for (const h of helpers.slice(0, 8)) for (const k of slots) {
+    const t = state.tray.slice(); t[k] = { shape: h, color: Math.floor(Math.random() * colours), goldHelp: true };
+    const shapes = t.filter(p => p && !p.mystery).map(p => p.shape);
+    if (Logic.solvable(state.grid, shapes, CONFIG.pieces.searchBudget) === true) { state.tray = t; FX.trayIn = state.tray.map((_, j) => j === k ? performance.now() : 0); return true; }
+  }
+  const k = slots[0]; state.tray[k] = { shape: helpers[0], color: 0, goldHelp: true }; return true;   // last resort: the helper alone is always placeable
 }
 const mysteryTarget = () => state.mysteryCount === 0 ? CONFIG.mystery.firstAfterLines : CONFIG.mystery.everyLines;
 const makeMystery = (frame = false) => ({ mystery: true, frame, shape: null, color: 0 });
@@ -4234,7 +4264,7 @@ function move(slot, gx, gy, repo = null) {
       } else if (!state.grid[state.golden.i] || --state.golden.left <= 0) { golden = { kind: 'lost', i: state.golden.i }; state.golden = null; if (CONFIG.frames.enabled) state.frameLines = Math.max(0, frameTarget() - 2); }   // it comes back after two more lines
     } else if (((!state.goldenDone && state.goldenAt && state.frameMoves >= state.goldenAt) || state.goldenDue) && !G.noSkins.includes(skin().name)) {
       const i = pickGolden();
-      if (i >= 0) { state.golden = { i, left: G.moves }; state.goldenDone = true; state.goldenDue = false; golden = { kind: 'new', i }; }
+      if (i >= 0) { state.golden = { i, left: G.moves }; state.goldenDone = true; state.goldenDue = false; golden = { kind: 'new', i }; state.goldenHelpOwed = !giveGoldenHelper(); }
     }
   }
 
