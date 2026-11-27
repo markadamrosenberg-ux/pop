@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 11am, bonuses only when stuck</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 11:10am, short big remarks</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -7786,13 +7786,14 @@ const Quip = (() => {
   // Each category only fires when the game can see that moment on the board. Ordinary clears get no remark.
   const LINES = {
     // a tight fit (the piece fitted in only one or two places) or a close save (cleared from a crowded board, or with the last piece in the tray)
-    save: ['That fit. Keep driving.', 'Plenty of room, if you round up.', 'Like closing a suitcase by sitting on it.'],
+    // (28 Nov) short and in capitals, so they can be read at a glance: 2 or 3 words at most
+    save: ['JUST FITS!', 'SQUEEZED IN!', 'PHEW!', 'CLOSE ONE!', 'NAILED IT!', 'TIGHT SQUEEZE!'],
     // 3 or more lines in one move
-    big: ['Like popcorn with the lid off.', 'Like someone sat on the bubble wrap.', 'Leave some rows for the rest of us.'],
+    big: ['BOOM!', 'POP POP POP!', 'MASSIVE!', 'WHOA!', 'SHOW OFF!', 'POPCORN TIME!'],
     // a long streak: combo reaches 4, 7, 10, 14, 18...
-    streak: ['Like a grape down the aisle of a bus.', 'Like a runaway shopping cart. With purpose.', 'Like a doughnut down a hill. Glaze intact.', 'Like a suitcase with all four wheels.'],
+    streak: ['ON FIRE!', 'UNSTOPPABLE!', 'HOT STREAK!', 'KEEP GOING!', 'SMOOTH!', 'ON A ROLL!'],
     // after some fart squishes
-    fart: ['Excuse you.', 'Who cut the cheese?', 'Better out than in.', 'That one had a voice.', 'Smelt it, dealt it.', 'Blame the dog.'],
+    fart: ['EXCUSE YOU!', 'WHO DID THAT?', 'BETTER OUT!', 'BLAME THE DOG!', 'PARDON ME!', 'OOPS!'],
   };
   const STREAK_AT = [4, 7, 10, 14, 18, 23, 28, 34, 40];
   const COOLDOWN_CLEARS = 3, COOLDOWN_MS = 8000;   // at least 3 clears and 8 seconds between remarks
@@ -7816,7 +7817,7 @@ const Quip = (() => {
     });
     // fit inside the board: at most two lines, shrinking the letters until it fits
     const maxW = L.B * 0.88; el.style.width = maxW + 'px'; el.style.whiteSpace = 'normal'; w.style.display = 'block'; w.style.whiteSpace = 'normal'; w.style.maxWidth = 'none'; w.style.textAlign = 'center';
-    let qs = Math.round(Math.min(46, Math.max(26, L.c * 0.62)));
+    let qs = Math.round(Math.min(64, Math.max(40, L.c * 0.95)));   // (28 Nov) big and bold
     el.style.setProperty('--qs', qs + 'px');
     for (let n = 0; n < 12; n++) { const lineH = qs * 1.05, tooTall = w.scrollHeight > lineH * 2.3, tooWide = w.scrollWidth > maxW + 1; if (!tooTall && !tooWide) break; qs = Math.max(16, qs - 3); el.style.setProperty('--qs', qs + 'px'); }
     el.style.left = x + 'px'; el.style.top = y + 'px';
