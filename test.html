@@ -640,7 +640,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 9:15am, hundreds of bubbles</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 9:30am, fish personality</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2053,7 +2053,12 @@ const Sound = (() => {
     fishLeap(out = true) {   // (27 Nov) a little 'plip' as the fish leaves the water, a soft 'plop' as it lands
       if (!ok()) return; const t = ac.currentTime;
       if (out) plip(t, R(700, 850), 0.06, 0.05);
-      else { tone(t, { f: R(380, 460), f2: R(900, 1100), peak: 0.06, attack: 0.002, decay: 0.07 }); noise(t, { type: 'bandpass', f: 1800, q: 1, peak: 0.025, attack: 0.002, decay: 0.08 }); }
+      else {   // (28 Nov) a proper little splash as it lands in the other bowl
+        tone(t, { f: R(380, 460), f2: R(900, 1100), peak: 0.06, attack: 0.002, decay: 0.07 });
+        noise(t, { type: 'lowpass', f: 2600, f2: 900, q: 0.7, peak: 0.09, attack: 0.003, decay: 0.28 });
+        noise(t + 0.01, { type: 'highpass', f: 3500, q: 0.6, peak: 0.04, attack: 0.002, decay: 0.12 });
+        for (let k = 0; k < 4; k++) plip(t + 0.06 + k * R(0.04, 0.07), R(1200, 2200), 0.02, 0.015, R(-0.3, 0.3));
+      }
     },
     crackle() {   // (27 Nov) the needle dropping: a loud thump and burst of static, then a short scratchy old-record groove plays
       if (!ok()) return; const t = ac.currentTime + 0.42;
@@ -2837,7 +2842,7 @@ function animSnow(ctx, s, c, i, t, seed) {
 let FISHJ = null, FISH_NEXT = 0;
 function fishJumpFrom(i, now) {   // start a jump from cell i to a random filled neighbour; false if it has none
   const N = CONFIG.gridSize, ax = i % N, ay = Math.floor(i / N);
-  const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [ax + dx, ay + dy]).filter(([x, y]) => x >= 0 && y >= 0 && x < N && y < N && state.grid[y * N + x]);
+  const nb = []; for (let x = 0; x < N; x++) if (x !== ax && state.grid[ay * N + x]) nb.push([x, ay]);   // (28 Nov) only sideways, along the row, to any bowl, however far
   if (!nb.length || !state.grid[i]) return false;
   const [bx, by] = nb[Math.floor(Math.random() * nb.length)];
   FISHJ = { ax, ay, bx, by, v: state.grid[i], t0: now, seed: ax * 3 + ay * 5, splashed: 0 };
@@ -2853,10 +2858,10 @@ function fishJumps(now) {
     return;
   }
   const J = FISHJ, u = now - J.t0, A = cellCentre(J.ax, J.ay), B = cellCentre(J.bx, J.by), c = L.c;
-  if (!state.grid[J.ay * CONFIG.gridSize + J.ax] || !state.grid[J.by * CONFIG.gridSize + J.bx] || u > 2700) { FISHJ = null; return; }
-  const col = sk.colours[(J.v - 1) % sk.colours.length], LEAP = 650, STAY = 1300;
+  if (!state.grid[J.ay * CONFIG.gridSize + J.ax] || !state.grid[J.by * CONFIG.gridSize + J.bx] || u > 2 * (520 + Math.abs(J.bx - J.ax) * 90) + 1300 + 100) { FISHJ = null; return; }
+  const dist = Math.abs(J.bx - J.ax), col = sk.colours[(J.v - 1) % sk.colours.length], LEAP = 520 + dist * 90, STAY = 1300;
   let x, y, rot = 0, dir;
-  const arc = (P, Q, q) => { const e = q < 0.5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2; return [P[0] + (Q[0] - P[0]) * e, P[1] + (Q[1] - P[1]) * e - Math.sin(q * Math.PI) * c * 1.15]; };
+  const arc = (P, Q, q) => { const e = q < 0.5 ? 2 * q * q : 1 - Math.pow(-2 * q + 2, 2) / 2; return [P[0] + (Q[0] - P[0]) * q, P[1] + (Q[1] - P[1]) * e - Math.sin(q * Math.PI) * c * (0.9 + dist * 0.28)]; };   // up, across, and down into the other bowl
   const splash = (P, k) => { if (J.splashed & k) return; J.splashed |= k; Sound.fishLeap(k === 1 || k === 4);
     for (let n = 0; n < 7; n++) SPARKS.push({ kind: 'spark', x: P[0] + (Math.random() - 0.5) * c * 0.3, y: P[1] - c * 0.15, vx: (Math.random() - 0.5) * c * 3, vy: -c * (2 + Math.random() * 2.5), col: '#bfe9ff', t0: now, life: 450 + Math.random() * 250 }); };
   if (u < LEAP) { const q = u / LEAP; [x, y] = arc(A, B, q); dir = B[0] >= A[0] ? 1 : -1; rot = (q - 0.5) * 1.6 * dir; if (B[0] === A[0]) rot = (B[1] > A[1] ? 1 : -1) * (q - 0.5) * 2; splash(A, 1); }
@@ -2864,7 +2869,7 @@ function fishJumps(now) {
   else { const q = Math.min(1, (u - LEAP - STAY) / LEAP); [x, y] = arc(B, A, q); dir = A[0] >= B[0] ? 1 : -1; rot = (q - 0.5) * 1.6 * dir; if (B[0] === A[0]) rot = (A[1] > B[1] ? 1 : -1) * (q - 0.5) * 2; splash(B, 4); if (q >= 1) splash(A, 8); }
   const inside = u >= LEAP && u < LEAP + STAY;
   ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(dir, 1); if (inside) ctx.globalAlpha = 0.85;
-  drawFishOnly(ctx, c * 0.45 * 0.52, col, now / 1000, J.seed);
+  drawFishOnly(ctx, c * 0.45 * 0.66, col, now / 1000, J.seed);
   ctx.restore();
 }
 function drawFishOnly(x, fl, c, t, seed) {   // the same little fish as in the bowls, on its own
@@ -2884,7 +2889,7 @@ function animFish(ctx, s, c, i, t, seed) {
   const r = s * 0.45, sw = Math.sin(t * 0.9 + seed);
   let away = false;   // (27 Nov) a fish that's jumped out to visit next door isn't drawn at home
   if (FISHJ && !HAND && window._animPos) { const p2 = window._animPos, gx = Math.floor((p2[0] - L.ix) / L.c), gy = Math.floor((p2[1] - L.iy) / L.c); away = gx === FISHJ.ax && gy === FISHJ.ay; }
-  const fx = sw * r * 0.14, fy = r * 0.18 + Math.sin(t * 2.1 + seed) * r * 0.05, fl = r * 0.52;
+  const fx = sw * r * 0.1, fy = r * 0.2 + Math.sin(t * 2.1 + seed) * r * 0.05, fl = r * 0.66;   // (28 Nov) bigger fish
   // where's the piece? the fish turns to face it and its eyes follow it
   const pos = window._animPos, dp = pos && typeof Input !== 'undefined' && Input.dragPoint ? Input.dragPoint() : null;
   let tx, ty;
@@ -2896,8 +2901,35 @@ function animFish(ctx, s, c, i, t, seed) {
   for (let k = 0; k <= 20; k++) { const x = -r + k / 20 * r * 2, y = -r * 0.38 + Math.sin(k * 0.8 + t * 4 + seed) * r * 0.035 + sw * (x / r) * r * 0.05; k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }
   ctx.stroke();
   // fish
+  // (28 Nov) personality: every so often the fish turns round to look out of the bowl at you, blinking
+  const lp = dp ? 9 : (((t * 0.11 + seed * 0.37) % 1) + 1) % 1 / 0.24;
+  if (!away && lp < 1) {
+    const sideK = lp < 0.12 ? 1 - lp / 0.12 : lp > 0.88 ? (lp - 0.88) / 0.12 : 0, frontK = Math.max(0, Math.min(1, (lp - 0.1) / 0.08, (0.9 - lp) / 0.08));
+    if (frontK > 0) {
+      ctx.save(); ctx.translate(fx * 0.3, fy); ctx.scale(frontK, 1);
+      const bw = fl * 0.74, bh = fl * 0.7, fin = Math.sin(t * 7 + seed) * 0.35;
+      ctx.fillStyle = mixH(c, '#000000', 0.15);   // little side fins paddling, and the tail peeping out the top behind
+      for (const d of [-1, 1]) { ctx.save(); ctx.translate(d * bw * 0.95, bh * 0.15); ctx.rotate(d * (0.5 + fin * d)); ctx.beginPath(); ctx.ellipse(d * bw * 0.18, 0, bw * 0.3, bh * 0.16, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+      const fg = ctx.createRadialGradient(-bw * 0.25, -bh * 0.3, bw * 0.05, 0, 0, bw * 1.1); fg.addColorStop(0, mixH(c, '#ffffff', 0.5)); fg.addColorStop(1, c);
+      ctx.fillStyle = fg; ctx.beginPath(); ctx.ellipse(0, 0, bw, bh, 0, 0, Math.PI * 2); ctx.fill();
+      const gl = Math.hypot(tx, ty) || 1, lx = tx / gl, ly = ty / gl, blinkF = ((t * 0.45 + seed * 0.61) % 1) < 0.07;
+      for (const d of [-1, 1]) { const ex = d * bw * 0.42, ey = -bh * 0.18, er = bw * 0.36;
+        if (blinkF) { ctx.strokeStyle = '#14141c'; ctx.lineWidth = fl * 0.07; ctx.lineCap = 'round'; ctx.beginPath(); ctx.arc(ex, ey, er * 0.7, 0.2, Math.PI - 0.2); ctx.stroke(); continue; }
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex, ey, er, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = fl * 0.025; ctx.stroke();
+        const ix = ex + lx * er * 0.3, iy = ey + ly * er * 0.3, ir = er * 0.62;
+        const ig = ctx.createRadialGradient(ix - ir * 0.2, iy - ir * 0.2, ir * 0.1, ix, iy, ir); ig.addColorStop(0, '#9fdcff'); ig.addColorStop(0.6, '#1f8fe8'); ig.addColorStop(1, '#0a3f8a');
+        ctx.fillStyle = ig; ctx.beginPath(); ctx.arc(ix, iy, ir, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#05070f'; ctx.beginPath(); ctx.arc(ix, iy, ir * 0.5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ix - ir * 0.3, iy - ir * 0.35, ir * 0.26, 0, Math.PI * 2); ctx.fill(); }
+      const mo = 0.35 + 0.65 * Math.abs(Math.sin(t * 3 + seed));   // a little 'o' mouth, opening and closing
+      ctx.fillStyle = '#5a1a2a'; ctx.beginPath(); ctx.ellipse(0, bh * 0.42, bw * 0.12, bw * 0.1 * mo, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+    if (sideK <= 0) { ctx.restore(); return void 0; }
+  }
   if (!away) {
-  ctx.save(); ctx.translate(fx, fy); ctx.scale(dir, 1);
+  const sideScale = !dp && lp < 1 ? (lp < 0.12 ? 1 - lp / 0.12 : (lp - 0.88) / 0.12) : 1;
+  ctx.save(); ctx.translate(fx, fy); ctx.scale(dir * Math.max(0.01, sideScale), 1);
   const tail = Math.sin(t * 9 + seed) * 0.35;
   ctx.fillStyle = mixH(c, '#000000', 0.15);
   ctx.beginPath(); ctx.moveTo(-fl * 0.75, 0); ctx.lineTo(-fl * 1.25, -fl * (0.45 + tail * 0.3)); ctx.lineTo(-fl * 1.2, fl * (0.45 - tail * 0.3)); ctx.closePath(); ctx.fill();
