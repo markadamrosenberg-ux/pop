@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 7:15pm, singers</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 7:30pm, records</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2030,6 +2030,17 @@ const Sound = (() => {
       tone(t, { f: 520 * v, f2: 160, peak: 0.12 * big, attack: 0.001, decay: 0.045, pan });
       noise(t + 0.002, { type: 'highpass', f: 3400, q: 0.7, peak: 0.03 * big, attack: 0.0005, decay: 0.012, pan });
     },
+    crackle() {   // (27 Nov) the needle dropping into the groove, then a soft warm crackle that fades (never constant)
+      if (!ok()) return; const t = ac.currentTime + 0.42;
+      noise(t, { type: 'lowpass', f: 300, q: 0.7, peak: 0.07, attack: 0.002, decay: 0.05 });
+      noise(t, { type: 'bandpass', f: 3500, q: 0.4, peak: 0.018, attack: 0.15, decay: 1.6 });
+      for (let k = 0; k < 26; k++) noise(t + 0.05 + Math.pow(Math.random(), 1.3) * 1.8, { type: 'highpass', f: R(1500, 5000), q: 0.7, peak: R(0.02, 0.06), attack: 0.0005, decay: R(0.004, 0.012), pan: R(-0.4, 0.4) });
+    },
+    scratch(pan = 0, big = 1) {   // a short vinyl scratch, forward and back
+      if (!ok()) return; const t = ac.currentTime; if (t - (this._scr || 0) < 0.08) return; this._scr = t;
+      noise(t, { type: 'bandpass', f: 700, f2: 2600, q: 3, peak: 0.08 * big, attack: 0.01, decay: 0.09, pan });
+      noise(t + 0.1, { type: 'bandpass', f: 2400, f2: 600, q: 3, peak: 0.07 * big, attack: 0.01, decay: 0.12, pan });
+    },
     sing(k = 0, pan = 0) {   // (27 Nov) a soft sung 'aah' (placeholder notes until Mark sends his): each colour has its own note
       if (!ok()) return; const t = ac.currentTime, f = [261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33][k % 7];
       if (this._voice) { try { this._voice.g.gain.cancelScheduledValues(t); this._voice.g.gain.setTargetAtTime(0, t, 0.05); this._voice.o.stop(t + 0.3); } catch (e) {} }
@@ -2287,6 +2298,7 @@ const Sound = (() => {
         if (Math.random() < 0.5) { if (this._held) this.squishUp(); this.fart(t); return; }
         this._fartOnRelease = true;
       }
+      if (typeof skin === 'function' && skin().vinyl) { this.scratch(pan, 0.8); if (this._held) this.squishUp(); return; }   // records: a squeeze is a little scratch
       if (typeof skin === 'function' && skin().singer) { this.sing(((window._sqV || 1) - 1), pan); return; }   // singers: press one and it sings its note (no squish, no farts)
       if (typeof skin === 'function' && skin().drum) { this.drum(['kick', 'tom1', 'tom2', 'floor', 'snare', 'hihat', 'ride', 'crash'][Math.floor(Math.random() * 8)], pan, 0.9); if (this._held) this.squishUp(); return; }   // drums: squeeze to play the kit
       if (typeof skin === 'function' && skin().hatch && eggKind() === 'chick' && playSample('squeak' + (1 + Math.floor(Math.random() * 5)), 0, 0.6, R(0.95, 1.12))) { if (this._held) this.squishUp(); return; }   // chicks: a cute squeaky-toy squeak, no splash
@@ -3194,6 +3206,11 @@ const NEW_SKINS = [
       ctx.restore();
     },
   },
+  { name: 'Records', vinyl: true, quietClear: true, dry: true, squish: 0.3, fixedColours: true, colours: ['#e23b2e', '#f2b51c', '#2f7fe0', '#2bb673', '#f4efe6'],
+    // (27 Nov) vinyl records: still in your hand; placed, the needle drops, they spin and crackle; a row flies off spinning
+    draw(ctx, s, c, i) { drawRecord(ctx, s * 0.5, c, i, 0); },
+    anim(ctx, s, c, i, t, seed) { if (HAND) return; const r = s * 0.5, arm = RECORD_ARM == null ? 1 : RECORD_ARM; drawRecordLabel(ctx, r, c, i, arm >= 1 ? t * 3.5 + seed : 0); drawTonearm(ctx, r, arm); },
+  },
   { name: 'Singers', singer: true, squish: 0.4, fixedColours: true, colours: ['#e8c3a6', '#c9967a', '#9c6b4e', '#6e4632', '#f0d2bd'],
     // (27 Nov) a smooth round face of just a mouth: open in your hand, it closes when it lands; press one and it opens and sings its note
     draw(ctx, s, c, i) { const r = s * 0.46, g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.05, 0, 0, r); g.addColorStop(0, mix(c, '#ffffff', 0.4)); g.addColorStop(0.65, c); g.addColorStop(1, shade(c, -35));
@@ -3940,7 +3957,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'ladybug', 'singer']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye', 'ladybug', 'singer', 'vinyl']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -5114,6 +5131,53 @@ function drawSlices(now) {
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, w / 1.3 * 0.75, q.a0, q.a1); ctx.closePath(); ctx.clip();
     ctx.drawImage(sp.canvas, -w / 2, -w / 2, w, w); ctx.restore();
   }
+}
+// (27 Nov) Records
+let RECORD_ARM = null;
+function drawRecord(x, r, col, seed, ang) {
+  const R0 = r * 0.9;
+  const g = x.createRadialGradient(0, 0, R0 * 0.3, 0, 0, R0); g.addColorStop(0, '#1b1b1f'); g.addColorStop(0.9, '#0e0e11'); g.addColorStop(1, '#2a2a30');
+  x.fillStyle = g; x.beginPath(); x.arc(0, 0, R0, 0, Math.PI * 2); x.fill();
+  x.lineWidth = Math.max(0.4, r * 0.008);
+  for (let k = 0; k < 16; k++) { const rr = R0 * (0.42 + k * 0.034); x.strokeStyle = k % 5 === 4 ? 'rgba(0,0,0,0.7)' : 'rgba(255,255,255,0.06)'; x.beginPath(); x.arc(0, 0, rr, 0, Math.PI * 2); x.stroke(); }   // the grooves, with gaps between tracks
+  // the light catching the grooves in two soft wedges (stays still while the record turns)
+  for (const a of [-2.3, 0.85]) { x.save(); x.beginPath(); x.moveTo(0, 0); x.arc(0, 0, R0 * 0.97, a - 0.28, a + 0.28); x.closePath(); x.clip();
+    const sg = x.createRadialGradient(0, 0, R0 * 0.4, 0, 0, R0); sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(0.6, 'rgba(210,220,240,0.22)'); sg.addColorStop(1, 'rgba(255,255,255,0.05)');
+    x.fillStyle = sg; x.fillRect(-R0, -R0, R0 * 2, R0 * 2); x.restore(); }
+  drawRecordLabel(x, r, col, seed, ang || 0);
+}
+function drawRecordLabel(x, r, col, seed, ang) {
+  const lr = r * 0.9 * 0.36;
+  x.save(); x.rotate(ang);
+  const lg = x.createRadialGradient(-lr * 0.3, -lr * 0.3, 0, 0, 0, lr); lg.addColorStop(0, mix(col, '#ffffff', 0.25)); lg.addColorStop(1, shade(col, -15));
+  x.fillStyle = lg; x.beginPath(); x.arc(0, 0, lr, 0, Math.PI * 2); x.fill();
+  const ink = col === '#f4efe6' || col === '#f2b51c' ? 'rgba(30,20,20,0.75)' : 'rgba(255,255,255,0.85)';
+  x.fillStyle = ink; x.font = `900 ${Math.max(5, Math.round(lr * 0.42))}px "Arial Black", Arial, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('POP', 0, -lr * 0.45);
+  x.fillRect(-lr * 0.5, lr * 0.35, lr, Math.max(0.6, lr * 0.07)); x.fillRect(-lr * 0.35, lr * 0.55, lr * 0.7, Math.max(0.6, lr * 0.06));
+  x.restore();
+  x.fillStyle = '#d8dbe0'; x.beginPath(); x.arc(0, 0, lr * 0.11, 0, Math.PI * 2); x.fill();   // the spindle
+}
+function drawTonearm(x, r, arm) {   // arm 0 = resting off to the side, 1 = needle down in the grooves
+  const px = r * 0.78, py = -r * 0.78, a = -0.15 + (1 - arm) * -0.75;   // pivot top right
+  x.save(); x.translate(px, py);
+  x.fillStyle = '#9aa0aa'; x.beginPath(); x.arc(0, 0, r * 0.13, 0, Math.PI * 2); x.fill(); x.fillStyle = '#e6e9ee'; x.beginPath(); x.arc(-r * 0.02, -r * 0.02, r * 0.08, 0, Math.PI * 2); x.fill();
+  x.rotate(Math.PI * 0.62 + a);
+  x.strokeStyle = '#dfe3ea'; x.lineWidth = Math.max(1, r * 0.05); x.lineCap = 'round'; x.beginPath(); x.moveTo(0, 0); x.lineTo(r * 0.95, 0); x.stroke();
+  x.strokeStyle = 'rgba(0,0,0,0.35)'; x.lineWidth = Math.max(0.5, r * 0.015); x.beginPath(); x.moveTo(0, r * 0.02); x.lineTo(r * 0.95, r * 0.02); x.stroke();
+  x.translate(r * 0.95, 0); x.rotate(0.5); x.fillStyle = '#2b2b30'; x.fillRect(-r * 0.04, -r * 0.07, r * 0.2, r * 0.14);   // the headshell
+  x.fillStyle = '#c9a24a'; x.fillRect(r * 0.12, -r * 0.03, r * 0.06, r * 0.06);
+  x.restore();
+}
+const DISCS = [];
+function flingRecord(x, y, colour, dir) {   // a record spins up and sails off the board
+  DISCS.push({ x, y, vx: dir * L.c * (4 + Math.random() * 4), vy: -L.c * (5 + Math.random() * 4), rot: 0, vr: 14 + Math.random() * 10, colour, t0: performance.now(), life: 1600 });
+}
+function drawDiscs(now, dt) {
+  const s2 = dt / 1000, sk = SKINS.find(k => k.vinyl);
+  for (let i = DISCS.length - 1; i >= 0; i--) { const d = DISCS[i], age = now - d.t0; if (age > d.life) { DISCS.splice(i, 1); continue; }
+    d.vy += L.c * 9 * s2; d.x += d.vx * s2; d.y += d.vy * s2; d.rot += d.vr * s2;
+    ctx.save(); ctx.translate(d.x, d.y); ctx.scale(1, 0.75 + 0.25 * Math.cos(age / 160)); ctx.globalAlpha = Math.min(1, (d.life - age) / 400);
+    drawRecord(ctx, L.c * 0.48, sk.colours[d.colour % sk.colours.length], d.colour, d.rot); ctx.restore(); }
 }
 // (27 Nov) Singers: how open this mouth is right now (in the hand, landing, or being pressed)
 let MOUTH_OPEN = null;
@@ -7348,6 +7412,7 @@ function playResult(res, pointerGesture) {
   if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 90 + k * 55 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.popcorn((at - now) / 1000, (res.gx + x - 3.5) / 5, 2.1); });   // placing pops as loud as a row popping (26 Nov)
   if (skin().hatch) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 120 + Math.random() * 50; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); if (res.lines) { /* this piece makes a line: just the normal clear sound, no cracking */ } else if (res.piece.shape.cells.length === 1) Sound.hatch((at - now + 260) / 1000, (res.gx + x - 3.5) / 5, 1.6); else if (k === 0) Sound.crackRun((at - now + 260) / 1000, res.piece.shape.cells.length, 1.6); if (!res.lines && k === 0 && eggKind() === 'fried') Sound.sizzle((at - now + 420) / 1000, 1 + Math.min(1, res.piece.shape.cells.length / 6)); });
   if (skin().bloom) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 80 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.bloom((at - now + 200) / 1000, (res.gx + x - 3.5) / 5, 1.6, k); });
+  if (skin().vinyl) { res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + 40 + k * 60)); Sound.crackle(); }   // (27 Nov) the needle drops and the record crackles
   if (skin().singer) res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + 60 + k * 50));   // (27 Nov) the mouths close as they land
   if (skin().eye) res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + 120 + k * 90 + Math.random() * 60));   // (27 Nov) each eye wakes up in turn
   // (26 Nov) square landing test switched off: pieces land as round balls with the normal jiggle
@@ -7427,7 +7492,7 @@ function playResult(res, pointerGesture) {
       let d = Infinity;
       if (res.rows.includes(cell.y)) d = Math.min(d, ox < 3.5 ? cell.x : 7 - cell.x);
       if (res.cols.includes(cell.x)) d = Math.min(d, oy < 3.5 ? cell.y : 7 - cell.y);
-      const delay = Math.round(d) * stagger + faceShock + (settings.reduced ? 40 : 150) + (skin().lights && !settings.reduced ? 380 : 0) + (skin().candle && !settings.reduced ? 520 + Math.round(d) * 40 : 0);   // festoon bulbs flicker for a moment before they go   // the finished line lights up first, then pops (25 Nov)
+      const delay = Math.round(d) * stagger + faceShock + (settings.reduced ? 40 : 150) + (skin().lights && !settings.reduced ? 380 : 0) + (skin().candle && !settings.reduced ? 520 + Math.round(d) * 40 : 0) + (skin().vinyl && !settings.reduced ? 350 : 0);   // festoon bulbs flicker for a moment before they go   // the finished line lights up first, then pops (25 Nov)
       maxDelay = Math.max(maxDelay, delay);
       const dir = res.rows.includes(cell.y) && !res.cols.includes(cell.x) ? Math.sign(cell.x - ox) : 0;
       FX.pops.push({ gx: cell.x, gy: cell.y, colour: cell.v - 1, skin: state.skin, t0: now + delay, burst: false, rank: Math.round(d), share, combo: res.combo, I: res.lines > 1 ? intensity : Math.min(intensity, 0.8), dir });
@@ -7453,6 +7518,7 @@ function playResult(res, pointerGesture) {
     else if (skin().pizza) Sound.cheese(res.cleared.length);
     if (skin().dandelion) { Sound.gust(res.lines); if (!settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => releaseSeeds(...cellCentre(c2.x, c2.y), 16, 2), 60 + k * 35)); }
     if (skin().ladybug) Sound.bugs(res.cleared.length);
+    if (skin().vinyl) Sound.scratch(0, 1.2);
     if (skin().ladybug && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => releaseLadybug(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 60 + k * 45));
     if (skin().morph) Sound.wings(0.1, Math.min(1.3, 0.8 + res.cleared.length / 40));
     if (skin().morph && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => releaseButterfly(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 120 + k * 30));
@@ -7537,6 +7603,7 @@ function updateFX(now, dt) {
       if (sk.face) fireworkBurst(x, y, p.I || 1);
       else if (sk.bounce && !settings.reduced) FX.particles.push({ k: 'ball', x, y, vx: ((p.gx - 3.5) / 3.5 + (Math.random() - 0.5)) * L.c * 4, vy: -L.c * (7 + Math.random() * 4), skin: p.skin, colour: p.colour, life: 0, max: 2.2, spin: (Math.random() - 0.5) * 8, floor: L.by + L.B + L.c * 0.2, bounces: 0 });
       else if (sk.fizz) fizzBurst(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);
+      else if (sk.vinyl) flingRecord(x, y, p.colour, p.gx < 3.5 ? -1 : 1);
       else if (sk.candle) { snuffCandle(x, y, p.gx < 3.5 ? 1 : -1); Sound.snuff(((p.gx - 3.5) / 3.5) * 0.6); }
       else if (sk.drum) { drumBurst(x, y, sk.colours[p.colour % sk.colours.length]); Sound.drum(['tom1', 'tom2', 'floor', 'snare'][Math.floor(Math.random() * 4)], ((p.gx - 3.5) / 3.5) * 0.6, 0.6); }
       else if (sk.lights) { shatterBulb(x, y, sk.colours[p.colour % sk.colours.length]); Sound.bulbPop(((p.gx - 3.5) / 3.5) * 0.6); }
@@ -7713,6 +7780,10 @@ function draw(now) {
       }
       const bl = skin().bloom;
       if (t < 0) { HAND = true; drawBubble(state.skin, v - 1, x + (bl ? 0 : Math.sin(now / 18 + gx) * c * 0.03), y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; continue; }   // the kernel jitters / the bud waits
+      if (skin().vinyl) {
+        if (t < 600) { RECORD_ARM = t < 0 ? 0 : Math.min(1, t / 450); drawBubble(state.skin, v - 1, x, y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); RECORD_ARM = null; continue; }
+        POPT.delete(Logic.idx(gx, gy));
+      }
       if (skin().singer) {
         if (t < 320) { MOUTH_OPEN = t < 0 ? 1 : 1 - t / 320; drawBubble(state.skin, v - 1, x, y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); MOUTH_OPEN = null; continue; }
         POPT.delete(Logic.idx(gx, gy));
@@ -7871,6 +7942,8 @@ function draw(now) {
   faceMood = 1;
   for (const p of FX.pops) {
     const [x, y] = cellCentre(p.gx, p.gy);
+    if (now < p.t0 && SKINS[p.skin % SKINS.length].vinyl) { const sk = SKINS[p.skin % SKINS.length], col = sk.colours[p.colour % sk.colours.length];
+      ctx.save(); ctx.translate(x, y); drawRecord(ctx, c * 0.48, col, p.colour, now / 1000 * 9); drawTonearm(ctx, c * 0.48, Math.max(0, Math.min(1, (p.t0 - now) / 300))); ctx.restore(); continue; }   /* spins up fast, the arm lifts away */
     if (now < p.t0 && SKINS[p.skin % SKINS.length].candle) { const sk = SKINS[p.skin % SKINS.length], w = Math.max(0, 1 - (p.t0 - now) / 520), lean = (p.gx < 3.5 ? 1 : -1) * w;
       ctx.save(); ctx.translate(x, y); drawCandle(ctx, c * 0.48, sk.colours[p.colour % sk.colours.length], p.colour); candleFlame(ctx, c * 0.48, now / 1000, p.gx * 3 + p.gy * 5, w < 0.7 ? 1 + 1.1 * Math.sin(w / 0.7 * Math.PI / 2) : 2.1 * Math.pow(1 - (w - 0.7) / 0.3, 0.6), lean * 0.6);   /* the flame flares up big in the breath, then goes out */  ctx.restore(); continue; }
     if (now < p.t0 && SKINS[p.skin % SKINS.length].lights) { const sk = SKINS[p.skin % SKINS.length], on = p.t0 - now < 420 ? (Math.sin(now * 0.09 + p.gx * 5 + p.gy * 3) > 0 ? 1 : 0.1) : 1; ctx.save(); ctx.translate(x, y); drawBulb(ctx, c * 0.48, sk.colours[p.colour % sk.colours.length], on, p.colour); ctx.restore(); continue; }
@@ -8056,7 +8129,7 @@ function draw(now) {
   }
 
   if (SKINS[state.skin % SKINS.length].lights) drawWires(now);
-  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); if (SPARKS.length) drawSparks(now, dtp); if (DETS.length) drawDets(now); if (FLIERS.length) drawFliers(now, dtp); if (SEEDS.length) drawSeeds(now, dtp); if (SLICES.length) drawSlices(now); if (SHARDS.length) drawShards(now, dtp); if (SMOKE.length) drawSmoke(now); }
+  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); if (SPARKS.length) drawSparks(now, dtp); if (DETS.length) drawDets(now); if (FLIERS.length) drawFliers(now, dtp); if (SEEDS.length) drawSeeds(now, dtp); if (SLICES.length) drawSlices(now); if (SHARDS.length) drawShards(now, dtp); if (SMOKE.length) drawSmoke(now); if (DISCS.length) drawDiscs(now, dtp); }
   // dragged piece on top
   const d = Input.dragDraw();
   if (d) {
