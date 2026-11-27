@@ -636,7 +636,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Pop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 6:25pm, candles flare</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 27 Nov, 6:45pm, eyes</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -3910,7 +3910,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'pizza', 'lights', 'drum', 'candle', 'eye']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -4613,6 +4613,7 @@ function drawCute(cx, cy, size, sx, sy, alpha, seed, now, g2 = null) {
   ctx.restore();
 }
 // Eyeballs: iris and pupil follow the piece you're dragging, lids blink, lashes flutter; wide-eyed when about to burst
+let EYE_OPEN = 1;   // (27 Nov) eyes sleep closed in your hand and open when they land
 function drawEye(cx, cy, size, sx, sy, alpha, seed, now, colour, g2 = null) {
   const ctx = g2 || window._mainCtx, r = size * 0.45, t = now / 1000, m = faceMood;
   ctx.save(); ctx.translate(cx, cy); ctx.scale(sx, sy); ctx.globalAlpha = alpha;
@@ -4639,7 +4640,8 @@ function drawEye(cx, cy, size, sx, sy, alpha, seed, now, colour, g2 = null) {
   ctx.restore();
   // shadow cast by the upper lid onto the eyeball
   const bp = ((t * 0.27 + seed * 0.618) % 1), blink = m < 0.3 && bp < 0.05 ? Math.sin(bp / 0.05 * Math.PI) : 0;
-  const open = 1 - blink, lidTop = -r * (0.6 + 0.5 * m) + (r * 1.7) * (1 - open) * 0.5, lidBot = r * (0.7 + 0.4 * m) - (r * 1.7) * (1 - open) * 0.5;
+  const op = g2 ? 1 : HAND ? 0 : EYE_OPEN, open = Math.min(op, 1 - blink), y0 = r * 0.12;   // closed, the lids meet in a soft curve just below the middle
+  const lidTop = (y0 - r * 0.035) + (-r * (0.6 + 0.5 * m) - (y0 - r * 0.035)) * open, lidBot = (y0 + r * 0.04) + (r * (0.7 + 0.4 * m) - (y0 + r * 0.04)) * open;
   const sh = ctx.createLinearGradient(0, lidTop + r * 0.1, 0, lidTop + r * 0.5); sh.addColorStop(0, 'rgba(60,20,20,0.45)'); sh.addColorStop(1, 'rgba(60,20,20,0)');
   ctx.fillStyle = sh; ctx.fillRect(-r, lidTop, r * 2, r * 0.6);
   // the wet cornea: a window-shaped highlight and a soft second glint
@@ -4658,6 +4660,16 @@ function drawEye(cx, cy, size, sx, sy, alpha, seed, now, colour, g2 = null) {
   ctx.restore();
   // lashes: thick, curling up and out from the lid edge
   ctx.strokeStyle = '#140a0c'; ctx.lineCap = 'round';
+  if (open < 0.35) {   // a closed eye: the lashes rest along the lid line, curling down and out
+    const E = lidBot - r * 0.2, D = r * 0.32;
+    for (let k = -5; k <= 5; k++) {
+      const u = k / 5.6, lx = u * r * 0.92, sq = (lx / (r * 1.1) + 1) / 2, ly = E + 2 * sq * (1 - sq) * D;
+      const L = r * (0.2 + 0.07 * (1 - Math.abs(u))), a0 = Math.PI / 2 - u * 1.1;
+      ctx.lineWidth = Math.max(0.8, r * 0.05 * (1 - Math.abs(u) * 0.4));
+      ctx.beginPath(); ctx.moveTo(lx, ly); ctx.quadraticCurveTo(lx + Math.cos(a0) * L * 0.7, ly + Math.sin(a0) * L * 0.7, lx + Math.cos(a0 - u * 0.5) * L, ly + Math.sin(a0) * L * 0.8 - L * 0.15); ctx.stroke();
+    }
+    ctx.restore(); return;
+  }
   for (let k = -5; k <= 5; k++) {
     const u = k / 5.6, lx = u * r * 0.92, ly = lidTop + r * 0.25 - (1 - u * u) * r * 0.43 + r * 0.01;
     if (lx * lx + ly * ly > r * r * 1.08) continue;
@@ -7219,6 +7231,7 @@ function playResult(res, pointerGesture) {
   if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 90 + k * 55 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.popcorn((at - now) / 1000, (res.gx + x - 3.5) / 5, 2.1); });   // placing pops as loud as a row popping (26 Nov)
   if (skin().hatch) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 120 + Math.random() * 50; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); if (res.lines) { /* this piece makes a line: just the normal clear sound, no cracking */ } else if (res.piece.shape.cells.length === 1) Sound.hatch((at - now + 260) / 1000, (res.gx + x - 3.5) / 5, 1.6); else if (k === 0) Sound.crackRun((at - now + 260) / 1000, res.piece.shape.cells.length, 1.6); if (!res.lines && k === 0 && eggKind() === 'fried') Sound.sizzle((at - now + 420) / 1000, 1 + Math.min(1, res.piece.shape.cells.length / 6)); });
   if (skin().bloom) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 80 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.bloom((at - now + 200) / 1000, (res.gx + x - 3.5) / 5, 1.6, k); });
+  if (skin().eye) res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + 120 + k * 90 + Math.random() * 60));   // (27 Nov) each eye wakes up in turn
   // (26 Nov) square landing test switched off: pieces land as round balls with the normal jiggle
   // nearby bubbles feel the splash and jiggle a little, a beat later
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
@@ -7580,6 +7593,11 @@ function draw(now) {
       }
       const bl = skin().bloom;
       if (t < 0) { HAND = true; drawBubble(state.skin, v - 1, x + (bl ? 0 : Math.sin(now / 18 + gx) * c * 0.03), y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); HAND = false; continue; }   // the kernel jitters / the bud waits
+      if (skin().eye) {
+        if (t < 900) { const u = Math.max(0, t) / 900; EYE_OPEN = t < 0 ? 0 : u < 0.35 ? 0.55 * Math.sin(u / 0.35 * Math.PI / 2) : u < 0.5 ? 0.55 - (u - 0.35) / 0.15 * 0.4 : 0.15 + 0.85 * Math.sin((u - 0.5) / 0.5 * Math.PI / 2);
+          drawBubble(state.skin, v - 1, x, y, c * 0.96, 1, 1, 1, gx * 3 + gy * 5, now); EYE_OPEN = 1; continue; }
+        POPT.delete(Logic.idx(gx, gy));
+      }
       if (skin().candle) {
         if (t < 600) { const sk = skin(), col = sk.colours[(v - 1) % sk.colours.length], g = t < 0 ? 0 : Math.min(1, t / 450) * (1 + Math.sin(Math.min(1, t / 600) * Math.PI) * 0.25);
           ctx.save(); ctx.translate(x, y); drawCandle(ctx, c * 0.48, col, v - 1); if (g > 0) candleFlame(ctx, c * 0.48, now / 1000, gx * 3 + gy * 5, g, 0); ctx.restore(); continue; }
