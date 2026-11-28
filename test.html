@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 10:50pm, bubbly squish</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 10:55pm, balloons no ring</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -4728,17 +4728,18 @@ function sprite(skinIdx, colour) {
   const x = c.getContext('2d');
   x.scale(dpr, dpr); x.translate(box / dpr / 2, box / dpr / 2);
   const sk = SKINS[skinIdx % SKINS.length], th = withScene(themeFor(sk));
+  const noRing = sk.noBall || ['balloon', 'slot', 'candle', 'lights', 'ladybug', 'hatch', 'bloom', 'morph', 'popcorn', 'dandelion', 'pizza'].some(f => sk[f]);   // (28 Nov) looks that aren't balls don't get the round outline on dark backgrounds
   if (th.ballShadow) {   // soft shadow just below: the marble sits slightly above the board
     const g = x.createRadialGradient(0, size * 0.09, size * 0.2, 0, size * 0.09, size * 0.56);
     g.addColorStop(0, `rgba(10,4,24,${th.ballShadow})`); g.addColorStop(1, 'rgba(10,4,24,0)');
     x.fillStyle = g; x.beginPath(); x.arc(0, size * 0.09, size * 0.56, 0, Math.PI * 2); x.fill();
   }
   sk.draw(x, size, sk.fixedColours ? sk.colours[colour % sk.colours.length] : vivid(sk.colours[colour % sk.colours.length]), colour, sk.colours);
-  if (onScene() && !sk.noBall) {       // a crisp dark outline so every ball pops off a busy or bright background
+  if (onScene() && !noRing) {       // a crisp dark outline so every ball pops off a busy or bright background
     x.strokeStyle = 'rgba(8,6,24,0.7)'; x.lineWidth = Math.max(1.2, size * 0.035);
     x.beginPath(); x.arc(0, 0, size * 0.462, 0, Math.PI * 2); x.stroke();
   }
-  if (th.ballRim && !sk.noBall) {      // fine cool rim so a dark edge never melts into the background
+  if (th.ballRim && !noRing) {      // fine cool rim so a dark edge never melts into the background
     x.strokeStyle = th.ballRim; x.lineWidth = Math.max(0.8, size * 0.022);
     x.beginPath(); x.arc(0, 0, size * 0.447, 0, Math.PI * 2); x.stroke();
     const hl = x.createLinearGradient(0, -size * 0.45, 0, size * 0.1);
