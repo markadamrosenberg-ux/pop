@@ -3648,7 +3648,7 @@ const NEW_SKINS = [
     // (27 Nov) shiny vintage bass drums on their two little legs, with a retro POP logo on the front head (our own lettering, no band or brand)
     draw(ctx, s, c, i) { drawDrum(ctx, s * 0.5, c, i, 0); },
   },
-  { name: 'Festoon Lights', lights: true, quietClear: true, dry: true, squish: 1.05, fixedColours: true, colours: ['#ffd27a', '#ff9d3a', '#ff4b4b', '#3fe08a', '#4fa8ff'],
+  { name: 'Festoon Lights', lights: true, quietClear: true, dry: true, squish: 1.05, fixedColours: true, colours: ['#ffd98a', '#ffd98a', '#ffd98a', '#ffd98a', '#ffd98a'],   /* (28 Nov) all one warm yellow-white, like real festoon bulbs */
     // (27 Nov) glass globe bulbs strung on a wire: dark in your hand, they flicker on when they land; a clear makes them flicker and burst
     draw(ctx, s, c, i) { drawBulb(ctx, s * 0.5, c, 1, i); },
   },
@@ -8424,6 +8424,8 @@ function playResult(res, pointerGesture) {
     if (skin().ladybug) Sound.bugs(res.cleared.length);
     if (skin().vinyl) Sound.recordSting(res.lines);
     if (skin().soap) Sound.soapRow();
+    if (skin().singer) { const r = Math.random(), perm = [0, 1, 2, 3, 4, 5, 6, 7]; for (let i = 7; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [perm[i], perm[j]] = [perm[j], perm[i]]; }
+      window._singRow = r < 0.4 ? i => i : r < 0.7 ? i => 7 - i : i => perm[i % 8]; }   // (28 Nov) each Singers row picks its tune: up the scale, down the scale, or all mixed up
     if (skin().blueberry) STAIN.wipeAt = performance.now();
     if (skin().slot) { const t0 = performance.now(), cl = (res.cleared || []).slice().sort((a, b) => a.x - b.x || a.y - b.y), stops = [], jf = Math.floor(Math.random() * FRUITS);   // the whole line lands on the same fruit
       cl.forEach((c2, k) => { const i = Logic.idx(c2.x, c2.y), D = 350 + Math.min(k, 9) * 90; SLOT_NUM.set(i, jf); SLOT_SPIN.set(i, { t0, D }); stops.push(D / 1000); });
@@ -8512,7 +8514,7 @@ function updateFX(now, dt) {
       p.burst = true;
       const [x, y] = cellCentre(p.gx, p.gy);
       const sk = SKINS[p.skin % SKINS.length];
-      if (sk.singer) Sound.singRun(p.rank | 0, ((p.gx - 3.5) / 3.5) * 0.5);   // (28 Nov) a Singers line sings Mark's notes up the scale, low to high, one per face as it pops
+      if (sk.singer) Sound.singRun((window._singRow || (i => i))(p.rank | 0), ((p.gx - 3.5) / 3.5) * 0.5);   // (28 Nov) a Singers line sings Mark's notes up the scale, low to high, one per face as it pops
       if (sk.face && sk.cute) { fireworkBurst(x, y, p.I || 1, true); Sound.xylo(p.gx + (7 - p.gy), ((p.gx - 3.5) / 3.5) * 0.5); }   // (28 Nov) Cuties: each one rings a xylophone note as it pops, C D E F G A B C along a row, higher up the board
       else if (sk.face) fireworkBurst(x, y, p.I || 1);
       else if (sk.bounce && !settings.reduced) FX.particles.push({ k: 'ball', x, y, vx: ((p.gx - 3.5) / 3.5 + (Math.random() - 0.5)) * L.c * 4, vy: -L.c * (7 + Math.random() * 4), skin: p.skin, colour: p.colour, life: 0, max: 2.2, spin: (Math.random() - 0.5) * 8, floor: L.by + L.B + L.c * 0.2, bounces: 0 });
@@ -9814,7 +9816,7 @@ const Input = (() => {
     drag = { slot, piece, pid: e.pointerId, type: e.pointerType || 'mouse', x, y, t0: performance.now(), sx, sy, startSize: trayCell(piece), vx: 0, vy: 0, lt: 0 };
     ret = null;
     try { cv.setPointerCapture(e.pointerId); } catch (err) {}
-    if (!piece.mystery) { if (skin().hit === 'tennis') Sound.hit(skin().hit, 0.8); else if (skin().hit === 'golf') Sound.hit('golfdrive', 0.5); /* golf: a soft tee-off when you pick a piece up (Mark, 25 Nov) */ /* cricket: the normal squish on pick-up, the shot only when placed (Mark, 25 Nov) */ else if (skin().hit === 'baseball') Sound.hit('mitt', 0.8); else Sound.pickup(); }
+    if (!piece.mystery) { if (skin().hit === 'tennis') Sound.hit(skin().hit, 0.8); else if (skin().hit === 'golf') Sound.hit('golfdrive', 0.5); /* golf: a soft tee-off when you pick a piece up (Mark, 25 Nov) */ /* cricket: the normal squish on pick-up, the shot only when placed (Mark, 25 Nov) */ /* baseball: the normal pick-up sound, not the glove knock (Mark, 28 Nov) */ else Sound.pickup(); }
     e.preventDefault();
   }
   // ---- gooey poke: the shape of a squished bubble, held or springing back
