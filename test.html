@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 1:30pm, wheels spin, no squash</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 2pm, pokies</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2091,6 +2091,21 @@ const Sound = (() => {
       // a quick scratch in the middle, like a DJ
       for (const [o2, f1, f2] of [[3, 600, 2400], [3.25, 2400, 700], [3.5, 700, 2200], [3.62, 2200, 600]]) noise(m + o2 * beat, { type: 'bandpass', f: f1, f2, q: 3, peak: 0.3, attack: 0.008, decay: 0.08, dest: bus });
     },
+    slotSpin(stops = [0.7]) {   // (28 Nov) pokie reels: a whirring spin with ticking, and a solid clunk as each reel stops
+      if (!ok()) return; const t = ac.currentTime + 0.02, end = Math.max(...stops);
+      let at = 0; while (at < end) { const u = at / end; noise(t + at, { type: 'bandpass', f: 1900 + Math.random() * 400, q: 4, peak: 0.035, attack: 0.001, decay: 0.01 }); at += 0.035 + u * 0.02; }   // the reels ticking round
+      noise(t, { type: 'bandpass', f: 600, q: 0.8, peak: 0.03, attack: 0.05, decay: end });   // the motor whirr
+      for (let k = 0; k < Math.min(Math.floor(end / 0.14), 14); k++) tone(t + k * 0.14, { f: [784, 988, 1175, 988][k % 4], type: 'square', peak: 0.012, attack: 0.003, decay: 0.08 });   // the little pokie 'dee-dee-dee'
+      for (const st of stops) { tone(t + st, { f: 120, f2: 70, type: 'sine', peak: 0.14, attack: 0.002, decay: 0.09 }); noise(t + st, { type: 'bandpass', f: 1200, q: 1.5, peak: 0.07, attack: 0.001, decay: 0.03 }); }   // clunk
+    },
+    jackpot(lines = 1, at0 = 1) {   // (28 Nov) the pokie JACKPOT: a fast rising run of win beeps, a bell, and coins pouring out
+      if (!ok()) return; const t = ac.currentTime + at0, k = Math.min(1.3, 0.9 + lines * 0.15);
+      const bus = ac.createGain(); bus.gain.value = 0.9; bus.connect(out);
+      const run = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568, 2093];
+      for (let rep = 0; rep < 3; rep++) run.forEach((f, n) => { tone(t + rep * 0.42 + n * 0.055, { f, type: 'square', peak: 0.035 * k, attack: 0.002, decay: 0.07, dest: bus }); tone(t + rep * 0.42 + n * 0.055, { f: f * 2, type: 'sine', peak: 0.015, attack: 0.002, decay: 0.06, dest: bus }); });
+      for (let n = 0; n < 20; n++) tone(t + n * 0.06, { f: 2600, type: 'sine', peak: 0.03 * k, attack: 0.001, decay: 0.08, dest: bus });   // the bell
+      for (let n = 0; n < 40; n++) { const a2 = 0.2 + n * 0.04 + Math.random() * 0.03, f = R(3000, 5200); tone(t + a2, { f, type: 'sine', peak: 0.025, attack: 0.001, decay: 0.1, dest: bus }); noise(t + a2, { type: 'bandpass', f: f * 0.6, q: 6, peak: 0.012, attack: 0.001, decay: 0.03, dest: bus }); }   // coins clattering into the tray
+    },
     wheelSpin() {   // (28 Nov) a chocolate wheel: the leather flapper clacking over the pegs, fast then slowing to a stop
       if (!ok()) return; const t = ac.currentTime + 0.02;
       if (this._wsp && t - this._wsp < 0.25) return; this._wsp = t;   // one spin sound per piece, however many wheels
@@ -2531,6 +2546,7 @@ const Sound = (() => {
         if (Math.random() < 0.5) { if (this._held) this.squishUp(); this.fart(t); return; }
         this._fartOnRelease = true;
       }
+      if (typeof skin === 'function' && skin().slot) { if (this._held) this.squishUp(); return; }   // (28 Nov) reels just get a spin (see the press handler)
       if (typeof skin === 'function' && skin().wheel) { this._wsp = 0; this.wheelSpin(); if (this._held) this.squishUp(); return; }   // (28 Nov) the flapper clacking as it spins
       if (typeof skin === 'function' && skin().blueberry) { this.berrySquirt(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) blueberries: a juicy squirt
       if (typeof skin === 'function' && skin().soap) { this.soapSquish(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) bubbles: Mark's bubble sound
@@ -3521,6 +3537,11 @@ const NEW_SKINS = [
       ctx.restore();
     },
   },
+  { name: 'Pokies', slot: true, quietClear: true, dry: true, squish: 0.4, fixedColours: true, colours: ['#d81f2e', '#1f6fd6', '#e8a10c', '#1f9e4f', '#8a3fd1'],
+    // (28 Nov) round chrome slot reels: placed, they spin and stop left to right on a number; a row spins up all 7s and pays out a JACKPOT
+    draw(ctx, s, c, i) { drawSlot(ctx, s * 0.5, c, 7, -1); },
+    anim(ctx, s, c, i, t, seed) { if (HAND) return; const st = slotState(); drawSlot(ctx, s * 0.5, c, st.n, st.spin); },
+  },
   { name: 'Chocolate Wheels', wheel: true, quietClear: true, dry: true, squish: 0.4, fixedColours: true, colours: ['#e0262e', '#1f6fd6', '#f2b10c', '#1f9e4f', '#8a3fd1'],
     // (28 Nov) little carnival chocolate wheels: they spin when placed, tick-tick-ticking to a stop on whatever number; a row lights up WIN! and then they go
     draw(ctx, s, c, i) { drawWheel(ctx, s * 0.5, c, i, 0); },   // still picture (used when motion is reduced)
@@ -4315,7 +4336,7 @@ function newGame() {
   // looks you haven't seen yet come first, so every game can show you something new (Mark, 25 Nov)
   if (typeof Library !== 'undefined') state.skinOrder = state.skinOrder.filter(i => !Library.has(i)).concat(state.skinOrder.filter(i => Library.has(i)));
   if (state.tutorial || navigator.webdriver) { state.skinOrder.splice(state.skinOrder.indexOf(0), 1); state.skinOrder.unshift(0); }
-  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'lights', 'eye', 'ladybug', 'drum', 'fish', 'singer', 'vinyl', 'balloon', 'pizza', 'soap', 'candle', 'blueberry', 'wheel']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
+  for (const fl of ['popcorn', 'hatch', 'morph', 'bloom', 'dandelion', 'lights', 'eye', 'ladybug', 'drum', 'fish', 'singer', 'vinyl', 'balloon', 'pizza', 'soap', 'candle', 'blueberry', 'wheel', 'slot']) { const pc = SKINS.findIndex(k => k[fl]); if (pc >= 0) { state.skinOrder = state.skinOrder.filter(i => i !== pc); state.skinOrder.unshift(pc); } }   // TEST PAGE: start on Butterflies, Chicks, Flowers, Popcorn
   state.skin = state.skinOrder[0]; if (typeof Library !== 'undefined') Library.see(state.skin); applyPalette();
   if (state.tutorial) {
     Store.set('tutNext', false);
@@ -5530,6 +5551,42 @@ function drawSlices(now) {
     ctx.drawImage(sp.canvas, -w / 2, -w / 2, w, w); ctx.restore();
   }
 }
+// (28 Nov) Pokies: each cell is one reel
+const SLOT_NUM = new Map(), SLOT_SPIN = new Map();
+function slotState() {   // this reel's number, and how far through a spin it is (-1 = stopped)
+  const p2 = window._animPos; if (!p2) return { n: 7, spin: -1 };
+  const gx = Math.floor((p2[0] - L.ix) / L.c), gy = Math.floor((p2[1] - L.iy) / L.c), i = Logic.idx(gx, gy);
+  if (!SLOT_NUM.has(i)) SLOT_NUM.set(i, 1 + Math.floor(Math.random() * 9));
+  const sp = SLOT_SPIN.get(i), now = performance.now();
+  if (sp && now < sp.t0 + sp.D) return { n: SLOT_NUM.get(i), spin: Math.max(0, now - sp.t0) / sp.D };
+  if (sp && now < sp.t0 + sp.D + 160) return { n: SLOT_NUM.get(i), spin: -1, bump: 1 - (now - sp.t0 - sp.D) / 160 };
+  return { n: SLOT_NUM.get(i), spin: -1 };
+}
+function drawSlot(x, r, col, n, spin) {
+  const R0 = r * 0.92;
+  // the chrome bezel and the coloured cabinet ring
+  const cg = x.createRadialGradient(-R0 * 0.3, -R0 * 0.4, R0 * 0.1, 0, 0, R0); cg.addColorStop(0, mix(col, '#ffffff', 0.45)); cg.addColorStop(0.6, col); cg.addColorStop(1, shade(col, -55));
+  x.fillStyle = cg; x.beginPath(); x.arc(0, 0, R0, 0, Math.PI * 2); x.fill();
+  const ch = x.createLinearGradient(-R0, -R0, R0, R0); ch.addColorStop(0, '#ffffff'); ch.addColorStop(0.5, '#9aa2ae'); ch.addColorStop(1, '#e8ecf2');
+  x.strokeStyle = ch; x.lineWidth = R0 * 0.1; x.beginPath(); x.arc(0, 0, R0 * 0.8, 0, Math.PI * 2); x.stroke();
+  // the reel window
+  const wr = R0 * 0.72;
+  x.save(); x.beginPath(); x.arc(0, 0, wr, 0, Math.PI * 2); x.clip();
+  const wg = x.createLinearGradient(0, -wr, 0, wr); wg.addColorStop(0, '#c9c3b4'); wg.addColorStop(0.3, '#fffaf0'); wg.addColorStop(0.7, '#fffaf0'); wg.addColorStop(1, '#c9c3b4'); x.fillStyle = wg; x.fillRect(-wr, -wr, wr * 2, wr * 2);
+  const fs = Math.round(wr * 1.25), digit = (d, yy, a) => { x.globalAlpha = a; x.font = `900 ${fs}px "Arial Black", Impact, sans-serif`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.lineWidth = fs * 0.1; x.strokeStyle = '#4a0610'; x.strokeText(String(d), 0, yy); x.fillStyle = d === 7 ? '#e0101e' : '#1b1b25'; x.fillText(String(d), 0, yy); x.globalAlpha = 1; };
+  if (spin >= 0) {   // spinning: numbers rolling down past the window, a blur that slows as it stops
+    const speed = 1 - Math.pow(spin, 1.6), scroll = (performance.now() / (40 + (1 - speed) * 140)) % 1, base = Math.floor(performance.now() / 50);
+    for (let k = -1; k <= 1; k++) digit(1 + ((base + k) % 9 + 9) % 9, (k + scroll) * wr * 1.5, speed > 0.4 ? 0.55 : 0.85);
+    x.fillStyle = `rgba(255,250,240,${0.35 * speed})`; x.fillRect(-wr, -wr, wr * 2, wr * 2);
+  } else digit(n, wr * 0.04, 1);
+  // shading top and bottom, like a curved drum, and the glass
+  const sh = x.createLinearGradient(0, -wr, 0, wr); sh.addColorStop(0, 'rgba(0,0,0,0.45)'); sh.addColorStop(0.28, 'rgba(0,0,0,0)'); sh.addColorStop(0.72, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,0.45)');
+  x.fillStyle = sh; x.fillRect(-wr, -wr, wr * 2, wr * 2);
+  x.fillStyle = 'rgba(255,255,255,0.35)'; x.beginPath(); x.ellipse(-wr * 0.35, -wr * 0.5, wr * 0.5, wr * 0.16, -0.4, 0, Math.PI * 2); x.fill();
+  x.restore();
+  x.fillStyle = 'rgba(255,255,255,0.55)'; x.beginPath(); x.ellipse(-R0 * 0.5, -R0 * 0.6, R0 * 0.18, R0 * 0.07, -0.7, 0, Math.PI * 2); x.fill();
+}
 // (28 Nov) Chocolate wheels
 const WHEEL_IMG = new Map(), WHEEL_ANG = new Map();
 let WHEEL_NOW = null;   // set while a wheel is drawn landing (spinning), else each cell's resting angle is used
@@ -5567,13 +5624,13 @@ function drawWheel(x, r, col, seed, ang) {
 }
 const WINS = [];
 function drawWins(now) {   // WIN! lit up along each winning row or column
-  for (let i = WINS.length - 1; i >= 0; i--) { const w = WINS[i], age = now - w.t0; if (age > 1100) { WINS.splice(i, 1); continue; }
+  for (let i = WINS.length - 1; i >= 0; i--) { const w = WINS[i], age = now - w.t0; if (age < 0) continue; if (age > 1100) { WINS.splice(i, 1); continue; }
     const k = Math.min(1, age / 140), fade = age > 850 ? 1 - (age - 850) / 250 : 1, flash = Math.floor(age / 110) % 2;
     const [ax, ay] = w.row != null ? cellCentre(3.5, w.row) : cellCentre(w.col, 3.5);
     ctx.save(); ctx.globalAlpha = fade; ctx.translate(ax, ay); if (w.col != null) ctx.rotate(-Math.PI / 2); ctx.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k);
-    const fs = L.c * 1.15; ctx.font = `900 ${fs}px Fredoka, "Arial Black", system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.lineJoin = 'round'; ctx.lineWidth = fs * 0.18; ctx.strokeStyle = '#3a0a10'; ctx.strokeText('WIN!', 0, 0);
-    ctx.fillStyle = flash ? '#ffd24a' : '#ffffff'; ctx.shadowColor = '#ffb020'; ctx.shadowBlur = fs * 0.4; ctx.fillText('WIN!', 0, 0); ctx.restore(); }
+    const txt = w.text || 'WIN!', fs = L.c * (txt.length > 5 ? 0.95 : 1.15); ctx.font = `900 ${fs}px Fredoka, "Arial Black", system-ui`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round'; ctx.lineWidth = fs * 0.18; ctx.strokeStyle = '#3a0a10'; ctx.strokeText(txt, 0, 0);
+    ctx.fillStyle = flash ? '#ffd24a' : '#ffffff'; ctx.shadowColor = '#ffb020'; ctx.shadowBlur = fs * 0.4; ctx.fillText(txt, 0, 0); ctx.restore(); }
 }
 // (28 Nov) Blueberries
 function drawBlueberry(x, r, col, seed) {
@@ -8056,6 +8113,11 @@ function playResult(res, pointerGesture) {
   if (skin().hatch) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 60 + k * 120 + Math.random() * 50; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); if (res.lines) { /* this piece makes a line: just the normal clear sound, no cracking */ } else if (res.piece.shape.cells.length === 1) Sound.hatch((at - now + 260) / 1000, (res.gx + x - 3.5) / 5, 1.6); else if (k === 0) Sound.crackRun((at - now + 260) / 1000, res.piece.shape.cells.length, 1.6); if (!res.lines && k === 0 && eggKind() === 'fried') Sound.sizzle((at - now + 420) / 1000, 1 + Math.min(1, res.piece.shape.cells.length / 6)); });
   if (skin().bloom) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 80 + k * 110 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.bloom((at - now + 200) / 1000, (res.gx + x - 3.5) / 5, 1.6, k); });
   if (skin().name === 'Fishbowls' && !FISHJ) { const cells = res.piece.shape.cells.map(([x, y]) => (res.gy + y) * CONFIG.gridSize + res.gx + x); setTimeout(() => { if (FISHJ || skin().name !== 'Fishbowls') return; const t2 = performance.now(); for (const i of cells.sort(() => Math.random() - 0.5)) if (fishJumpFrom(i, t2)) break; }, 1300); }   // (27 Nov) once they settle, one leaps next door and back
+  if (skin().slot) {   // (28 Nov) the reels spin and stop one by one, left to right
+    const cells = res.piece.shape.cells.map(([x, y]) => [res.gx + x, res.gy + y]).sort((a, b) => a[0] - b[0] || a[1] - b[1]), stops = [];
+    cells.forEach(([x, y], k) => { const i = Logic.idx(x, y), D = 650 + k * 230; SLOT_NUM.set(i, 1 + Math.floor(Math.random() * 9)); SLOT_SPIN.set(i, { t0: now, D }); stops.push(D / 1000); });
+    Sound.slotSpin(stops);
+  }
   if (skin().wheel) { res.piece.shape.cells.forEach(([x, y]) => { const i = Logic.idx(res.gx + x, res.gy + y); WHEEL_ANG.set(i, Math.random() * Math.PI * 2); POPT.set(i, now); }); Sound.wheelSpin(); }   // (28 Nov) spin!
   if (skin().soap) { res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + k * 50)); Sound.soapLand(res.piece.shape.cells.length); }   // (28 Nov) soap bubbles settle with a wobble
   if (skin().balloon) { res.piece.shape.cells.forEach(([x, y], k) => POPT.set(Logic.idx(res.gx + x, res.gy + y), now + k * 40)); Sound.balloonLand(res.piece.shape.cells.length); }   // (28 Nov) balloons bounce in on their strings
@@ -8141,7 +8203,7 @@ function playResult(res, pointerGesture) {
       let d = Infinity;
       if (res.rows.includes(cell.y)) d = Math.min(d, ox < 3.5 ? cell.x : 7 - cell.x);
       if (res.cols.includes(cell.x)) d = Math.min(d, oy < 3.5 ? cell.y : 7 - cell.y);
-      const delay = skin().candle && !settings.reduced ? faceShock + 670 : Math.round(d) * stagger + faceShock +   /* (28 Nov) candles: the whole row is blown out together */ (settings.reduced ? 40 : 150) + (skin().lights && !settings.reduced ? 380 : 0) + (skin().candle && !settings.reduced ? 520 + Math.round(d) * 40 : 0) + (skin().vinyl && !settings.reduced ? 350 : 0) + (skin().wheel && !settings.reduced ? 900 : 0);   // festoon bulbs flicker for a moment before they go   // the finished line lights up first, then pops (25 Nov)
+      const delay = skin().candle && !settings.reduced ? faceShock + 670 : Math.round(d) * stagger + faceShock +   /* (28 Nov) candles: the whole row is blown out together */ (settings.reduced ? 40 : 150) + (skin().lights && !settings.reduced ? 380 : 0) + (skin().candle && !settings.reduced ? 520 + Math.round(d) * 40 : 0) + (skin().vinyl && !settings.reduced ? 350 : 0) + (skin().wheel && !settings.reduced ? 900 : 0) + (skin().slot && !settings.reduced ? 1900 : 0);   // festoon bulbs flicker for a moment before they go   // the finished line lights up first, then pops (25 Nov)
       maxDelay = Math.max(maxDelay, delay);
       const dir = res.rows.includes(cell.y) && !res.cols.includes(cell.x) ? Math.sign(cell.x - ox) : 0;
       FX.pops.push({ gx: cell.x, gy: cell.y, colour: cell.v - 1, skin: state.skin, t0: now + delay, burst: false, rank: Math.round(d), share, combo: res.combo, I: res.lines > 1 ? intensity : Math.min(intensity, 0.8), dir });
@@ -8170,6 +8232,11 @@ function playResult(res, pointerGesture) {
     if (skin().vinyl) Sound.recordSting(res.lines);
     if (skin().soap) Sound.soapRow();
     if (skin().blueberry) STAIN.wipeAt = performance.now();
+    if (skin().slot) { const t0 = performance.now(), cl = (res.cleared || []).slice().sort((a, b) => a.x - b.x || a.y - b.y), stops = [];
+      cl.forEach((c2, k) => { const i = Logic.idx(c2.x, c2.y), D = 350 + Math.min(k, 9) * 90; SLOT_NUM.set(i, 7); SLOT_SPIN.set(i, { t0, D }); stops.push(D / 1000); });
+      const last = (350 + Math.min(cl.length - 1, 9) * 90) + 150;
+      res.rows.forEach(y => WINS.push({ row: y, t0: t0 + last, text: 'JACKPOT!' })); res.cols.forEach(x => WINS.push({ col: x, t0: t0 + last, text: 'JACKPOT!' }));
+      Sound.slotSpin(stops); Sound.jackpot(res.lines, last / 1000); }
     if (skin().wheel) { const t0 = performance.now(); res.rows.forEach(y => WINS.push({ row: y, t0 })); res.cols.forEach(x => WINS.push({ col: x, t0 })); Sound.wheelWin(res.lines); }   // (28 Nov) a row wipes all the juice away
     if (skin().ladybug && !settings.reduced) res.cleared.forEach((c2, k) => setTimeout(() => releaseLadybug(...cellCentre(c2.x, c2.y), (c2.v || 1) - 1), 60 + k * 45));
     if (skin().morph) Sound.wings(0.1, Math.min(1.3, 0.8 + res.cleared.length / 40));
@@ -8255,6 +8322,7 @@ function updateFX(now, dt) {
       if (sk.face) fireworkBurst(x, y, p.I || 1);
       else if (sk.bounce && !settings.reduced) FX.particles.push({ k: 'ball', x, y, vx: ((p.gx - 3.5) / 3.5 + (Math.random() - 0.5)) * L.c * 4, vy: -L.c * (7 + Math.random() * 4), skin: p.skin, colour: p.colour, life: 0, max: 2.2, spin: (Math.random() - 0.5) * 8, floor: L.by + L.B + L.c * 0.2, bounces: 0 });
       else if (sk.fizz) fizzBurst(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);
+      else if (sk.slot) { for (let k = 0; k < 8; k++) { const a = Math.random() * 6.28; SHARDS.push({ x, y, vx: Math.cos(a) * L.c * 3, vy: Math.sin(a) * L.c * 3 - L.c * 2, col: k % 2 ? '#ffd24a' : '#f5c542', rot: Math.random() * 6, vr: (Math.random() - 0.5) * 14, t0: now, life: 700, sz: L.c * 0.09, glass: false }); } }   /* gold coins */
       else if (sk.wheel) { for (let k = 0; k < 6; k++) { const a = Math.random() * 6.28; SPARKS.push({ kind: 'spark', x, y, vx: Math.cos(a) * L.c * 3, vy: Math.sin(a) * L.c * 3, col: k % 2 ? '#ffd24a' : '#ffffff', t0: now, life: 400 }); } }
       else if (sk.blueberry) berryBurst(x, y, sk.colours[p.colour % sk.colours.length]);
       else if (sk.soap) { soapBurst(x, y, sk.colours[p.colour % sk.colours.length]); Sound.soapPop(((p.gx - 3.5) / 3.5) * 0.6); }
@@ -8358,7 +8426,7 @@ function draw(now) {
   const goT = FX.gameOverAt ? (now - FX.gameOverAt) : -1;
   const wobble = now / 1000;
   const hidden = Input.hiddenId(), lifted = Input.liftedId(), repoOn = Input.repoMode(), pinOn = Input.pinMode();
-  const goo = skin().wheel ? null : Input.goo(now); let gooDraw = null;   // (28 Nov) wheels don't squash when touched, they just spin
+  const goo = skin().wheel || skin().slot ? null : Input.goo(now); let gooDraw = null;   // (28 Nov) wheels don't squash when touched, they just spin
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
     const v = state.grid[Logic.idx(gx, gy)];
     if (v && goo && goo.i === Logic.idx(gx, gy) && !(state.golden && state.golden.i === goo.i) && !(hidden && state.pid[goo.i] === hidden) && goT < 0) {
@@ -9502,6 +9570,7 @@ const Input = (() => {
             if (skin().hatch && eggKind() === 'fried') { state.yolks = state.yolks || {}; if (!state.yolks[Logic.idx(gx, gy)]) state.yolks[Logic.idx(gx, gy)] = performance.now(); }   // the yolk breaks and runs
             const sn = skin().name, col = cols[(v - 1) % cols.length];
             if (skin().blueberry) { blueSplat(bx, by); STAIN.last = [bx, by]; }
+            if (skin().slot) { const si = Logic.idx(gx, gy); SLOT_NUM.set(si, 1 + Math.floor(Math.random() * 9)); SLOT_SPIN.set(si, { t0: performance.now(), D: 700 }); Sound.slotSpin([0.7]); }   // (28 Nov) touch a reel and it spins
             if (skin().wheel) { const wi = Logic.idx(gx, gy); WHEEL_ANG.set(wi, Math.random() * Math.PI * 2); POPT.set(wi, performance.now()); }   // (28 Nov) touch a wheel and it spins   // (28 Nov) juice squirts out, and the finger smears it from here
             if (sn === 'Tennis Balls') spawnFluff(bx, by, col); else if (sn === 'Donuts') spawnSprinkles(bx, by, 8); else if (skin().hatch && eggKind() === 'chick') spawnFeathers(bx, by - L.c * 0.15, 9, 0.75); else if (skin().hatch && eggKind() === 'easter') spawnSprinkles(bx, by, 8); else if (skin().hatch) yolkSquirt(bx, by); else squishDrops(bx, by, col); }   // chicks: a puff of feathers; Easter eggs: sprinkles; fried eggs: yolk
           Sound.squish(((x - L.ix) / (L.c * N)) * 2 - 1); Haptics.pulse(8);
