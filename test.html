@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 9pm, singers sing the row</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 9pm, singers say play me</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -8140,7 +8140,7 @@ const SquishMe = (() => {
     const [x, y] = cellCentre(i % N, Math.floor(i / N));
     const el = document.getElementById('squishMe'); if (!el) return;
     let t; do { t = LINES[Math.floor(Math.random() * LINES.length)]; } while (t === lastLine && LINES.length > 1); lastLine = t;
-    el.textContent = t; { const pw = (el.offsetParent || el.parentElement).clientWidth, hw = el.offsetWidth / 2 + 6; el.style.left = Math.max(hw, Math.min(pw - hw, x)) + 'px'; } el.style.top = (y - L.c * 0.42) + 'px';   /* kept on screen */
+    el.textContent = skin().singer ? 'Play me ♪♫' : t; { const pw = (el.offsetParent || el.parentElement).clientWidth, hw = el.offsetWidth / 2 + 6; el.style.left = Math.max(hw, Math.min(pw - hw, x)) + 'px'; } el.style.top = (y - L.c * 0.42) + 'px';   /* kept on screen */
     el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
     shownThisLull = true;
   }, 1000);
@@ -8153,7 +8153,7 @@ const SquishMe = (() => {
     const cells = []; state.grid.forEach((v, i) => { if (v) cells.push(i); }); if (!cells.length) return;
     const pool = cells.filter(i => Math.floor(i / N) > 0), i = (pool.length ? pool : cells)[Math.floor(Math.random() * (pool.length || cells.length))];
     const [x, y] = cellCentre(i % N, Math.floor(i / N)), el = document.getElementById('squishMe'); if (!el) return;
-    el.textContent = 'Squish me!'; { const pw = (el.offsetParent || el.parentElement).clientWidth, hw = el.offsetWidth / 2 + 6; el.style.left = Math.max(hw, Math.min(pw - hw, x)) + 'px'; } el.style.top = (y - L.c * 0.42) + 'px';
+    el.textContent = skin().singer ? 'Play me ♪♫' : 'Squish me!'; {   /* (28 Nov) the Singers ask to be played */ const pw = (el.offsetParent || el.parentElement).clientWidth, hw = el.offsetWidth / 2 + 6; el.style.left = Math.max(hw, Math.min(pw - hw, x)) + 'px'; } el.style.top = (y - L.c * 0.42) + 'px';
     el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); shownThisLull = true;
   }
   function placed(res) {
