@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 10:45pm, random squish reminders</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 10:50pm, bubbly squish</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -1456,7 +1456,7 @@ const SKINS = [
       ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = s * 0.03;
       ctx.beginPath(); ctx.arc(0, 0, r * 0.72, Math.PI * 0.12, Math.PI * 0.38); ctx.stroke();
     } },
-  { name: 'Soap Bubbles', sheen: true, anim: animSoap, colours: ['#ff8fc8', '#7fd3ff', '#8ff5c0', '#ffe98a', '#c3a2ff', '#7ff0e6', '#ffb08a'],
+  { name: 'Soap Bubbles', sheen: true, soapy: true, anim: animSoap, colours: ['#ff8fc8', '#7fd3ff', '#8ff5c0', '#ffe98a', '#c3a2ff', '#7ff0e6', '#ffb08a'],
     draw(ctx, s, c) {
       const r = s * 0.44;
       const g = ctx.createRadialGradient(-r * 0.2, -r * 0.25, r * 0.1, 0, 0, r);
@@ -2613,7 +2613,7 @@ const Sound = (() => {
       if (typeof skin === 'function' && skin().wheel) { this._wsp = 0; this.wheelSpin(); if (this._held) this.squishUp(); return; }   // (28 Nov) the flapper clacking as it spins
       if (typeof skin === 'function' && skin().cute) { this.cuteSqueak(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) Cuties: a tiny squeak
       if (typeof skin === 'function' && skin().blueberry) { this.berrySquirt(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) blueberries: a juicy squirt
-      if (typeof skin === 'function' && skin().soap) { this.soapSquish(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) bubbles: Mark's bubble sound
+      if (typeof skin === 'function' && (skin().soap || skin().soapy)) { this.soapSquish(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) bubbles: Mark's bubble sound
       if (typeof skin === 'function' && skin().balloon) { this.balloonStretch(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) balloons: a rubbery stretch and squeak
       if (typeof skin === 'function' && skin().vinyl) { this.djScratch(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) records: a squeeze is a proper DJ scratch
       if (typeof skin === 'function' && skin().singer) { this.sing(window._sqCol | 0, pan, window._sqIdx); return; }   // singers: press one and it sings its note (no squish, no farts)
@@ -3615,7 +3615,7 @@ const NEW_SKINS = [
     // (28 Nov) plump, ripe, dusty blueberries: squeeze one and blue juice squirts out; slide your finger and it smears a trail that stays until you clear a row
     draw(ctx, s, c, i) { drawBlueberry(ctx, s * 0.5, c, i); },
   },
-  { name: 'Soap Bubbles', soap: true, quietClear: true, dry: true, squish: 0.8, fixedColours: true, colours: ['#ff8fd0', '#7fd8ff', '#9dffb0', '#ffe27a', '#c9a2ff'],
+  { name: 'Soap Bubbles', soap: true, soapy: true, quietClear: true, dry: true, squish: 0.8, fixedColours: true, colours: ['#ff8fd0', '#7fd8ff', '#9dffb0', '#ffe27a', '#c9a2ff'],
     // (28 Nov) one big soap bubble per ball, with swirling rainbow colours; a row pops each into lots of little bubbles that float off in every direction and pop
     draw(ctx, s, c, i) { drawSoap(ctx, s * 0.5, c, 0, i); },
     anim(ctx, s, c, i, t, seed) { soapSwirl(ctx, s * 0.5, c, HAND ? 0 : t, seed); },
@@ -5882,6 +5882,12 @@ function soapImg(k) {   // a ready-drawn little bubble per colour, so hundreds c
   if (SOAP_IMG[k]) return SOAP_IMG[k];
   const cv = document.createElement('canvas'); cv.width = cv.height = 96; const x = cv.getContext('2d'); x.translate(48, 48);
   drawSoap(x, 46, SOAP_HUES[k], 0, k); soapSwirl(x, 46, SOAP_HUES[k], k * 2.1, k); return (SOAP_IMG[k] = cv);
+}
+function bubbleSquirt(x, y) {   // (28 Nov) squeeze a soap bubble and a spray of little bubbles floats out of it, instead of water
+  if (settings.reduced) return; const now = performance.now(), n = 14 + Math.floor(Math.random() * 8);
+  for (let k = 0; k < n; k++) { const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.6, sp = L.c * (0.8 + Math.pow(Math.random(), 0.7) * 3.2);
+    SOAPS.push({ x: x + Math.cos(a) * L.c * 0.15, y: y + Math.sin(a) * L.c * 0.15, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: L.c * (0.03 + Math.pow(Math.random(), 1.8) * 0.11), tint: Math.floor(Math.random() * 5), t0: now, life: 900 + Math.random() * 1800, ph: Math.random() * 6.28, popped: 0 }); }
+  if (SOAPS.length > 900) SOAPS.splice(0, SOAPS.length - 900);
 }
 function soapBurst(x, y, tint) {   // the big bubble pops into lots of little ones drifting off in every direction
   const now = performance.now(), n = 34 + Math.floor(Math.random() * 12);   // (28 Nov) lots more: dozens from every bubble, so a row sends hundreds everywhere
@@ -9760,7 +9766,7 @@ const Input = (() => {
             if (skin().blueberry) { blueSplat(bx, by); STAIN.last = [bx, by]; }
             if (skin().slot) { const si = Logic.idx(gx, gy); SLOT_NUM.set(si, Math.floor(Math.random() * FRUITS)); SLOT_SPIN.set(si, { t0: performance.now(), D: 700 }); Sound.slotCoins(); }   // (28 Nov) touch a reel and it spins
             if (skin().wheel) { const wi = Logic.idx(gx, gy); WHEEL_ANG.set(wi, Math.random() * Math.PI * 2); POPT.set(wi, performance.now()); }   // (28 Nov) touch a wheel and it spins   // (28 Nov) juice squirts out, and the finger smears it from here
-            if (sn === 'Tennis Balls') spawnFluff(bx, by, col); else if (sn === 'Donuts') spawnSprinkles(bx, by, 8); else if (skin().hatch && eggKind() === 'chick') spawnFeathers(bx, by - L.c * 0.15, 9, 0.75); else if (skin().hatch && eggKind() === 'easter') spawnSprinkles(bx, by, 8); else if (skin().hatch) yolkSquirt(bx, by); else if (skin().slot) moneySquirt(bx, by); else squishDrops(bx, by, col); }   // chicks: a puff of feathers; Easter eggs: sprinkles; fried eggs: yolk
+            if (sn === 'Tennis Balls') spawnFluff(bx, by, col); else if (sn === 'Donuts') spawnSprinkles(bx, by, 8); else if (skin().hatch && eggKind() === 'chick') spawnFeathers(bx, by - L.c * 0.15, 9, 0.75); else if (skin().hatch && eggKind() === 'easter') spawnSprinkles(bx, by, 8); else if (skin().hatch) yolkSquirt(bx, by); else if (skin().slot) moneySquirt(bx, by); else if (skin().soapy) bubbleSquirt(bx, by); else squishDrops(bx, by, col); }   // chicks: a puff of feathers; Easter eggs: sprinkles; fried eggs: yolk
           try { SquishMe.squished(); } catch (_) {}
           Sound.squish(((x - L.ix) / (L.c * N)) * 2 - 1); Haptics.pulse(8);
         }
