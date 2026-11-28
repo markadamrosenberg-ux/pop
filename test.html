@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 8:45pm, your jackpot</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 8:50pm, chords</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2591,7 +2591,9 @@ const Sound = (() => {
     },
     // a soft, low squelch when you poke a bubble on the board
     squish(pan = 0) {
-      if (!ok()) return; const t = ac.currentTime; if (t - (this._sq || 0) < 0.06) return; this._sq = t;
+      if (!ok()) return; const t = ac.currentTime;
+      if (typeof skin === 'function' && skin().singer) { this.sing(window._sqCol | 0, pan, window._sqIdx); return; }   // (28 Nov) singers first, before the double-tap guard, so two fingers at once make a chord
+      if (t - (this._sq || 0) < 0.06) return; this._sq = t;
       // the joke: every 6 to 10 squishes one of Mark's 11 recorded farts sneaks in, at the same volume as a squish.
       // Half the time it replaces the squish; the other half the squish plays as normal and the fart comes when you let go.
       if (typeof skin === 'function' && (skin().slot || skin().wheel)) { if (skin().wheel) { this._wsp = 0; this.wheelSpin(); } if (this._held) this.squishUp(); return; }   // (28 Nov) reels and wheels just spin: no squish and never a fart
