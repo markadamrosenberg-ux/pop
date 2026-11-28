@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 2pm, square reels</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 2pm, 3D reels</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2112,16 +2112,26 @@ const Sound = (() => {
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.6, t + 0.01); g.gain.setValueAtTime(0.6, t + len - 0.15); g.gain.linearRampToValueAtTime(0, t + len);
       src.connect(g); g.connect(out); src.start(t, Math.random() * Math.max(0, b.duration - len - 0.2)); src.stop(t + len + 0.05);
     },
-    jackpot(lines = 1, at0 = 1) {   // (28 Nov) the JACKPOT: Mark's slot machine win recording (bells and coins), once per clear
-      if (!ok()) return; const t = ac.currentTime + at0, k = Math.min(1.3, 0.9 + lines * 0.15);
-      const jb = sample('slotjack');
-      if (jb) { if (this._jk) { try { this._jk.g.gain.setTargetAtTime(0, ac.currentTime, 0.05); this._jk.o.stop(ac.currentTime + 0.3); } catch (e) {} }
-        const src = ac.createBufferSource(), g = ac.createGain(); src.buffer = jb; g.gain.value = 0.85; src.connect(g); g.connect(out); src.start(t); this._jk = { o: src, g }; return; }
-      const bus = ac.createGain(); bus.gain.value = 0.9; bus.connect(out);
-      const run = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568, 2093];
-      for (let rep = 0; rep < 3; rep++) run.forEach((f, n) => { tone(t + rep * 0.42 + n * 0.055, { f, type: 'square', peak: 0.035 * k, attack: 0.002, decay: 0.07, dest: bus }); tone(t + rep * 0.42 + n * 0.055, { f: f * 2, type: 'sine', peak: 0.015, attack: 0.002, decay: 0.06, dest: bus }); });
-      for (let n = 0; n < 20; n++) tone(t + n * 0.06, { f: 2600, type: 'sine', peak: 0.03 * k, attack: 0.001, decay: 0.08, dest: bus });   // the bell
-      for (let n = 0; n < 40; n++) { const a2 = 0.2 + n * 0.04 + Math.random() * 0.03, f = R(3000, 5200); tone(t + a2, { f, type: 'sine', peak: 0.025, attack: 0.001, decay: 0.1, dest: bus }); noise(t + a2, { type: 'bandpass', f: f * 0.6, q: 6, peak: 0.012, attack: 0.001, decay: 0.03, dest: bus }); }   // coins clattering into the tray
+    jackpot(lines = 1, at0 = 1) {   // (28 Nov, v2) the JACKPOT, with no cheering: the win bell ringing, a bright rising win tune, and coins pouring into the tray (Mark's coin recording)
+      if (!ok()) return; const t = ac.currentTime + at0, k = Math.min(1.25, 0.95 + lines * 0.1);
+      if (this._jk) { try { this._jk.g.gain.setTargetAtTime(0, ac.currentTime, 0.05); } catch (e) {} }
+      const bus = ac.createGain(); bus.gain.value = 0.95 * k; bus.connect(out); this._jk = { g: bus };
+      // the win tune: a quick run up the major chord, twice, then a bright held chord that shimmers
+      const run = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568];
+      for (let rep = 0; rep < 2; rep++) run.forEach((f, n) => { const at = t + rep * 0.36 + n * 0.05;
+        tone(at, { f, type: 'triangle', peak: 0.07, attack: 0.003, decay: 0.16, dest: bus }); tone(at, { f: f * 2, type: 'sine', peak: 0.02, attack: 0.002, decay: 0.1, dest: bus }); });
+      const ch = t + 0.74;
+      [1046.5, 1318.5, 1568, 2093].forEach((f, n) => { for (let q = 0; q < 14; q++) tone(ch + q * 0.075 + n * 0.006, { f, type: n ? 'sine' : 'triangle', peak: 0.045 * (1 - q / 18), attack: 0.004, decay: 0.12, dest: bus }); });   // the held chord, pulsing like the lights
+      // the win bell: a bright little bell struck fast, ringing out the whole time
+      for (let q = 0; q < 34; q++) { const at = t + 0.05 + q * 0.055, fade = q < 26 ? 1 : 1 - (q - 26) / 9;
+        tone(at, { f: 1760, type: 'sine', peak: 0.032 * fade, attack: 0.001, decay: 0.09, dest: bus }); tone(at, { f: 4400, type: 'sine', peak: 0.008 * fade, attack: 0.001, decay: 0.04, dest: bus }); }
+      tone(t + 0.05 + 34 * 0.055, { f: 1760, type: 'sine', peak: 0.04, attack: 0.001, decay: 0.9, dest: bus });   // the last ring left to die away
+      // coins pouring into the tray
+      const cb = sample('slotcoins');
+      if (cb) { const src = ac.createBufferSource(), g = ac.createGain(), len = Math.min(2.2, cb.duration - 0.1), st = t + 0.35; src.buffer = cb;
+        g.gain.setValueAtTime(0, st); g.gain.linearRampToValueAtTime(0.75, st + 0.05); g.gain.setValueAtTime(0.75, st + len - 0.6); g.gain.linearRampToValueAtTime(0, st + len);
+        src.connect(g); g.connect(bus); src.start(st, 0); src.stop(st + len + 0.05); }
+      else for (let n = 0; n < 40; n++) { const a2 = 0.35 + n * 0.045 + Math.random() * 0.03, f = R(3000, 5200); tone(t + a2, { f, type: 'sine', peak: 0.02, attack: 0.001, decay: 0.1, dest: bus }); }
     },
     wheelSpin() {   // (28 Nov) a chocolate wheel: the leather flapper clacking over the pegs, fast then slowing to a stop
       if (!ok()) return; const t = ac.currentTime + 0.02;
@@ -2557,6 +2567,7 @@ const Sound = (() => {
       if (!ok()) return; const t = ac.currentTime; if (t - (this._sq || 0) < 0.06) return; this._sq = t;
       // the joke: every 6 to 10 squishes one of Mark's 11 recorded farts sneaks in, at the same volume as a squish.
       // Half the time it replaces the squish; the other half the squish plays as normal and the fart comes when you let go.
+      if (typeof skin === 'function' && (skin().slot || skin().wheel)) { if (skin().wheel) { this._wsp = 0; this.wheelSpin(); } if (this._held) this.squishUp(); return; }   // (28 Nov) reels and wheels just spin: no squish and never a fart
       if (this._fartIn == null) this._fartIn = 6 + Math.floor(Math.random() * 5);
       if (--this._fartIn <= 0 && this.fartReady()) {
         this._fartIn = 6 + Math.floor(Math.random() * 5);
@@ -5605,29 +5616,74 @@ function drawFruit(x, k, s) {   // one fruit symbol, about s across, centred
   }
   x.restore();
 }
-function drawSlot(x, r, col, n, spin) {   // (28 Nov) a square slot-machine reel with rounded corners: a curved white drum, big fruit, the next ones peeping in above and below
-  const S = r * 0.97, rr = (X, Y, W, H, rad) => { x.beginPath(); x.roundRect ? x.roundRect(X, Y, W, H, rad) : x.rect(X, Y, W, H); };
-  // the coloured cabinet frame with a chrome edge
-  const fg = x.createLinearGradient(-S, -S, S, S); fg.addColorStop(0, mix(col, '#ffffff', 0.35)); fg.addColorStop(0.5, col); fg.addColorStop(1, shade(col, -50));
-  x.fillStyle = fg; rr(-S, -S, S * 2, S * 2, S * 0.3); x.fill();
-  x.strokeStyle = 'rgba(255,255,255,0.55)'; x.lineWidth = Math.max(0.8, S * 0.04); rr(-S * 0.97, -S * 0.97, S * 1.94, S * 1.94, S * 0.28); x.stroke();
-  const I = S * 0.8;   // the reel window
-  x.fillStyle = '#1a1a20'; rr(-I - S * 0.04, -I - S * 0.04, (I + S * 0.04) * 2, (I + S * 0.04) * 2, S * 0.2); x.fill();
-  x.save(); rr(-I, -I, I * 2, I * 2, S * 0.16); x.clip();
-  x.fillStyle = '#ffffff'; x.fillRect(-I, -I, I * 2, I * 2);
-  const step = I * 1.35, fs = I * 1.6, fruit = (k, yy, a) => { x.globalAlpha = a; x.save(); x.translate(0, yy); drawFruit(x, ((k % FRUITS) + FRUITS) % FRUITS, fs); x.restore(); x.globalAlpha = 1; };
-  if (spin >= 0) {   // spinning: the strip of fruit rolls down, blurred, slowing as it stops
-    const speed = 1 - Math.pow(spin, 1.6), pos = performance.now() / (45 + (1 - speed) * 160), scroll = pos % 1, base = Math.floor(pos);
-    for (let k = -2; k <= 1; k++) fruit(base - k, (k + scroll) * step, speed > 0.4 ? 0.55 : 0.9);
-    x.fillStyle = `rgba(255,255,255,${0.3 * speed})`; x.fillRect(-I, -I, I * 2, I * 2);
-  } else { fruit(n + 1, -step, 1); fruit(n, 0, 1); fruit(n - 1, step, 1); }   // stopped: the fruit in the middle, with the next ones cut off at the top and bottom
-  // the drum curving away at the top and bottom, and a soft sheen down the side
-  const sh = x.createLinearGradient(0, -I, 0, I); sh.addColorStop(0, 'rgba(40,40,50,0.75)'); sh.addColorStop(0.22, 'rgba(40,40,50,0.05)'); sh.addColorStop(0.5, 'rgba(0,0,0,0)'); sh.addColorStop(0.78, 'rgba(40,40,50,0.05)'); sh.addColorStop(1, 'rgba(40,40,50,0.75)');
-  x.fillStyle = sh; x.fillRect(-I, -I, I * 2, I * 2);
-  const sv = x.createLinearGradient(-I, 0, I, 0); sv.addColorStop(0, 'rgba(0,0,0,0.18)'); sv.addColorStop(0.12, 'rgba(255,255,255,0)'); sv.addColorStop(0.88, 'rgba(255,255,255,0)'); sv.addColorStop(1, 'rgba(0,0,0,0.18)');
-  x.fillStyle = sv; x.fillRect(-I, -I, I * 2, I * 2);
-  x.fillStyle = 'rgba(255,255,255,0.35)'; x.fillRect(-I * 0.75, -I, I * 0.18, I * 2);   // the glass catching the light
+function drawSlot(x, r, col, n, spin) {   // (28 Nov, v2) a 3D slot reel: a barrel-shaped cabinet (bulging at the sides, narrower top and bottom) and a real drum that turns
+  const S = r * 0.99;
+  const barrel = (W, H, Wt, rc) => {   // W = half width at the middle, Wt = half width at the top and bottom, H = half height, rc = corner
+    x.beginPath(); x.moveTo(-Wt + rc, -H);
+    x.quadraticCurveTo(0, -H * 1.035, Wt - rc, -H);   // the top bows up a touch
+    x.quadraticCurveTo(Wt, -H, Wt + rc * 0.15, -H + rc);
+    x.bezierCurveTo(W, -H * 0.45, W, H * 0.45, Wt + rc * 0.15, H - rc);   // the right side bulges out
+    x.quadraticCurveTo(Wt, H, Wt - rc, H);
+    x.quadraticCurveTo(0, H * 1.035, -Wt + rc, H);
+    x.quadraticCurveTo(-Wt, H, -Wt - rc * 0.15, H - rc);
+    x.bezierCurveTo(-W, H * 0.45, -W, -H * 0.45, -Wt - rc * 0.15, -H + rc);
+    x.quadraticCurveTo(-Wt, -H, -Wt + rc, -H); x.closePath(); };
+  // a soft shadow under it, then the cabinet: rounded like a cushion, lit from the top left
+  x.fillStyle = 'rgba(0,0,0,0.32)'; barrel(S * 0.99, S * 0.92, S * 0.86, S * 0.22); x.save(); x.translate(0, S * 0.07); x.fill(); x.restore();
+  const fg = x.createRadialGradient(-S * 0.35, -S * 0.45, S * 0.1, 0, 0, S * 1.35); fg.addColorStop(0, mix(col, '#ffffff', 0.45)); fg.addColorStop(0.45, col); fg.addColorStop(1, shade(col, -70));
+  x.fillStyle = fg; barrel(S, S * 0.93, S * 0.86, S * 0.24); x.fill();
+  const rim = x.createLinearGradient(0, -S, 0, S); rim.addColorStop(0, 'rgba(255,255,255,0.75)'); rim.addColorStop(0.5, 'rgba(255,255,255,0.15)'); rim.addColorStop(1, 'rgba(0,0,0,0.35)');
+  x.strokeStyle = rim; x.lineWidth = Math.max(0.8, S * 0.05); barrel(S * 0.95, S * 0.885, S * 0.82, S * 0.22); x.stroke();
+  // the reel window, sunk into the cabinet
+  const IW = S * 0.8, IH = S * 0.74, IT = S * 0.68;
+  x.fillStyle = '#141418'; barrel(IW + S * 0.05, IH + S * 0.05, IT + S * 0.04, S * 0.17); x.fill();
+  x.save(); barrel(IW, IH, IT, S * 0.15); x.clip();
+  x.fillStyle = '#fbfbf8'; x.fillRect(-IW, -IH, IW * 2, IH * 2);
+  // the drum: fruit sit round a cylinder, so they squash and darken as they turn away at the top and bottom
+  const R = IH * 1.08, gap = 1.0, fs = IW * 1.4;
+  const sym = (k, ang, blur) => { if (Math.abs(ang) > Math.PI / 2) return; const c = Math.cos(ang), y = Math.sin(ang) * R;
+    x.save(); x.translate(0, y); x.scale(1, Math.max(0.05, c)); x.globalAlpha = blur ? 0.6 : 1; drawFruit(x, ((k % FRUITS) + FRUITS) % FRUITS, fs); x.restore(); x.globalAlpha = 1; };
+  if (spin >= 0) {   // spinning: the drum rolls downwards, fast and blurred, slowing to a stop
+    const speed = 1 - Math.pow(spin, 1.6), pos = performance.now() / (40 + (1 - speed) * 170), sc = pos % 1, base = Math.floor(pos);
+    for (let k = -2; k <= 2; k++) sym(base - k, (k + sc) * gap, speed > 0.4);
+    if (speed > 0.4) { x.fillStyle = `rgba(250,250,245,${0.35 * speed})`; x.fillRect(-IW, -IH, IW * 2, IH * 2);
+      x.strokeStyle = 'rgba(120,120,130,0.18)'; x.lineWidth = S * 0.03; for (let k = -3; k <= 3; k++) { x.beginPath(); x.moveTo(-IW * 0.5, k * IH * 0.3); x.lineTo(IW * 0.5, k * IH * 0.3); x.stroke(); } }   // motion streaks
+  } else { sym(n + 1, -gap, false); sym(n, 0, false); sym(n - 1, gap, false); }
+  // the cylinder: dark where it curves away top and bottom, a bright band across the middle, shade at the sides
+  const sh = x.createLinearGradient(0, -IH, 0, IH); sh.addColorStop(0, 'rgba(25,25,35,0.85)'); sh.addColorStop(0.2, 'rgba(25,25,35,0.25)'); sh.addColorStop(0.42, 'rgba(255,255,255,0.12)'); sh.addColorStop(0.5, 'rgba(255,255,255,0)'); sh.addColorStop(0.8, 'rgba(25,25,35,0.25)'); sh.addColorStop(1, 'rgba(25,25,35,0.85)');
+  x.fillStyle = sh; x.fillRect(-IW, -IH, IW * 2, IH * 2);
+  const sv = x.createLinearGradient(-IW, 0, IW, 0); sv.addColorStop(0, 'rgba(0,0,0,0.3)'); sv.addColorStop(0.15, 'rgba(0,0,0,0)'); sv.addColorStop(0.85, 'rgba(0,0,0,0)'); sv.addColorStop(1, 'rgba(0,0,0,0.3)');
+  x.fillStyle = sv; x.fillRect(-IW, -IH, IW * 2, IH * 2);
+  // curved glass over the window: a long reflection and a small hot spot
+  x.fillStyle = 'rgba(255,255,255,0.28)'; x.beginPath(); x.ellipse(-IW * 0.45, -IH * 0.1, IW * 0.12, IH * 0.85, 0.05, 0, Math.PI * 2); x.fill();
+  x.fillStyle = 'rgba(255,255,255,0.55)'; x.beginPath(); x.ellipse(-IW * 0.35, -IH * 0.62, IW * 0.16, IH * 0.08, -0.2, 0, Math.PI * 2); x.fill();
   x.restore();
+  // a shine on the cabinet's top edge
+  x.fillStyle = 'rgba(255,255,255,0.35)'; x.beginPath(); x.ellipse(-S * 0.25, -S * 0.83, S * 0.4, S * 0.05, 0, 0, Math.PI * 2); x.fill();
+}
+// (28 Nov) squeeze a pokie and it squirts money: gold coins spinning end over end and green notes fluttering down
+const MONEY = [];
+function moneySquirt(x, y) {
+  if (settings.reduced || MONEY.length > 120) return; const c = L.c, now = performance.now();
+  for (let k = 0; k < 9; k++) { const side = k % 2 ? 1 : -1, a = -Math.PI / 2 + side * (0.3 + Math.random() * 0.8), sp = c * (2.4 + Math.random() * 2.2);
+    MONEY.push({ x: x + side * c * 0.2, y: y - c * 0.1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, note: false, ph: Math.random() * 6, vph: 10 + Math.random() * 10, rot: 0, vr: 0, t0: now, life: 1000 + Math.random() * 400, sz: c * (0.11 + Math.random() * 0.03) }); }
+  for (let k = 0; k < 3; k++) { const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.6, sp = c * (2 + Math.random() * 1.6);
+    MONEY.push({ x, y: y - c * 0.1, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, note: true, ph: Math.random() * 6, vph: 5 + Math.random() * 4, rot: (Math.random() - 0.5) * 1.2, vr: (Math.random() - 0.5) * 5, t0: now, life: 1500 + Math.random() * 500, sz: c * 0.3 }); }
+}
+function drawMoney(now, dt) {
+  const s = dt / 1000;
+  for (let i = MONEY.length - 1; i >= 0; i--) { const m = MONEY[i], u = (now - m.t0) / m.life; if (u >= 1) { MONEY.splice(i, 1); continue; }
+    if (m.note) { m.vy += L.c * 2.2 * s; m.vx *= 0.97; m.vy *= 0.95; m.vx += Math.sin(m.ph * 1.3) * L.c * 3 * s; }   // notes catch the air and flutter
+    else m.vy += L.c * 9 * s;
+    m.x += m.vx * s; m.y += m.vy * s; m.ph += m.vph * s; m.rot += m.vr * s;
+    ctx.save(); ctx.globalAlpha = u > 0.75 ? (1 - u) / 0.25 : 1; ctx.translate(m.x, m.y);
+    if (m.note) { const w = m.sz, h = m.sz * 0.5; ctx.rotate(m.rot); ctx.scale(1, Math.max(0.15, Math.abs(Math.cos(m.ph))));
+      ctx.fillStyle = '#3f9a4e'; ctx.fillRect(-w / 2, -h / 2, w, h); ctx.strokeStyle = '#cdeccf'; ctx.lineWidth = Math.max(0.6, w * 0.04); ctx.strokeRect(-w / 2 + w * 0.07, -h / 2 + h * 0.12, w * 0.86, h * 0.76);
+      ctx.fillStyle = '#cdeccf'; ctx.beginPath(); ctx.arc(0, 0, h * 0.24, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#3f9a4e'; ctx.font = `900 ${Math.round(h * 0.38)}px Arial, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('$', 0, h * 0.02); }
+    else { const r = m.sz, w = Math.abs(Math.cos(m.ph));   // a coin turning over and over
+      ctx.scale(Math.max(0.12, w), 1); const g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r); g.addColorStop(0, '#fff3b0'); g.addColorStop(0.5, '#f5c542'); g.addColorStop(1, '#b8860b');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#a87810'; ctx.lineWidth = Math.max(0.6, r * 0.14); ctx.beginPath(); ctx.arc(0, 0, r * 0.72, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.restore(); }
 }
 // (28 Nov) Chocolate wheels
 const WHEEL_IMG = new Map(), WHEEL_ANG = new Map();
@@ -8924,7 +8980,7 @@ function draw(now) {
   }
 
   if (SKINS[state.skin % SKINS.length].lights) drawWires(now);
-  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); if (SPARKS.length) drawSparks(now, dtp); if (DETS.length) drawDets(now); if (FLIERS.length) drawFliers(now, dtp); if (SEEDS.length) drawSeeds(now, dtp); if (SLICES.length) drawSlices(now); if (SHARDS.length) drawShards(now, dtp); if (SMOKE.length) drawSmoke(now); fishJumps(now); drawStain(now); if (WINS.length) drawWins(now); if (SLOTWINS.length) drawSlotWins(now); if (DISCS.length) drawDiscs(now, dtp); if (STREAMS.length) drawStreams(now, dtp); if (SOAPS.length) drawSoaps(now, dtp); }
+  { const dtp = Math.min(50, now - petalLast); petalLast = now; if (PETALS.length) drawPetals(now, dtp); if (SPARKS.length) drawSparks(now, dtp); if (DETS.length) drawDets(now); if (FLIERS.length) drawFliers(now, dtp); if (SEEDS.length) drawSeeds(now, dtp); if (SLICES.length) drawSlices(now); if (SHARDS.length) drawShards(now, dtp); if (SMOKE.length) drawSmoke(now); fishJumps(now); drawStain(now); if (WINS.length) drawWins(now); if (SLOTWINS.length) drawSlotWins(now); if (DISCS.length) drawDiscs(now, dtp); if (STREAMS.length) drawStreams(now, dtp); if (SOAPS.length) drawSoaps(now, dtp); if (MONEY.length) drawMoney(now, dtp); }
   // dragged piece on top
   const d = Input.dragDraw();
   if (d) {
@@ -9626,7 +9682,7 @@ const Input = (() => {
             if (skin().blueberry) { blueSplat(bx, by); STAIN.last = [bx, by]; }
             if (skin().slot) { const si = Logic.idx(gx, gy); SLOT_NUM.set(si, Math.floor(Math.random() * FRUITS)); SLOT_SPIN.set(si, { t0: performance.now(), D: 700 }); Sound.slotCoins(); }   // (28 Nov) touch a reel and it spins
             if (skin().wheel) { const wi = Logic.idx(gx, gy); WHEEL_ANG.set(wi, Math.random() * Math.PI * 2); POPT.set(wi, performance.now()); }   // (28 Nov) touch a wheel and it spins   // (28 Nov) juice squirts out, and the finger smears it from here
-            if (sn === 'Tennis Balls') spawnFluff(bx, by, col); else if (sn === 'Donuts') spawnSprinkles(bx, by, 8); else if (skin().hatch && eggKind() === 'chick') spawnFeathers(bx, by - L.c * 0.15, 9, 0.75); else if (skin().hatch && eggKind() === 'easter') spawnSprinkles(bx, by, 8); else if (skin().hatch) yolkSquirt(bx, by); else squishDrops(bx, by, col); }   // chicks: a puff of feathers; Easter eggs: sprinkles; fried eggs: yolk
+            if (sn === 'Tennis Balls') spawnFluff(bx, by, col); else if (sn === 'Donuts') spawnSprinkles(bx, by, 8); else if (skin().hatch && eggKind() === 'chick') spawnFeathers(bx, by - L.c * 0.15, 9, 0.75); else if (skin().hatch && eggKind() === 'easter') spawnSprinkles(bx, by, 8); else if (skin().hatch) yolkSquirt(bx, by); else if (skin().slot) moneySquirt(bx, by); else squishDrops(bx, by, col); }   // chicks: a puff of feathers; Easter eggs: sprinkles; fried eggs: yolk
           Sound.squish(((x - L.ix) / (L.c * N)) * 2 - 1); Haptics.pulse(8);
         }
         return;
