@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 3:55pm, squish me after a row</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 8:15pm, cuties xylophone</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -1870,6 +1870,18 @@ const Sound = (() => {
       noise(t + 0.03, { type: 'lowpass', f: 900, f2: 300, q: 0.4, peak: 0.02 * k, attack: 0.01, decay: 0.16, pan: -pan * 0.5 });
     },
     // Fizzy: a soda can cracking open ("pssht"), a sizzling tail and a long crackle of tiny bubbles bursting
+    xylo(step = 0, pan = 0) {   // (28 Nov) a soft wooden xylophone note: C major, C5 up to C7 (step 0 to 14)
+      if (!ok()) return; const t = ac.currentTime;
+      const sc = [0, 2, 4, 5, 7, 9, 11], k = Math.max(0, Math.min(14, step | 0)), f = 523.25 * Math.pow(2, (Math.floor(k / 7) * 12 + sc[k % 7]) / 12);
+      tone(t, { f, type: 'sine', peak: 0.13, attack: 0.002, decay: 0.55, pan });
+      tone(t, { f: f * 3.93, type: 'sine', peak: 0.022, attack: 0.001, decay: 0.07, pan });   // the bright wooden "tock" of the bar
+      tone(t, { f: f * 2, type: 'sine', peak: 0.018, attack: 0.002, decay: 0.2, pan });
+    },
+    cuteSqueak(pan = 0) {   // (28 Nov) a tiny rubber-toy squeak: Mark's chick squeaks pitched up, or a little "eep" if they haven't loaded
+      if (!ok()) return; const t = ac.currentTime;
+      if (playSample('squeak' + (1 + Math.floor(Math.random() * 5)), 0, 0.5, R(1.25, 1.5))) return;
+      tone(t, { f: R(1100, 1300), f2: R(1700, 1900), peak: 0.08, attack: 0.008, decay: 0.12, pan });
+    },
     fizz(I = 1) {
       if (!ok()) return; const t = ac.currentTime;
       if (t - (this._fz || 0) < 0.12) return; this._fz = t;
@@ -2576,6 +2588,7 @@ const Sound = (() => {
       }
       if (typeof skin === 'function' && skin().slot) { if (this._held) this.squishUp(); return; }   // (28 Nov) reels just get a spin (see the press handler)
       if (typeof skin === 'function' && skin().wheel) { this._wsp = 0; this.wheelSpin(); if (this._held) this.squishUp(); return; }   // (28 Nov) the flapper clacking as it spins
+      if (typeof skin === 'function' && skin().cute) { this.cuteSqueak(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) Cuties: a tiny squeak
       if (typeof skin === 'function' && skin().blueberry) { this.berrySquirt(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) blueberries: a juicy squirt
       if (typeof skin === 'function' && skin().soap) { this.soapSquish(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) bubbles: Mark's bubble sound
       if (typeof skin === 'function' && skin().balloon) { this.balloonStretch(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) balloons: a rubbery stretch and squeak
@@ -5003,6 +5016,18 @@ function drawEmoji(cx, cy, size, sx, sy, alpha, seed, now, g2 = null) {
 }
 // Cuties: kawaii faces with huge sparkly eyes, a tiny cat mouth and rosy cheeks. They watch your piece,
 // get teary when their line is about to go, squeeze their eyes shut (> <) and wail, then burst.
+// (28 Nov) Cuties about to pop: one little tear wells up in one eye and drips down the cheek (u: 0 to 1)
+function cuteTear(ctx, x, y, size, seed, u) {
+  const r = size * 0.45, sg = seed % 2 ? 1 : -1, tx = x + sg * r * 0.42, y0 = y + r * 0.2;
+  const gw = Math.min(1, u / 0.35), fall = Math.max(0, (u - 0.35) / 0.65), ty = y0 + fall * fall * r * 0.5;
+  const tr = r * 0.1 * (0.45 + 0.55 * gw), el = 1 + fall * 0.4;
+  ctx.save();
+  if (fall > 0) { ctx.strokeStyle = 'rgba(170,225,255,0.5)'; ctx.lineWidth = tr * 0.55; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(tx, y0 - tr * 0.5); ctx.lineTo(tx, ty - tr * 1.5); ctx.stroke(); }   // the wet trail
+  ctx.fillStyle = 'rgba(140,210,255,0.97)'; ctx.beginPath();
+  ctx.moveTo(tx, ty - tr * 1.9 * el); ctx.quadraticCurveTo(tx + tr * 1.1, ty - tr * 0.1, tx, ty + tr); ctx.quadraticCurveTo(tx - tr * 1.1, ty - tr * 0.1, tx, ty - tr * 1.9 * el); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.95)'; ctx.beginPath(); ctx.arc(tx - tr * 0.32, ty - tr * 0.2, tr * 0.3, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
 function drawCute(cx, cy, size, sx, sy, alpha, seed, now, g2 = null) {
   const ctx = g2 || window._mainCtx, r = size * 0.45, t = now / 1000, m = faceMood;
   const shake = m > 0.8 && !settings.reduced ? r * 0.045 : 0;
@@ -5021,7 +5046,7 @@ function drawCute(cx, cy, size, sx, sy, alpha, seed, now, g2 = null) {
   for (const sg of [-1, 1]) for (let k = -1; k <= 1; k++) { const bx = sg * r * 0.56 + k * r * 0.07; ctx.beginPath(); ctx.moveTo(bx + r * 0.025, r * 0.26); ctx.lineTo(bx - r * 0.025, r * 0.34); ctx.stroke(); }
   for (const sg of [-1, 1]) {
     const ex = sg * r * 0.33 + ox * r * 0.06, eyy = ey + oy * r * 0.05;
-    if (m > 0.8) {   // > <  squeezed shut, tears streaming
+    if (m > 0.8 && false) {   // (28 Nov) no longer: they keep their big eyes open and shed one tear (below)
       ctx.strokeStyle = ink; ctx.lineWidth = r * 0.07; ctx.beginPath();
       ctx.moveTo(ex - sg * ew * 0.9, eyy - eh * 0.6); ctx.lineTo(ex + sg * ew * 0.6, eyy); ctx.lineTo(ex - sg * ew * 0.9, eyy + eh * 0.6); ctx.stroke();
       ctx.fillStyle = 'rgba(140,210,255,0.9)';
@@ -5046,7 +5071,7 @@ function drawCute(cx, cy, size, sx, sy, alpha, seed, now, g2 = null) {
     }
     if (m > 0.3) {   // worried little brows
       ctx.strokeStyle = ink; ctx.lineWidth = r * 0.045; ctx.beginPath();
-      ctx.moveTo(ex - sg * ew * 0.7, eyy - eh - r * 0.08); ctx.lineTo(ex + sg * ew * 0.6, eyy - eh - r * 0.16); ctx.stroke();
+      ctx.moveTo(ex - sg * ew * 0.7, eyy - eh - r * 0.17); ctx.lineTo(ex + sg * ew * 0.6, eyy - eh - r * 0.07); ctx.stroke();   /* (28 Nov) inner ends raised: sad, not cross */
     }
   }
   // mouth
@@ -7991,7 +8016,7 @@ function fartPuff(x, y, delay = 0) {
 Sound.onFart = d => { if (lastSquishAt) fartPuff(lastSquishAt.x, lastSquishAt.y, d); };
 /* Thick gooey blobs flung out from a Pin pop: big, slow, wobbly drops in the bubble's colour. */
 // Faces burst into a little firework: a flash, then rings of coloured sparks and a crackle
-function fireworkBurst(x, y, I = 1) {
+function fireworkBurst(x, y, I = 1, quiet = false) {
   const P = FX.particles, c = L.c, pal = ['#ff2d8a', '#00e5d4', '#ffd23f', '#9b3dff', '#8bea1c', '#ff7a1c', '#4fb8ff'];
   P.push({ k: 'glow', x, y, r: c * 1.3 * Math.sqrt(I), life: 0, max: 0.25, tint: '#ffffff' });
   if (settings.reduced || P.length > 620) return;
@@ -8003,7 +8028,7 @@ function fireworkBurst(x, y, I = 1) {
   };
   const c1 = pal[Math.floor(Math.random() * pal.length)], c2 = pal[Math.floor(Math.random() * pal.length)];
   ring(Math.round(14 * Math.sqrt(I)), 5.5, c1, 0); ring(Math.round(9 * Math.sqrt(I)), 3, c2, 0.06); ring(6, 1.6, '#ffffff', 0.12);
-  try { Sound.crackle(); } catch (_) {}
+  if (!quiet) try { Sound.crackle(); } catch (_) {}
 }
 function spawnGoo(x, y, colourHex) {
   if (settings.reduced) return;
@@ -8316,14 +8341,14 @@ function playResult(res, pointerGesture) {
     const intensity = Math.min(2.4, 1 + (res.lines - 1) * 0.4 + (res.combo - 1) * 0.2 + (res.mysteryPlaced ? 0.5 : 0));
     // Faces: a moment of terror (and a scream) before they burst
     const faceShock = SKINS[state.skin % SKINS.length].face && !settings.reduced ? 450 : 0;
-    if (faceShock) Sound.scream(Math.min(3, res.cleared.length));
+    if (faceShock && !SKINS[state.skin % SKINS.length].cute) Sound.scream(Math.min(3, res.cleared.length));   // (28 Nov) Cuties don't scream
     if (faceShock && SKINS[state.skin % SKINS.length].emoji) laughFaces(faceShock + 120);
     const sq = (settings.reduced ? 30 : T.squashMs) / 1000 + faceShock / 1000;
     if (SKINS[state.skin % SKINS.length].hit && SKINS[state.skin % SKINS.length].hit !== 'bowling') setTimeout(() => Sound.rally(SKINS[state.skin % SKINS.length].hit, res.lines), sq * 1000);
     if (SKINS[state.skin % SKINS.length].hit === 'bowling' && res.lines) Sound.strike(res.lines, sq);
-    if (!SKINS[state.skin % SKINS.length].bounce && SKINS[state.skin % SKINS.length].hit !== 'pingpong' && !SKINS[state.skin % SKINS.length].fizz && SKINS[state.skin % SKINS.length].hit !== 'tennis' && SKINS[state.skin % SKINS.length].hit !== 'golf' && !SKINS[state.skin % SKINS.length].bloom && !SKINS[state.skin % SKINS.length].popcorn && !SKINS[state.skin % SKINS.length].quietClear) Sound.splat(sq, intensity, Math.max(-0.6, Math.min(0.6, (ox - 3.5) / 3.5 * 0.6)));
+    if (!SKINS[state.skin % SKINS.length].bounce && SKINS[state.skin % SKINS.length].hit !== 'pingpong' && !SKINS[state.skin % SKINS.length].fizz && SKINS[state.skin % SKINS.length].hit !== 'tennis' && SKINS[state.skin % SKINS.length].hit !== 'golf' && !SKINS[state.skin % SKINS.length].bloom && !SKINS[state.skin % SKINS.length].popcorn && !SKINS[state.skin % SKINS.length].quietClear && !SKINS[state.skin % SKINS.length].cute) Sound.splat(sq, intensity, Math.max(-0.6, Math.min(0.6, (ox - 3.5) / 3.5 * 0.6)));
     const level = (res.lines - 1) + (res.combo - 1);
-    if (level >= 1 && !SKINS[state.skin % SKINS.length].bounce && SKINS[state.skin % SKINS.length].hit !== 'pingpong' && !SKINS[state.skin % SKINS.length].fizz && SKINS[state.skin % SKINS.length].hit !== 'tennis' && SKINS[state.skin % SKINS.length].hit !== 'golf' && !SKINS[state.skin % SKINS.length].bloom && !SKINS[state.skin % SKINS.length].popcorn && !SKINS[state.skin % SKINS.length].quietClear) Sound.rush(sq + 0.06, level);
+    if (level >= 1 && !SKINS[state.skin % SKINS.length].bounce && SKINS[state.skin % SKINS.length].hit !== 'pingpong' && !SKINS[state.skin % SKINS.length].fizz && SKINS[state.skin % SKINS.length].hit !== 'tennis' && SKINS[state.skin % SKINS.length].hit !== 'golf' && !SKINS[state.skin % SKINS.length].bloom && !SKINS[state.skin % SKINS.length].popcorn && !SKINS[state.skin % SKINS.length].quietClear && !SKINS[state.skin % SKINS.length].cute) Sound.rush(sq + 0.06, level);
     const sk0 = SKINS[state.skin % SKINS.length];
     BG.pulse(sk0.colours[(res.piece.color) % sk0.colours.length], 0.35 * intensity);
     const n = res.cleared.length;
@@ -8450,7 +8475,8 @@ function updateFX(now, dt) {
       p.burst = true;
       const [x, y] = cellCentre(p.gx, p.gy);
       const sk = SKINS[p.skin % SKINS.length];
-      if (sk.face) fireworkBurst(x, y, p.I || 1);
+      if (sk.face && sk.cute) { fireworkBurst(x, y, p.I || 1, true); Sound.xylo(p.gx + (7 - p.gy), ((p.gx - 3.5) / 3.5) * 0.5); }   // (28 Nov) Cuties: each one rings a xylophone note as it pops, C D E F G A B C along a row, higher up the board
+      else if (sk.face) fireworkBurst(x, y, p.I || 1);
       else if (sk.bounce && !settings.reduced) FX.particles.push({ k: 'ball', x, y, vx: ((p.gx - 3.5) / 3.5 + (Math.random() - 0.5)) * L.c * 4, vy: -L.c * (7 + Math.random() * 4), skin: p.skin, colour: p.colour, life: 0, max: 2.2, spin: (Math.random() - 0.5) * 8, floor: L.by + L.B + L.c * 0.2, bounces: 0 });
       else if (sk.fizz) fizzBurst(x, y, sk.colours[p.colour % sk.colours.length], p.I || 1, p.dir || 0);
       else if (sk.slot) { const FC = ['#e0102e', '#ffd21f', '#ff8a1a', '#3a4fd0', '#f2384a', '#8a2fb0'], fc = FC[(SLOT_NUM.get(Logic.idx(p.gx, p.gy)) || 0) % 6]; for (let k = 0; k < 12; k++) { const a = Math.random() * 6.28, sp = L.c * (2 + Math.random() * 4); STREAMS.push({ x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - L.c * 3, col: k % 3 ? fc : '#ffd24a', t0: now, life: 1100 + Math.random() * 600, ph: Math.random() * 6, rot: Math.random() * 6, conf: true }); } for (let k = 0; k < 8; k++) { const a = Math.random() * 6.28; SHARDS.push({ x, y, vx: Math.cos(a) * L.c * 3, vy: Math.sin(a) * L.c * 3 - L.c * 2, col: k % 2 ? '#ffd24a' : '#f5c542', rot: Math.random() * 6, vr: (Math.random() - 0.5) * 14, t0: now, life: 700, sz: L.c * 0.09, glass: false }); } }   /* gold coins */
@@ -8819,7 +8845,7 @@ function draw(now) {
     if (now < p.t0 && SKINS[p.skin % SKINS.length].candle) { const sk = SKINS[p.skin % SKINS.length], w = Math.max(0, 1 - (p.t0 - now) / 520), lean = (p.gx < 3.5 ? 1 : -1) * w;
       ctx.save(); ctx.translate(x, y); drawCandle(ctx, c * 0.48, sk.colours[p.colour % sk.colours.length], p.colour); candleFlame(ctx, c * 0.48, now / 1000, p.gx * 3 + p.gy * 5, w < 0.7 ? 1 + 1.1 * Math.sin(w / 0.7 * Math.PI / 2) : 2.1 * Math.pow(1 - (w - 0.7) / 0.3, 0.6), lean * 0.6);   /* the flame flares up big in the breath, then goes out */  ctx.restore(); continue; }
     if (now < p.t0 && SKINS[p.skin % SKINS.length].lights) { const sk = SKINS[p.skin % SKINS.length], on = p.t0 - now < 420 ? (Math.sin(now * 0.09 + p.gx * 5 + p.gy * 3) > 0 ? 1 : 0.1) : 1; ctx.save(); ctx.translate(x, y); drawBulb(ctx, c * 0.48, sk.colours[p.colour % sk.colours.length], on, p.colour); ctx.restore(); continue; }
-    if (now < p.t0) { drawBubble(p.skin, p.colour, x, y, c * 0.96, 1, 1, 1, p.gx * 3 + p.gy * 5, now); continue; }
+    if (now < p.t0) { drawBubble(p.skin, p.colour, x, y, c * 0.96, 1, 1, 1, p.gx * 3 + p.gy * 5, now); if (SKINS[p.skin % SKINS.length].cute && !settings.reduced) cuteTear(ctx, x, y, c * 0.96, p.gx * 3 + p.gy * 5, Math.max(0, 1 - (p.t0 - now) / 700)); continue; }
     const q = Math.min(1, (now - p.t0) / CONFIG.timing.squashMs);
     if (settings.reduced) drawBall(p.skin, p.colour, x, y, c * 0.96, 1, 1, 1 - q);
     else drawBubble(p.skin, p.colour, x, y, c * 0.96 * (1 + q * 0.2), 1 + q * 0.06, 1 - q * 0.1, 1 - q * 0.35, p.gx * 3 + p.gy * 5, now);
