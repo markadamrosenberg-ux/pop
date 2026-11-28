@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 1:20pm, touch to spin</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 1:30pm, wheels spin, no squash</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -8358,7 +8358,7 @@ function draw(now) {
   const goT = FX.gameOverAt ? (now - FX.gameOverAt) : -1;
   const wobble = now / 1000;
   const hidden = Input.hiddenId(), lifted = Input.liftedId(), repoOn = Input.repoMode(), pinOn = Input.pinMode();
-  const goo = Input.goo(now); let gooDraw = null;
+  const goo = skin().wheel ? null : Input.goo(now); let gooDraw = null;   // (28 Nov) wheels don't squash when touched, they just spin
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
     const v = state.grid[Logic.idx(gx, gy)];
     if (v && goo && goo.i === Logic.idx(gx, gy) && !(state.golden && state.golden.i === goo.i) && !(hidden && state.pid[goo.i] === hidden) && goT < 0) {
