@@ -556,6 +556,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
         <div class="ncnote" id="ncNote">First name and the first letter of your surname, like Mark R</div>
         <button class="btn ubtn" id="ncGo">Let's go</button>
         <button class="btn ghost" id="ncLater">Not now</button>
+        <div class="ncalt" id="ncRestoreRow">Already on the ladder? <a id="ncRestore">Use your player code</a></div>
         <div class="ncalt" id="ncAlt" style="display:none">Already play Pop from your home screen? <a id="ncCopyCode">Copy friend code</a></div>
       </div>
     </div>
@@ -1456,7 +1457,7 @@ const SKINS = [
       ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = s * 0.03;
       ctx.beginPath(); ctx.arc(0, 0, r * 0.72, Math.PI * 0.12, Math.PI * 0.38); ctx.stroke();
     } },
-  { name: 'Soap Bubbles', sheen: true, anim: animSoap, colours: ['#ff8fc8', '#7fd3ff', '#8ff5c0', '#ffe98a', '#c3a2ff', '#7ff0e6', '#ffb08a'],
+  { name: 'Soap Bubbles', sheen: true, soapy: true, anim: animSoap, colours: ['#ff8fc8', '#7fd3ff', '#8ff5c0', '#ffe98a', '#c3a2ff', '#7ff0e6', '#ffb08a'],
     draw(ctx, s, c) {
       const r = s * 0.44;
       const g = ctx.createRadialGradient(-r * 0.2, -r * 0.25, r * 0.1, 0, 0, r);
@@ -2173,10 +2174,8 @@ const Sound = (() => {
     wheelWin(lines = 1) {   // (28 Nov) a big carnival WIN: a rising fanfare, a prize bell ringing, a crash and a shower of coins
       if (!ok()) return; const t = ac.currentTime + 0.03, k = Math.min(1.3, 0.9 + lines * 0.15);
       const bus = ac.createGain(), lp = ac.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 4200; bus.gain.value = 1; bus.connect(lp); lp.connect(out);
-      // the fanfare: quick brassy notes up to a big held chord with vibrato
+      // (28 Nov) no fanfare any more (Mark): just the prize bell, the crash and the coins
       const brass = (f, at, dur, pk) => { for (const [m, g2, dt] of [[1, 1, 1], [1, 0.8, 1.006], [2, 0.3, 1]]) tone(t + at, { f: f * m * dt, type: 'sawtooth', peak: pk * g2, attack: 0.015, decay: dur, dest: bus }); };   // (28 Nov) brassier and about three times louder
-      [[392, 0], [523.25, 0.1], [659.25, 0.2], [783.99, 0.3]].forEach(([f, at]) => brass(f, at, 0.18, 0.11 * k));
-      for (const f of [261.63, 392, 523.25, 659.25, 783.99]) brass(f, 0.42, 1.3, 0.075 * k);   // 'da-da-da-DAAAA' on a big C chord
       // the prize bell: a fast ringing alarm bell under the chord
       for (let n = 0; n < 16; n++) { tone(t + 0.4 + n * 0.055, { f: 2350, type: 'sine', peak: 0.045 * k, attack: 0.001, decay: 0.09, dest: bus }); tone(t + 0.4 + n * 0.055, { f: 3720, type: 'sine', peak: 0.02 * k, attack: 0.001, decay: 0.07, dest: bus }); }
       // a kick and a crash on the big chord
@@ -2303,6 +2302,14 @@ const Sound = (() => {
         const held = t - (v.o._t0 || 0); try { v.g.gain.cancelScheduledValues(t); v.g.gain.setValueAtTime(v.g.gain.value, t); v.g.gain.setTargetAtTime(0, t + 0.04, 0.06); v.o.stop(t + 0.4); } catch (e) {}
         v.end = t + 0.3; if (v.cell >= 0 && SING_OPEN.has(v.cell)) SING_OPEN.get(v.cell).end = performance.now() + 150;
       }
+    },
+    singRun(k = 0, pan = 0) {   // (28 Nov) one of Mark's sung notes, short and sweet, for a line of Singers popping: A B C D E F G then the high A
+      if (!ok()) return; k = Math.max(0, Math.min(7, k)); const b = sample(k >= 7 ? 'noteA2' : 'note' + 'ABCDEFG'[k]); if (!b) return;
+      const t = ac.currentTime, src = ac.createBufferSource(), g = ac.createGain(), len = Math.min(0.2, b.duration);   // short and detached: staccato
+      src.buffer = b; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.9, t + 0.012); g.gain.setValueAtTime(0.9, t + len - 0.07); g.gain.linearRampToValueAtTime(0, t + len);
+      let d = g; if (ac.createStereoPanner) { const pn = ac.createStereoPanner(); pn.pan.value = pan; g.connect(pn); d = pn; } d.connect(out);
+      if (b._on == null) { const d0 = b.getChannelData(0); let pk = 0; for (let i = 0; i < d0.length; i++) pk = Math.max(pk, Math.abs(d0[i])); let i = 0; while (i < d0.length && Math.abs(d0[i]) < pk * 0.3) i++; b._on = Math.max(0, i / b.sampleRate - 0.02); }   // skip the breath before the note, so every note lands right on its pop
+      src.connect(g); src.start(t, b._on); src.stop(t + len + 0.05);
     },
     sing(k = 0, pan = 0, cell = -1) {   // (27 Nov) Mark's own sung notes: the columns are a keyboard, A B C D E F G left to right, then his high A
       if (!ok()) return;
@@ -2591,7 +2598,9 @@ const Sound = (() => {
     },
     // a soft, low squelch when you poke a bubble on the board
     squish(pan = 0) {
-      if (!ok()) return; const t = ac.currentTime; if (t - (this._sq || 0) < 0.06) return; this._sq = t;
+      if (!ok()) return; const t = ac.currentTime;
+      if (typeof skin === 'function' && skin().singer) { this.sing(window._sqCol | 0, pan, window._sqIdx); return; }   // (28 Nov) singers first, before the double-tap guard, so two fingers at once make a chord
+      if (t - (this._sq || 0) < 0.06) return; this._sq = t;
       // the joke: every 6 to 10 squishes one of Mark's 11 recorded farts sneaks in, at the same volume as a squish.
       // Half the time it replaces the squish; the other half the squish plays as normal and the fart comes when you let go.
       if (typeof skin === 'function' && (skin().slot || skin().wheel)) { if (skin().wheel) { this._wsp = 0; this.wheelSpin(); } if (this._held) this.squishUp(); return; }   // (28 Nov) reels and wheels just spin: no squish and never a fart
@@ -2605,7 +2614,7 @@ const Sound = (() => {
       if (typeof skin === 'function' && skin().wheel) { this._wsp = 0; this.wheelSpin(); if (this._held) this.squishUp(); return; }   // (28 Nov) the flapper clacking as it spins
       if (typeof skin === 'function' && skin().cute) { this.cuteSqueak(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) Cuties: a tiny squeak
       if (typeof skin === 'function' && skin().blueberry) { this.berrySquirt(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) blueberries: a juicy squirt
-      if (typeof skin === 'function' && skin().soap) { this.soapSquish(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) bubbles: Mark's bubble sound
+      if (typeof skin === 'function' && (skin().soap || skin().soapy)) { this.soapSquish(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) bubbles: Mark's bubble sound
       if (typeof skin === 'function' && skin().balloon) { this.balloonStretch(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) balloons: a rubbery stretch and squeak
       if (typeof skin === 'function' && skin().vinyl) { this.djScratch(pan); if (this._held) this.squishUp(); return; }   // (28 Nov) records: a squeeze is a proper DJ scratch
       if (typeof skin === 'function' && skin().singer) { this.sing(window._sqCol | 0, pan, window._sqIdx); return; }   // singers: press one and it sings its note (no squish, no farts)
@@ -3607,7 +3616,7 @@ const NEW_SKINS = [
     // (28 Nov) plump, ripe, dusty blueberries: squeeze one and blue juice squirts out; slide your finger and it smears a trail that stays until you clear a row
     draw(ctx, s, c, i) { drawBlueberry(ctx, s * 0.5, c, i); },
   },
-  { name: 'Soap Bubbles', soap: true, quietClear: true, dry: true, squish: 0.8, fixedColours: true, colours: ['#ff8fd0', '#7fd8ff', '#9dffb0', '#ffe27a', '#c9a2ff'],
+  { name: 'Soap Bubbles', soap: true, soapy: true, quietClear: true, dry: true, squish: 0.8, fixedColours: true, colours: ['#ff8fd0', '#7fd8ff', '#9dffb0', '#ffe27a', '#c9a2ff'],
     // (28 Nov) one big soap bubble per ball, with swirling rainbow colours; a row pops each into lots of little bubbles that float off in every direction and pop
     draw(ctx, s, c, i) { drawSoap(ctx, s * 0.5, c, 0, i); },
     anim(ctx, s, c, i, t, seed) { soapSwirl(ctx, s * 0.5, c, HAND ? 0 : t, seed); },
@@ -3621,7 +3630,7 @@ const NEW_SKINS = [
     draw(ctx, s, c, i) { drawRecord(ctx, s * 0.5, c, i, 0); },
     anim(ctx, s, c, i, t, seed) { if (HAND) return; const r = s * 0.5, arm = RECORD_ARM == null ? 1 : RECORD_ARM; drawRecordLabel(ctx, r, c, i, arm >= 1 ? t * 3.5 + seed : 0); drawTonearm(ctx, r, arm); },
   },
-  { name: 'Singers', singer: true, squish: 0.4, fixedColours: true, colours: ['#c8102e', '#e0567a', '#b56b62', '#7a1f3d', '#f06a4f'],
+  { name: 'Singers', singer: true, quietClear: true, squish: 0.4, fixedColours: true, colours: ['#ff7aa8', '#5fb8ff', '#7fd86a', '#ffcf3f', '#b48cff'],
     // (27 Nov) a smooth round face of just a mouth: open in your hand, it closes when it lands; press one and it opens and sings its note
     draw(ctx, s, c, i) { drawMouth(ctx, s * 0.47, 0, 0, i, c); },
     anim(ctx, s, c, i, t, seed) { const o = mouthOpen(); if (o > 0.02) drawMouth(ctx, s * 0.47, o, t, seed, c); },
@@ -4719,17 +4728,18 @@ function sprite(skinIdx, colour) {
   const x = c.getContext('2d');
   x.scale(dpr, dpr); x.translate(box / dpr / 2, box / dpr / 2);
   const sk = SKINS[skinIdx % SKINS.length], th = withScene(themeFor(sk));
+  const noRing = sk.noBall || ['balloon', 'slot', 'candle', 'lights', 'ladybug', 'hatch', 'bloom', 'morph', 'popcorn', 'dandelion', 'pizza'].some(f => sk[f]);   // (28 Nov) looks that aren't balls don't get the round outline on dark backgrounds
   if (th.ballShadow) {   // soft shadow just below: the marble sits slightly above the board
     const g = x.createRadialGradient(0, size * 0.09, size * 0.2, 0, size * 0.09, size * 0.56);
     g.addColorStop(0, `rgba(10,4,24,${th.ballShadow})`); g.addColorStop(1, 'rgba(10,4,24,0)');
     x.fillStyle = g; x.beginPath(); x.arc(0, size * 0.09, size * 0.56, 0, Math.PI * 2); x.fill();
   }
   sk.draw(x, size, sk.fixedColours ? sk.colours[colour % sk.colours.length] : vivid(sk.colours[colour % sk.colours.length]), colour, sk.colours);
-  if (onScene() && !sk.noBall) {       // a crisp dark outline so every ball pops off a busy or bright background
+  if (onScene() && !noRing) {       // a crisp dark outline so every ball pops off a busy or bright background
     x.strokeStyle = 'rgba(8,6,24,0.7)'; x.lineWidth = Math.max(1.2, size * 0.035);
     x.beginPath(); x.arc(0, 0, size * 0.462, 0, Math.PI * 2); x.stroke();
   }
-  if (th.ballRim && !sk.noBall) {      // fine cool rim so a dark edge never melts into the background
+  if (th.ballRim && !noRing) {      // fine cool rim so a dark edge never melts into the background
     x.strokeStyle = th.ballRim; x.lineWidth = Math.max(0.8, size * 0.022);
     x.beginPath(); x.arc(0, 0, size * 0.447, 0, Math.PI * 2); x.stroke();
     const hl = x.createLinearGradient(0, -size * 0.45, 0, size * 0.1);
@@ -5874,6 +5884,12 @@ function soapImg(k) {   // a ready-drawn little bubble per colour, so hundreds c
   const cv = document.createElement('canvas'); cv.width = cv.height = 96; const x = cv.getContext('2d'); x.translate(48, 48);
   drawSoap(x, 46, SOAP_HUES[k], 0, k); soapSwirl(x, 46, SOAP_HUES[k], k * 2.1, k); return (SOAP_IMG[k] = cv);
 }
+function bubbleSquirt(x, y) {   // (28 Nov) squeeze a soap bubble and a spray of little bubbles floats out of it, instead of water
+  if (settings.reduced) return; const now = performance.now(), n = 14 + Math.floor(Math.random() * 8);
+  for (let k = 0; k < n; k++) { const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.6, sp = L.c * (0.8 + Math.pow(Math.random(), 0.7) * 3.2);
+    SOAPS.push({ x: x + Math.cos(a) * L.c * 0.15, y: y + Math.sin(a) * L.c * 0.15, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: L.c * (0.03 + Math.pow(Math.random(), 1.8) * 0.11), tint: Math.floor(Math.random() * 5), t0: now, life: 900 + Math.random() * 1800, ph: Math.random() * 6.28, popped: 0 }); }
+  if (SOAPS.length > 900) SOAPS.splice(0, SOAPS.length - 900);
+}
 function soapBurst(x, y, tint) {   // the big bubble pops into lots of little ones drifting off in every direction
   const now = performance.now(), n = 34 + Math.floor(Math.random() * 12);   // (28 Nov) lots more: dozens from every bubble, so a row sends hundreds everywhere
   for (let k = 0; k < n; k++) { const a = Math.random() * Math.PI * 2, sp = L.c * (1 + Math.pow(Math.random(), 0.7) * 6.5);
@@ -6004,42 +6020,44 @@ function mouthOpen() {
   if (p && ci === p.i) o = Math.max(o, !p.rel ? Math.min(1, (now - p.t0) / 110) : Math.max(0, 1 - (now - p.rel.t0) / 260));
   return o;
 }
-function drawMouth(x, r, open, t, seed, col = '#c8102e') {   // the whole ball is a pair of full glossy lips; open 0..1 parts them
-  const W = r * 1.0, lo = shade(col, -45), hi = mix(col, '#ffffff', 0.35);
-  const gap = r * 0.62 * open, my = r * 0.02;   // where the lips meet, and how far apart they are
-  const upTop = -r * 0.98, upBot = my - gap * 0.45, loTop = my + gap * 0.55, loBot = r * 0.98;
-  // inside the mouth (only when open): dark, top teeth, tongue
-  if (open > 0.02) {
-    x.save(); x.beginPath(); x.ellipse(0, (upBot + loTop) / 2, W * (0.72 - 0.08 * open), (loTop - upBot) / 2 + r * 0.06, 0, 0, Math.PI * 2); x.clip();
-    x.fillStyle = '#240910'; x.fillRect(-W, upBot - r, W * 2, r * 3);
-    x.fillStyle = '#f5f0e8'; x.beginPath(); x.ellipse(0, upBot, W * 0.5, gap * 0.22 + r * 0.03, 0, 0, Math.PI); x.fill();
-    x.fillStyle = '#b84a5c'; x.beginPath(); x.ellipse(0, loTop + r * 0.02, W * 0.4, gap * 0.3, 0, Math.PI, Math.PI * 2); x.fill();
+function drawMouth(x, r, open, t, seed, col = '#ff7aa8') {   // (28 Nov) the Singers: sleepy faces with big heavy-lidded eyes; press one and its eyes spring wide open, sparkle, and it belts out its note (open 0..1)
+  const o = Math.max(0, Math.min(1, open)), INK = '#24101e';
+  // the ball, glossy, lit from the top left
+  const g = x.createRadialGradient(-r * 0.35, -r * 0.4, r * 0.08, 0, 0, r * 1.05); g.addColorStop(0, mix(col, '#ffffff', 0.75)); g.addColorStop(0.3, col); g.addColorStop(1, shade(col, -70));
+  x.fillStyle = g; x.beginPath(); x.arc(0, r * -0.02 * o, r, 0, Math.PI * 2); x.fill();
+  x.save(); x.translate(0, -r * 0.02 * o);
+  // rosy cheeks
+  x.fillStyle = 'rgba(255,110,150,0.35)'; for (const sg of [-1, 1]) { x.beginPath(); x.ellipse(sg * r * 0.56, r * 0.26, r * 0.14, r * 0.08, 0, 0, Math.PI * 2); x.fill(); }
+  for (const sg of [-1, 1]) {
+    const ex = sg * r * 0.33, ey = -r * 0.06, ew = r * 0.26, eh = r * 0.3 * (1 + 0.08 * o), look = r * 0.07 * (1 - o);
+    // the white of the eye and its outline
+    x.fillStyle = '#ffffff'; x.beginPath(); x.ellipse(ex, ey, ew, eh, 0, 0, Math.PI * 2); x.fill();
+    // the iris in a deeper shade of the ball's colour, then the pupil
+    x.save(); x.beginPath(); x.ellipse(ex, ey, ew, eh, 0, 0, Math.PI * 2); x.clip();
+    const ig = x.createRadialGradient(ex, ey + look + eh * 0.25, 1, ex, ey + look, ew * 0.85); ig.addColorStop(0, mix(col, '#ffffff', 0.25)); ig.addColorStop(0.6, shade(col, -60)); ig.addColorStop(1, INK);
+    x.fillStyle = ig; x.beginPath(); x.ellipse(ex, ey + look, ew * 0.72, eh * 0.76, 0, 0, Math.PI * 2); x.fill();
+    x.fillStyle = INK; x.beginPath(); x.ellipse(ex, ey + look, ew * 0.34 * (1 + 0.15 * o), eh * 0.36 * (1 + 0.15 * o), 0, 0, Math.PI * 2); x.fill();
+    if (o > 0.3) { x.globalAlpha = Math.min(1, (o - 0.3) / 0.4); x.fillStyle = '#ffffff'; x.beginPath(); x.arc(ex - ew * 0.3, ey - eh * 0.32, ew * 0.3, 0, Math.PI * 2); x.fill(); x.beginPath(); x.arc(ex + ew * 0.32, ey + eh * 0.32, ew * 0.13, 0, Math.PI * 2); x.fill(); x.globalAlpha = 1; }
+    // the heavy sleepy lid, in the ball's colour, lifting as it sings
+    const lid = (1 - o) * 1.05;   // how far down the lid comes: just past halfway when resting, gone when singing
+    if (lid > 0.02) { const ly = ey - eh + eh * 2 * (lid * 0.5);
+      const lg = x.createLinearGradient(0, ey - eh, 0, ly); lg.addColorStop(0, mix(col, '#ffffff', 0.25)); lg.addColorStop(1, shade(col, -20));
+      x.fillStyle = lg; x.fillRect(ex - ew - 2, ey - eh - 2, ew * 2 + 4, ly - (ey - eh) + 2);
+      x.strokeStyle = INK; x.lineWidth = r * 0.045; x.lineCap = 'round'; x.beginPath(); x.moveTo(ex - ew, ly); x.quadraticCurveTo(ex, ly + eh * 0.12, ex + ew, ly); x.stroke(); }
     x.restore();
+    x.strokeStyle = INK; x.lineWidth = r * 0.05; x.beginPath(); x.ellipse(ex, ey, ew, eh, 0, 0, Math.PI * 2); x.stroke();
+    // little sparkles beside the eyes when it's wide awake
+    if (o > 0.5) { x.strokeStyle = 'rgba(255,255,255,' + ((o - 0.5) * 2) + ')'; x.lineWidth = r * 0.035; const px = ex + sg * r * 0.36, py = ey - r * 0.36, k = r * (0.05 + 0.03 * Math.sin(t * 9 + sg));
+      x.beginPath(); x.moveTo(px - k, py); x.lineTo(px + k, py); x.moveTo(px, py - k); x.lineTo(px, py + k); x.stroke(); }
   }
-  // upper lip: a dome with the cupid's bow at the top, curving down to the corners
-  const ug = x.createLinearGradient(0, upTop, 0, upBot); ug.addColorStop(0, shade(col, -20)); ug.addColorStop(0.55, col); ug.addColorStop(1, lo);
-  x.fillStyle = ug; x.beginPath(); x.moveTo(-W, my);
-  x.bezierCurveTo(-W, upTop * 0.55, -W * 0.45, upTop, -W * 0.14, upTop * 0.9);
-  x.quadraticCurveTo(0, upTop * 0.68, W * 0.14, upTop * 0.9);
-  x.bezierCurveTo(W * 0.45, upTop, W, upTop * 0.55, W, my);
-  x.bezierCurveTo(W * 0.55, upBot + r * 0.05, W * 0.18, upBot - r * 0.04, 0, upBot + r * 0.03);
-  x.bezierCurveTo(-W * 0.18, upBot - r * 0.04, -W * 0.55, upBot + r * 0.05, -W, my); x.fill();
-  // lower lip: fuller, rounding to the bottom of the ball
-  const lg = x.createLinearGradient(0, loTop, 0, loBot); lg.addColorStop(0, lo); lg.addColorStop(0.35, col); lg.addColorStop(1, shade(col, -30));
-  x.fillStyle = lg; x.beginPath(); x.moveTo(-W, my);
-  x.bezierCurveTo(-W * 0.55, loTop - r * 0.02, W * 0.55, loTop - r * 0.02, W, my);
-  x.bezierCurveTo(W, loBot * 0.7, W * 0.5, loBot, 0, loBot);
-  x.bezierCurveTo(-W * 0.5, loBot, -W, loBot * 0.7, -W, my); x.fill();
-  // the soft line where they meet, the fine lip lines and the gloss
-  if (open <= 0.02) { x.strokeStyle = 'rgba(40,5,12,0.75)'; x.lineWidth = Math.max(0.8, r * 0.035); x.beginPath(); x.moveTo(-W * 0.98, my);
-    x.bezierCurveTo(-W * 0.55, my + r * 0.06, -W * 0.2, my - r * 0.02, 0, my + r * 0.03); x.bezierCurveTo(W * 0.2, my - r * 0.02, W * 0.55, my + r * 0.06, W * 0.98, my); x.stroke(); }
-  x.strokeStyle = 'rgba(60,0,15,0.22)'; x.lineWidth = Math.max(0.4, r * 0.012);
-  for (let k = -3; k <= 3; k++) { if (!k) continue; x.beginPath(); x.moveTo(k * W * 0.2, loTop + r * 0.12); x.lineTo(k * W * 0.24, loBot - r * 0.25); x.stroke(); }
-  x.fillStyle = 'rgba(255,255,255,0.32)'; x.beginPath(); x.ellipse(-W * 0.18, loTop + (loBot - loTop) * 0.42, W * 0.26, r * 0.07, -0.05, 0, Math.PI * 2); x.fill();
-  x.fillStyle = 'rgba(255,255,255,0.8)'; x.beginPath(); x.ellipse(-W * 0.22, loTop + (loBot - loTop) * 0.4, W * 0.1, r * 0.03, -0.05, 0, Math.PI * 2); x.fill();
-  x.fillStyle = 'rgba(255,255,255,0.28)'; x.beginPath(); x.ellipse(-W * 0.38, upTop * 0.55, W * 0.16, r * 0.05, -0.3, 0, Math.PI * 2); x.fill();
+  // the mouth: a tiny sleepy "o" that opens wide to sing
+  const mw = r * (0.06 + 0.16 * o), mh = r * (0.04 + 0.15 * o), my = r * (0.44 + 0.04 * o);
+  x.fillStyle = '#3a0d1c'; x.beginPath(); x.ellipse(0, my, mw, mh, 0, 0, Math.PI * 2); x.fill();
+  if (o > 0.25) { x.fillStyle = '#ff7aa0'; x.beginPath(); x.ellipse(0, my + mh * 0.45, mw * 0.65, mh * 0.42, 0, 0, Math.PI * 2); x.fill(); }
+  x.restore();
+  // a soft shine on top
+  x.fillStyle = 'rgba(255,255,255,0.5)'; x.beginPath(); x.ellipse(-r * 0.38, -r * 0.6, r * 0.22, r * 0.1, -0.5, 0, Math.PI * 2); x.fill();
 }
-// (27 Nov) Ladybugs: open 0..1 lifts the wing cases apart; flap 0..1 beats the clear wings underneath
 function drawLadybug(x, r, col, seed, open = 0, flap = 0) {
   const R0 = r * 0.86, cy = r * 0.08, dark = col === '#0d0d12', spot = dark ? '#d4161c' : '#111114';
   // little legs and antennae peeking out
@@ -8128,7 +8146,7 @@ const SquishMe = (() => {
     const [x, y] = cellCentre(i % N, Math.floor(i / N));
     const el = document.getElementById('squishMe'); if (!el) return;
     let t; do { t = LINES[Math.floor(Math.random() * LINES.length)]; } while (t === lastLine && LINES.length > 1); lastLine = t;
-    el.textContent = t; { const pw = (el.offsetParent || el.parentElement).clientWidth, hw = el.offsetWidth / 2 + 6; el.style.left = Math.max(hw, Math.min(pw - hw, x)) + 'px'; } el.style.top = (y - L.c * 0.42) + 'px';   /* kept on screen */
+    el.textContent = skin().singer ? 'Play me ♪♫' : t; { const pw = (el.offsetParent || el.parentElement).clientWidth, hw = el.offsetWidth / 2 + 6; el.style.left = Math.max(hw, Math.min(pw - hw, x)) + 'px'; } el.style.top = (y - L.c * 0.42) + 'px';   /* kept on screen */
     el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
     shownThisLull = true;
   }, 1000);
@@ -8141,12 +8159,17 @@ const SquishMe = (() => {
     const cells = []; state.grid.forEach((v, i) => { if (v) cells.push(i); }); if (!cells.length) return;
     const pool = cells.filter(i => Math.floor(i / N) > 0), i = (pool.length ? pool : cells)[Math.floor(Math.random() * (pool.length || cells.length))];
     const [x, y] = cellCentre(i % N, Math.floor(i / N)), el = document.getElementById('squishMe'); if (!el) return;
-    el.textContent = 'Squish me!'; { const pw = (el.offsetParent || el.parentElement).clientWidth, hw = el.offsetWidth / 2 + 6; el.style.left = Math.max(hw, Math.min(pw - hw, x)) + 'px'; } el.style.top = (y - L.c * 0.42) + 'px';
+    el.textContent = skin().singer ? 'Play me ♪♫' : 'Squish me!'; {   /* (28 Nov) the Singers ask to be played */ const pw = (el.offsetParent || el.parentElement).clientWidth, hw = el.offsetWidth / 2 + 6; el.style.left = Math.max(hw, Math.min(pw - hw, x)) + 'px'; } el.style.top = (y - L.c * 0.42) + 'px';
     el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); shownThisLull = true;
   }
+  let lastNudge = -99, nudgeAt = 0;   // (28 Nov) now and then, on a random frame, a friendly reminder even for looks they've already squished
+  function show2() { const nm = skin().name, had = done.has(nm); if (had) done.delete(nm); show(); if (had) done.add(nm); }
   function placed(res) {
-    if (done.has(skin().name)) return;
-    const f = res.frameNo | 0; if (f !== fr) { fr = f; rows = 0; hints = 0; }
+    const f = res.frameNo | 0; if (f !== fr) { fr = f; rows = 0; hints = 0;
+      nudgeAt = (f - lastNudge >= 4 && Math.random() < 0.25) ? 1 + Math.floor(Math.random() * 4) : 0; }   // about one frame in four, never closer than 4 frames apart, after a random 1 to 4 rows
+    if (done.has(skin().name)) {
+      if (nudgeAt && res.lines > 0) { rows += res.lines; if (rows >= nudgeAt) { nudgeAt = 0; lastNudge = f; setTimeout(show2, 1500); } }
+      return; }
     if (!(res.lines > 0)) return; rows += res.lines;
     if (hints === 0 || (hints === 1 && rows >= lastAt + 3)) { hints++; lastAt = rows; setTimeout(show, 1500); }   // after the row has popped
   }
@@ -8350,7 +8373,7 @@ function playResult(res, pointerGesture) {
     const cells = res.piece.shape.cells;
     const ox = res.gx + cells.reduce((a, c) => a + c[0], 0) / cells.length;
     const oy = res.gy + cells.reduce((a, c) => a + c[1], 0) / cells.length;
-    const stagger = settings.reduced ? 12 : T.popStaggerMs;
+    const stagger = settings.reduced ? 12 : skin().singer ? 150 : T.popStaggerMs;   // (28 Nov) Singers pop one note at a time, like a xylophone run
     // bigger clears and streaks make bigger splashes; ordinary play stays calm
     const intensity = Math.min(2.4, 1 + (res.lines - 1) * 0.4 + (res.combo - 1) * 0.2 + (res.mysteryPlaced ? 0.5 : 0));
     // Faces: a moment of terror (and a scream) before they burst
@@ -8489,6 +8512,7 @@ function updateFX(now, dt) {
       p.burst = true;
       const [x, y] = cellCentre(p.gx, p.gy);
       const sk = SKINS[p.skin % SKINS.length];
+      if (sk.singer) Sound.singRun(p.rank | 0, ((p.gx - 3.5) / 3.5) * 0.5);   // (28 Nov) a Singers line sings Mark's notes up the scale, low to high, one per face as it pops
       if (sk.face && sk.cute) { fireworkBurst(x, y, p.I || 1, true); Sound.xylo(p.gx + (7 - p.gy), ((p.gx - 3.5) / 3.5) * 0.5); }   // (28 Nov) Cuties: each one rings a xylophone note as it pops, C D E F G A B C along a row, higher up the board
       else if (sk.face) fireworkBurst(x, y, p.I || 1);
       else if (sk.bounce && !settings.reduced) FX.particles.push({ k: 'ball', x, y, vx: ((p.gx - 3.5) / 3.5 + (Math.random() - 0.5)) * L.c * 4, vy: -L.c * (7 + Math.random() * 4), skin: p.skin, colour: p.colour, life: 0, max: 2.2, spin: (Math.random() - 0.5) * 8, floor: L.by + L.B + L.c * 0.2, bounces: 0 });
@@ -8597,7 +8621,7 @@ function draw(now) {
   const goT = FX.gameOverAt ? (now - FX.gameOverAt) : -1;
   const wobble = now / 1000;
   const hidden = Input.hiddenId(), lifted = Input.liftedId(), repoOn = Input.repoMode(), pinOn = Input.pinMode();
-  const goo = skin().wheel || skin().slot ? null : Input.goo(now); let gooDraw = null;   // (28 Nov) wheels don't squash when touched, they just spin
+  const goo = skin().wheel || skin().slot || skin().singer ? null : Input.goo(now); let gooDraw = null;   /* singers keep their round faces while they sing */   // (28 Nov) wheels don't squash when touched, they just spin
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
     const v = state.grid[Logic.idx(gx, gy)];
     if (v && goo && goo.i === Logic.idx(gx, gy) && !(state.golden && state.golden.i === goo.i) && !(hidden && state.pid[goo.i] === hidden) && goT < 0) {
@@ -9254,7 +9278,26 @@ const Net = (() => {
   async function addFriendById(id) { const p = player(); return keepFriends(await rpc('pop_add_friend_id', { p_id: p.id, p_token: p.token, p_friend: id })); }
   async function nameTaken(name) { if (!enabled()) return false; try { return (await rpc('pop_name_taken', { p_name: name })) === true; } catch (e) { return false; } }
   async function removeFriend(id) { const p = player(); return keepFriends(await rpc('pop_remove_friend', { p_id: p.id, p_token: p.token, p_friend: id })); }
-  return { enabled, player, register, rename, refresh, report, flush, board: () => Store.get('board', null),
+  // (28 Nov) a player code to move to another phone, or to the new home-screen icon: your id and secret key packed into one code.
+  // Paste it on the other copy and that copy becomes you: same name, same ladder spot, same friends.
+  const b64u = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  const unb64u = t => Uint8Array.from(atob(t.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((t.length + 3) % 4)), ch => ch.charCodeAt(0));
+  const hexB = h => Uint8Array.from((h.match(/../g) || []).map(x => parseInt(x, 16))), bHex = b => Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+  function playerKey() { const p = player(); if (!p) return ''; return 'POP-' + b64u([...hexB(p.id.replace(/-/g, '')), ...hexB(p.token)]); }
+  async function restoreKey(code) {
+    const t = String(code || '').trim().replace(/^POP-/i, '').replace(/\s+/g, ''); let by;
+    try { by = unb64u(t); } catch (e) { throw new Error('bad_code'); }
+    if (by.length < 20) throw new Error('bad_code');
+    const h = bHex(by.slice(0, 16)), id = `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`, token = bHex(by.slice(16));
+    const prev = { player: Store.get('player', null), board: Store.get('board', null), best: Store.get('best', 0) };
+    let b = null; try { b = await rpc('pop_board', { p_id: id, p_token: token }); } catch (e) { b = null; }
+    if (!b || !b.me) { throw new Error('bad_code'); }
+    Store.set('player', { id, token, name: b.me.name || '' }); Store.set('friends', null); Store.set('friendCode', null);
+    Store.set('best', Math.max(0, b.me.best || 0)); Store.set('ladderSent', b.me.best || 0); Store.set('ladderPending', 0);
+    if (typeof bestAtStart !== 'undefined') bestAtStart = Store.get('best', 0);
+    keepBoard(b); return b.me.name || '';
+  }
+  return { enabled, player, register, rename, refresh, report, flush, board: () => Store.get('board', null), playerKey, restoreKey,
     fmtCode, cleanCode, myCode, lookup, friends, addFriend, addFriendById, nameTaken, removeFriend, friendsBoard: () => Store.get('friends', null) };
 })();
 
@@ -9743,7 +9786,7 @@ const Input = (() => {
             if (skin().blueberry) { blueSplat(bx, by); STAIN.last = [bx, by]; }
             if (skin().slot) { const si = Logic.idx(gx, gy); SLOT_NUM.set(si, Math.floor(Math.random() * FRUITS)); SLOT_SPIN.set(si, { t0: performance.now(), D: 700 }); Sound.slotCoins(); }   // (28 Nov) touch a reel and it spins
             if (skin().wheel) { const wi = Logic.idx(gx, gy); WHEEL_ANG.set(wi, Math.random() * Math.PI * 2); POPT.set(wi, performance.now()); }   // (28 Nov) touch a wheel and it spins   // (28 Nov) juice squirts out, and the finger smears it from here
-            if (sn === 'Tennis Balls') spawnFluff(bx, by, col); else if (sn === 'Donuts') spawnSprinkles(bx, by, 8); else if (skin().hatch && eggKind() === 'chick') spawnFeathers(bx, by - L.c * 0.15, 9, 0.75); else if (skin().hatch && eggKind() === 'easter') spawnSprinkles(bx, by, 8); else if (skin().hatch) yolkSquirt(bx, by); else if (skin().slot) moneySquirt(bx, by); else squishDrops(bx, by, col); }   // chicks: a puff of feathers; Easter eggs: sprinkles; fried eggs: yolk
+            if (sn === 'Tennis Balls') spawnFluff(bx, by, col); else if (sn === 'Donuts') spawnSprinkles(bx, by, 8); else if (skin().hatch && eggKind() === 'chick') spawnFeathers(bx, by - L.c * 0.15, 9, 0.75); else if (skin().hatch && eggKind() === 'easter') spawnSprinkles(bx, by, 8); else if (skin().hatch) yolkSquirt(bx, by); else if (skin().slot) moneySquirt(bx, by); else if (skin().soapy) bubbleSquirt(bx, by); else squishDrops(bx, by, col); }   // chicks: a puff of feathers; Easter eggs: sprinkles; fried eggs: yolk
           try { SquishMe.squished(); } catch (_) {}
           Sound.squish(((x - L.ix) / (L.c * N)) * 2 - 1); Haptics.pulse(8);
         }
@@ -9809,7 +9852,14 @@ const Input = (() => {
     return { i: poke.i, m: [1 + (s0.m[0] - 1) * k, s0.m[1] * k, s0.m[2] * k, 1 + (s0.m[3] - 1) * k], ox: s0.ox * k, oy: s0.oy * k };
   }
   function moveEv(e) {
-    if (poke && !poke.rel && e.pointerId === poke.pid) { const [x, y] = pos(e); poke.x = x; poke.y = y; e.preventDefault(); return; }
+    if (poke && !poke.rel && e.pointerId === poke.pid) { const [x, y] = pos(e); poke.x = x; poke.y = y; e.preventDefault();
+      if (skin().singer) {   // (28 Nov) slide a finger across the Singers and each one sings as you pass over it, like running a finger along a keyboard
+        const gx = Math.floor((x - L.ix) / L.c), gy = Math.floor((y - L.iy) / L.c), i = gx >= 0 && gy >= 0 && gx < N && gy < N ? Logic.idx(gx, gy) : -1;
+        if (i !== (poke.sing == null ? poke.i : poke.sing)) { poke.sing = i;
+          try { Sound.singUp(e.pointerId); } catch (_) {}
+          if (i >= 0 && state.grid[i]) { window._sqPid = e.pointerId; window._sqCol = gx; window._sqIdx = i; try { SquishMe.squished(); Sound.sing(gx, ((gx - 3.5) / 3.5) * 0.6, i); } catch (_) {} } }
+      }
+      return; }
     if (!drag || e.pointerId !== drag.pid) return;
     const [x, y] = pos(e);
     const t = performance.now(), dt = Math.max(8, t - (drag.lt || t - 16)) / 1000;
@@ -10079,7 +10129,7 @@ const UI = (() => {
     pickMode(bt.dataset.m);
     $('diffAsk').classList.remove('show');
   });
-  function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), 1800); }
+  function toast(msg) { toastEl.textContent = msg; toastEl.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toastEl.classList.remove('show'), Math.min(6000, 1800 + msg.length * 30)); }
   function showGameOver() {
     const sc = $('goScore'), txt = state.score.toLocaleString(); sc.textContent = txt; sc.dataset.v = txt;
     const best = Store.get('best', 0), nb = $('goNew');
@@ -10236,14 +10286,16 @@ const UI = (() => {
     const el = $('mpLadder'), note = $('mpNote'), b = Net.board(), me = Net.player(), before = Store.get('bestBefore', 0), fb = Net.friendsBoard();
     if (!Net.enabled()) { el.innerHTML = '<div class="ladhead"><b>Ladder</b><span>coming soon</span></div>'; note.textContent = 'Share Pop now so your friends are ready.'; return; }
     if (!me) {
-      el.innerHTML = '<div class="ladhead"><b>Ladder</b></div><button class="btn invitebtn" id="mpJoin">Join the ladder</button>';
+      el.innerHTML = '<div class="ladhead"><b>Ladder</b></div><button class="btn invitebtn" id="mpJoin">Join the ladder</button><div class="ladlinks"><a id="mpRestore">Already on the ladder? Use your player code</a></div>';
       $('mpJoin').onclick = () => { mp.classList.remove('show'); showNameCard(true); };
+      $('mpRestore').onclick = () => useCode();
       note.textContent = 'Put your name on it and see where you rank.'; return;
     }
     const hasFriends = !!(fb && fb.friends > 0);
     // one button: sends your personal invite link; they tap it and tap "Add Mark R". The code is only a fallback.
     const tail = () => '<button class="btn invitebtn" id="mpAddFriend">Add a friend</button>'
         + `<div class="ladlinks"><a id="mpRename">Change name</a><a id="mpEnterCode">Got a friend code?</a></div>`
+        + `<div class="ladlinks"><a id="mpMove">Playing on another phone? Copy your player code</a></div>`
         + (before ? `<div class="ladlinks"><span></span><span>Before the ladder: ${before.toLocaleString()}</span></div>` : '');
     const tab = ladTab || (hasFriends ? 'friends' : 'world');
     let html = `<div class="ladtabs"><button data-t="friends" class="${tab === 'friends' ? 'on' : ''}">Friends</button><button data-t="world" class="${tab === 'world' ? 'on' : ''}">World</button></div>`;
@@ -10279,6 +10331,7 @@ const UI = (() => {
       note.textContent = !b ? '' : b.me.rank === 1 ? "You're top of the ladder! Keep it that way." : b.me.rank ? `Beat ${b.top.find(r => r.rank === b.me.rank - 1) ? esc(b.top.find(r => r.rank === b.me.rank - 1).name) : 'the player above'} to move up.` : 'Finish a game to get on the ladder.';
     }
     $('mpRename').onclick = () => { mp.classList.remove('show'); showNameCard(true, true); };
+    $('mpMove').onclick = () => copyText(Net.playerKey(), 'Player code copied. On the other phone or icon: tap your best score, then “Already on the ladder? Use your player code”, and paste.');
     $('mpAddFriend').onclick = () => sendFriendLink();
     $('mpEnterCode').onclick = () => { mp.classList.remove('show'); openFriendCard({ mode: 'enter' }); };
     el.querySelectorAll('.ladtabs button').forEach(bt => bt.onclick = () => { ladTab = bt.dataset.t; Sound.pickup(); renderLadder(); });
@@ -10388,6 +10441,14 @@ const UI = (() => {
     nc.classList.add('show');
   }
   $('ncInit').addEventListener('input', e => { e.target.value = e.target.value.replace(/[^A-Za-zÀ-ÿ]/g, '').toUpperCase(); });
+  // (28 Nov) bring your ladder player to this phone or this copy of the game
+  async function useCode() {
+    const code = window.prompt('Paste your player code (from Pop on your other phone or your old icon: tap your best score, then “Copy your player code”).');
+    if (!code) return;
+    try { const name = await Net.restoreKey(code); nc.classList.remove('show'); toast(`Welcome back, ${name}!`); UI.update(true); openMyPop(); }
+    catch (e) { toast("That code didn't work. Copy it again and paste the whole thing."); }
+  }
+  $('ncRestore').addEventListener('click', () => useCode());
   $('ncLater').addEventListener('click', () => { nc.classList.remove('show'); if (!nc._renaming && !nc._invite) Store.set('nameLater', dayKey()); });   // an invite isn't lost by tapping Not now: it's offered again next time
   $('ncGo').addEventListener('click', async () => {
     const first = $('ncFirst').value.trim().replace(/\s+/g, ' '), init = $('ncInit').value.trim(), nt = $('ncNote');
@@ -10398,7 +10459,7 @@ const UI = (() => {
     const go = $('ncGo');
     if (!nc._renaming && nc._warned !== name) {   // (27 Nov) the same person on two phones (or Safari and the home-screen app) shows up twice: ask first
       go.disabled = true; const taken = await Net.nameTaken(name); go.disabled = false;
-      if (taken) { nc._warned = name; nt.className = 'ncnote err'; nt.textContent = `${name} is already on the ladder. If that's you on another phone or the home-screen Pop, please keep playing there so you're only on the ladder once. Not you? Tap the button again.`; return; }
+      if (taken) { nc._warned = name; nt.className = 'ncnote err'; nt.textContent = `${name} is already on the ladder. If that's you on another phone or the home-screen Pop, tap “Use your player code” below to carry on as ${name} here. Not you? Tap the button again.`; return; }
     }
     go.disabled = true; go.textContent = nc._renaming ? 'Saving…' : 'Joining…';
     let got = name;
