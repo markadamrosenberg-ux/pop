@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 1:50pm, coins on touch</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 2pm, square reels</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -5605,29 +5605,29 @@ function drawFruit(x, k, s) {   // one fruit symbol, about s across, centred
   }
   x.restore();
 }
-function drawSlot(x, r, col, n, spin) {
-  const R0 = r * 0.92;
-  // the chrome bezel and the coloured cabinet ring
-  const cg = x.createRadialGradient(-R0 * 0.3, -R0 * 0.4, R0 * 0.1, 0, 0, R0); cg.addColorStop(0, mix(col, '#ffffff', 0.45)); cg.addColorStop(0.6, col); cg.addColorStop(1, shade(col, -55));
-  x.fillStyle = cg; x.beginPath(); x.arc(0, 0, R0, 0, Math.PI * 2); x.fill();
-  const ch = x.createLinearGradient(-R0, -R0, R0, R0); ch.addColorStop(0, '#ffffff'); ch.addColorStop(0.5, '#9aa2ae'); ch.addColorStop(1, '#e8ecf2');
-  x.strokeStyle = ch; x.lineWidth = R0 * 0.1; x.beginPath(); x.arc(0, 0, R0 * 0.8, 0, Math.PI * 2); x.stroke();
-  // the reel window
-  const wr = R0 * 0.72;
-  x.save(); x.beginPath(); x.arc(0, 0, wr, 0, Math.PI * 2); x.clip();
-  const wg = x.createLinearGradient(0, -wr, 0, wr); wg.addColorStop(0, '#c9c3b4'); wg.addColorStop(0.3, '#fffaf0'); wg.addColorStop(0.7, '#fffaf0'); wg.addColorStop(1, '#c9c3b4'); x.fillStyle = wg; x.fillRect(-wr, -wr, wr * 2, wr * 2);
-  const fruit = (k, yy, a) => { x.globalAlpha = a; x.save(); x.translate(0, yy); drawFruit(x, ((k % FRUITS) + FRUITS) % FRUITS, wr * 1.5); x.restore(); x.globalAlpha = 1; };
-  if (spin >= 0) {   // spinning: a strip of fruit rolling down past the window, blurred, slowing as it stops
+function drawSlot(x, r, col, n, spin) {   // (28 Nov) a square slot-machine reel with rounded corners: a curved white drum, big fruit, the next ones peeping in above and below
+  const S = r * 0.97, rr = (X, Y, W, H, rad) => { x.beginPath(); x.roundRect ? x.roundRect(X, Y, W, H, rad) : x.rect(X, Y, W, H); };
+  // the coloured cabinet frame with a chrome edge
+  const fg = x.createLinearGradient(-S, -S, S, S); fg.addColorStop(0, mix(col, '#ffffff', 0.35)); fg.addColorStop(0.5, col); fg.addColorStop(1, shade(col, -50));
+  x.fillStyle = fg; rr(-S, -S, S * 2, S * 2, S * 0.3); x.fill();
+  x.strokeStyle = 'rgba(255,255,255,0.55)'; x.lineWidth = Math.max(0.8, S * 0.04); rr(-S * 0.97, -S * 0.97, S * 1.94, S * 1.94, S * 0.28); x.stroke();
+  const I = S * 0.8;   // the reel window
+  x.fillStyle = '#1a1a20'; rr(-I - S * 0.04, -I - S * 0.04, (I + S * 0.04) * 2, (I + S * 0.04) * 2, S * 0.2); x.fill();
+  x.save(); rr(-I, -I, I * 2, I * 2, S * 0.16); x.clip();
+  x.fillStyle = '#ffffff'; x.fillRect(-I, -I, I * 2, I * 2);
+  const step = I * 1.35, fs = I * 1.6, fruit = (k, yy, a) => { x.globalAlpha = a; x.save(); x.translate(0, yy); drawFruit(x, ((k % FRUITS) + FRUITS) % FRUITS, fs); x.restore(); x.globalAlpha = 1; };
+  if (spin >= 0) {   // spinning: the strip of fruit rolls down, blurred, slowing as it stops
     const speed = 1 - Math.pow(spin, 1.6), pos = performance.now() / (45 + (1 - speed) * 160), scroll = pos % 1, base = Math.floor(pos);
-    for (let k = -1; k <= 1; k++) fruit(base - k, (k + scroll) * wr * 1.35, speed > 0.4 ? 0.6 : 0.9);
-    x.fillStyle = `rgba(255,250,240,${0.3 * speed})`; x.fillRect(-wr, -wr, wr * 2, wr * 2);
-  } else fruit(n, wr * 0.04, 1);
-  // shading top and bottom, like a curved drum, and the glass
-  const sh = x.createLinearGradient(0, -wr, 0, wr); sh.addColorStop(0, 'rgba(0,0,0,0.45)'); sh.addColorStop(0.28, 'rgba(0,0,0,0)'); sh.addColorStop(0.72, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,0.45)');
-  x.fillStyle = sh; x.fillRect(-wr, -wr, wr * 2, wr * 2);
-  x.fillStyle = 'rgba(255,255,255,0.35)'; x.beginPath(); x.ellipse(-wr * 0.35, -wr * 0.5, wr * 0.5, wr * 0.16, -0.4, 0, Math.PI * 2); x.fill();
+    for (let k = -2; k <= 1; k++) fruit(base - k, (k + scroll) * step, speed > 0.4 ? 0.55 : 0.9);
+    x.fillStyle = `rgba(255,255,255,${0.3 * speed})`; x.fillRect(-I, -I, I * 2, I * 2);
+  } else { fruit(n + 1, -step, 1); fruit(n, 0, 1); fruit(n - 1, step, 1); }   // stopped: the fruit in the middle, with the next ones cut off at the top and bottom
+  // the drum curving away at the top and bottom, and a soft sheen down the side
+  const sh = x.createLinearGradient(0, -I, 0, I); sh.addColorStop(0, 'rgba(40,40,50,0.75)'); sh.addColorStop(0.22, 'rgba(40,40,50,0.05)'); sh.addColorStop(0.5, 'rgba(0,0,0,0)'); sh.addColorStop(0.78, 'rgba(40,40,50,0.05)'); sh.addColorStop(1, 'rgba(40,40,50,0.75)');
+  x.fillStyle = sh; x.fillRect(-I, -I, I * 2, I * 2);
+  const sv = x.createLinearGradient(-I, 0, I, 0); sv.addColorStop(0, 'rgba(0,0,0,0.18)'); sv.addColorStop(0.12, 'rgba(255,255,255,0)'); sv.addColorStop(0.88, 'rgba(255,255,255,0)'); sv.addColorStop(1, 'rgba(0,0,0,0.18)');
+  x.fillStyle = sv; x.fillRect(-I, -I, I * 2, I * 2);
+  x.fillStyle = 'rgba(255,255,255,0.35)'; x.fillRect(-I * 0.75, -I, I * 0.18, I * 2);   // the glass catching the light
   x.restore();
-  x.fillStyle = 'rgba(255,255,255,0.55)'; x.beginPath(); x.ellipse(-R0 * 0.5, -R0 * 0.6, R0 * 0.18, R0 * 0.07, -0.7, 0, Math.PI * 2); x.fill();
 }
 // (28 Nov) Chocolate wheels
 const WHEEL_IMG = new Map(), WHEEL_ANG = new Map();
