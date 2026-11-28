@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 3:45pm, squish me</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 3:55pm, squish me after a row</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -8093,23 +8093,27 @@ const SquishMe = (() => {
     el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
     shownThisLull = true;
   }, 1000);
-  // (28 Nov) the first time a player places a piece in a look, that piece says "Squish me!" so they find its squish.
-  // Once per look per player, remembered; it goes as soon as they touch the screen.
-  const seen = new Set(Store.get('squishSeen', []));
-  function firstLook(cells) {
-    const nm = skin().name; if (seen.has(nm) || !cells || !cells.length) return;
-    seen.add(nm); Store.set('squishSeen', [...seen]);
-    setTimeout(() => {
-      if (document.hidden || state.over || document.querySelector('.overlay.show, .overlay.open')) return;
-      const live = cells.filter(i => state.grid[i]); if (!live.length) return;   // the piece was cleared in a row: nothing to squish
-      live.sort((a, b) => Math.floor(a / N) - Math.floor(b / N)); const i = live[0];   // the top of the piece, so the bubble sits clear of it
-      const [x, y] = cellCentre(i % N, Math.floor(i / N)), el = document.getElementById('squishMe'); if (!el) return;
-      el.textContent = 'Squish me!'; { const pw = (el.offsetParent || el.parentElement).clientWidth, hw = el.offsetWidth / 2 + 6; el.style.left = Math.max(hw, Math.min(pw - hw, x)) + 'px'; } el.style.top = (y - L.c * 0.42) + 'px';   /* kept on screen */
-      el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); shownThisLull = true;
-    }, 900);
+  // (28 Nov, v2) "Squish me!" for a look the player hasn't squished yet: never before the first row in a frame is done,
+  // then once more later in that frame (3 rows on) if they still haven't squished. Once they squish a piece in that look, never again.
+  const done = new Set(Store.get('squishDone', []));
+  let fr = -1, rows = 0, hints = 0, lastAt = 0;
+  function show() {
+    if (document.hidden || state.over || document.querySelector('.overlay.show, .overlay.open') || done.has(skin().name)) return;
+    const cells = []; state.grid.forEach((v, i) => { if (v) cells.push(i); }); if (!cells.length) return;
+    const pool = cells.filter(i => Math.floor(i / N) > 0), i = (pool.length ? pool : cells)[Math.floor(Math.random() * (pool.length || cells.length))];
+    const [x, y] = cellCentre(i % N, Math.floor(i / N)), el = document.getElementById('squishMe'); if (!el) return;
+    el.textContent = 'Squish me!'; { const pw = (el.offsetParent || el.parentElement).clientWidth, hw = el.offsetWidth / 2 + 6; el.style.left = Math.max(hw, Math.min(pw - hw, x)) + 'px'; } el.style.top = (y - L.c * 0.42) + 'px';
+    el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); shownThisLull = true;
   }
+  function placed(res) {
+    if (done.has(skin().name)) return;
+    const f = res.frameNo | 0; if (f !== fr) { fr = f; rows = 0; hints = 0; }
+    if (!(res.lines > 0)) return; rows += res.lines;
+    if (hints === 0 || (hints === 1 && rows >= lastAt + 3)) { hints++; lastAt = rows; setTimeout(show, 1500); }   // after the row has popped
+  }
+  function squished() { const nm = skin().name; if (!done.has(nm)) { done.add(nm); Store.set('squishDone', [...done]); } const el = document.getElementById('squishMe'); if (el) el.classList.remove('go'); }
   window.addEventListener('pointerdown', () => { const el = document.getElementById('squishMe'); if (el && el.classList.contains('go')) el.classList.remove('go'); }, { passive: true });
-  return { touch, firstLook };
+  return { touch, placed, squished };
 })();
 /* ---- Quips: short witty lines on big moments, and a glowing ring while a combo is alive (Mark, 25 Nov) ---- */
 const Quip = (() => {
@@ -8233,7 +8237,7 @@ function playResult(res, pointerGesture) {
   const T = CONFIG.timing;
   shownTarget += res.placePts;
   const placed = new Set(res.piece.shape.cells.map(([x, y]) => Logic.idx(res.gx + x, res.gy + y)));
-  try { SquishMe.firstLook([...placed]); } catch (_) {}   // (28 Nov) first piece in a look: "Squish me!"
+  try { SquishMe.placed(res); } catch (_) {}   // (28 Nov) "Squish me!" once a row is done, if they haven't squished this look yet
   FX.land.push({ t0: now, cells: res.piece.shape.cells.map(([x, y]) => cellCentre(res.gx + x, res.gy + y)) });
   for (const [x, y] of res.piece.shape.cells) FX.settle.set(Logic.idx(res.gx + x, res.gy + y), { t0: now + (x + y) * CONFIG.feel.rippleMs, amp: CONFIG.feel.landAmp });
   if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 90 + k * 55 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.popcorn((at - now) / 1000, (res.gx + x - 3.5) / 5, 2.1); });   // placing pops as loud as a row popping (26 Nov)
@@ -9700,6 +9704,7 @@ const Input = (() => {
             if (skin().slot) { const si = Logic.idx(gx, gy); SLOT_NUM.set(si, Math.floor(Math.random() * FRUITS)); SLOT_SPIN.set(si, { t0: performance.now(), D: 700 }); Sound.slotCoins(); }   // (28 Nov) touch a reel and it spins
             if (skin().wheel) { const wi = Logic.idx(gx, gy); WHEEL_ANG.set(wi, Math.random() * Math.PI * 2); POPT.set(wi, performance.now()); }   // (28 Nov) touch a wheel and it spins   // (28 Nov) juice squirts out, and the finger smears it from here
             if (sn === 'Tennis Balls') spawnFluff(bx, by, col); else if (sn === 'Donuts') spawnSprinkles(bx, by, 8); else if (skin().hatch && eggKind() === 'chick') spawnFeathers(bx, by - L.c * 0.15, 9, 0.75); else if (skin().hatch && eggKind() === 'easter') spawnSprinkles(bx, by, 8); else if (skin().hatch) yolkSquirt(bx, by); else if (skin().slot) moneySquirt(bx, by); else squishDrops(bx, by, col); }   // chicks: a puff of feathers; Easter eggs: sprinkles; fried eggs: yolk
+          try { SquishMe.squished(); } catch (_) {}
           Sound.squish(((x - L.ix) / (L.c * N)) * 2 - 1); Haptics.pulse(8);
         }
         return;
