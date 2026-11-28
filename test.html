@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 9pm, singers say play me</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 9:05pm, slide to sing</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -9822,7 +9822,14 @@ const Input = (() => {
     return { i: poke.i, m: [1 + (s0.m[0] - 1) * k, s0.m[1] * k, s0.m[2] * k, 1 + (s0.m[3] - 1) * k], ox: s0.ox * k, oy: s0.oy * k };
   }
   function moveEv(e) {
-    if (poke && !poke.rel && e.pointerId === poke.pid) { const [x, y] = pos(e); poke.x = x; poke.y = y; e.preventDefault(); return; }
+    if (poke && !poke.rel && e.pointerId === poke.pid) { const [x, y] = pos(e); poke.x = x; poke.y = y; e.preventDefault();
+      if (skin().singer) {   // (28 Nov) slide a finger across the Singers and each one sings as you pass over it, like running a finger along a keyboard
+        const gx = Math.floor((x - L.ix) / L.c), gy = Math.floor((y - L.iy) / L.c), i = gx >= 0 && gy >= 0 && gx < N && gy < N ? Logic.idx(gx, gy) : -1;
+        if (i !== (poke.sing == null ? poke.i : poke.sing)) { poke.sing = i;
+          try { Sound.singUp(e.pointerId); } catch (_) {}
+          if (i >= 0 && state.grid[i]) { window._sqPid = e.pointerId; window._sqCol = gx; window._sqIdx = i; try { SquishMe.squished(); Sound.sing(gx, ((gx - 3.5) / 3.5) * 0.6, i); } catch (_) {} } }
+      }
+      return; }
     if (!drag || e.pointerId !== drag.pid) return;
     const [x, y] = pos(e);
     const t = performance.now(), dt = Math.max(8, t - (drag.lt || t - 16)) / 1000;
