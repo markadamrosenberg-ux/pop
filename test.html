@@ -642,7 +642,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 11:10pm, singer tunes</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 11:15pm, baseball pickup</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -9817,7 +9817,7 @@ const Input = (() => {
     drag = { slot, piece, pid: e.pointerId, type: e.pointerType || 'mouse', x, y, t0: performance.now(), sx, sy, startSize: trayCell(piece), vx: 0, vy: 0, lt: 0 };
     ret = null;
     try { cv.setPointerCapture(e.pointerId); } catch (err) {}
-    if (!piece.mystery) { if (skin().hit === 'tennis') Sound.hit(skin().hit, 0.8); else if (skin().hit === 'golf') Sound.hit('golfdrive', 0.5); /* golf: a soft tee-off when you pick a piece up (Mark, 25 Nov) */ /* cricket: the normal squish on pick-up, the shot only when placed (Mark, 25 Nov) */ else if (skin().hit === 'baseball') Sound.hit('mitt', 0.8); else Sound.pickup(); }
+    if (!piece.mystery) { if (skin().hit === 'tennis') Sound.hit(skin().hit, 0.8); else if (skin().hit === 'golf') Sound.hit('golfdrive', 0.5); /* golf: a soft tee-off when you pick a piece up (Mark, 25 Nov) */ /* cricket: the normal squish on pick-up, the shot only when placed (Mark, 25 Nov) */ /* baseball: the normal pick-up sound, not the glove knock (Mark, 28 Nov) */ else Sound.pickup(); }
     e.preventDefault();
   }
   // ---- gooey poke: the shape of a squished bubble, held or springing back
