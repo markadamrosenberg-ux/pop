@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 10:40pm, wheels no fanfare</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 10:45pm, random squish reminders</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -8155,9 +8155,14 @@ const SquishMe = (() => {
     el.textContent = skin().singer ? 'Play me ♪♫' : 'Squish me!'; {   /* (28 Nov) the Singers ask to be played */ const pw = (el.offsetParent || el.parentElement).clientWidth, hw = el.offsetWidth / 2 + 6; el.style.left = Math.max(hw, Math.min(pw - hw, x)) + 'px'; } el.style.top = (y - L.c * 0.42) + 'px';
     el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); shownThisLull = true;
   }
+  let lastNudge = -99, nudgeAt = 0;   // (28 Nov) now and then, on a random frame, a friendly reminder even for looks they've already squished
+  function show2() { const nm = skin().name, had = done.has(nm); if (had) done.delete(nm); show(); if (had) done.add(nm); }
   function placed(res) {
-    if (done.has(skin().name)) return;
-    const f = res.frameNo | 0; if (f !== fr) { fr = f; rows = 0; hints = 0; }
+    const f = res.frameNo | 0; if (f !== fr) { fr = f; rows = 0; hints = 0;
+      nudgeAt = (f - lastNudge >= 4 && Math.random() < 0.25) ? 1 + Math.floor(Math.random() * 4) : 0; }   // about one frame in four, never closer than 4 frames apart, after a random 1 to 4 rows
+    if (done.has(skin().name)) {
+      if (nudgeAt && res.lines > 0) { rows += res.lines; if (rows >= nudgeAt) { nudgeAt = 0; lastNudge = f; setTimeout(show2, 1500); } }
+      return; }
     if (!(res.lines > 0)) return; rows += res.lines;
     if (hints === 0 || (hints === 1 && rows >= lastAt + 3)) { hints++; lastAt = rows; setTimeout(show, 1500); }   // after the row has popped
   }
