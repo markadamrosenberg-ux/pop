@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 2pm, 3D reels</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 3:45pm, squish me</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -8089,11 +8089,27 @@ const SquishMe = (() => {
     const [x, y] = cellCentre(i % N, Math.floor(i / N));
     const el = document.getElementById('squishMe'); if (!el) return;
     let t; do { t = LINES[Math.floor(Math.random() * LINES.length)]; } while (t === lastLine && LINES.length > 1); lastLine = t;
-    el.textContent = t; el.style.left = x + 'px'; el.style.top = (y - L.c * 0.42) + 'px';
+    el.textContent = t; { const pw = (el.offsetParent || el.parentElement).clientWidth, hw = el.offsetWidth / 2 + 6; el.style.left = Math.max(hw, Math.min(pw - hw, x)) + 'px'; } el.style.top = (y - L.c * 0.42) + 'px';   /* kept on screen */
     el.classList.remove('go'); void el.offsetWidth; el.classList.add('go');
     shownThisLull = true;
   }, 1000);
-  return { touch };
+  // (28 Nov) the first time a player places a piece in a look, that piece says "Squish me!" so they find its squish.
+  // Once per look per player, remembered; it goes as soon as they touch the screen.
+  const seen = new Set(Store.get('squishSeen', []));
+  function firstLook(cells) {
+    const nm = skin().name; if (seen.has(nm) || !cells || !cells.length) return;
+    seen.add(nm); Store.set('squishSeen', [...seen]);
+    setTimeout(() => {
+      if (document.hidden || state.over || document.querySelector('.overlay.show, .overlay.open')) return;
+      const live = cells.filter(i => state.grid[i]); if (!live.length) return;   // the piece was cleared in a row: nothing to squish
+      live.sort((a, b) => Math.floor(a / N) - Math.floor(b / N)); const i = live[0];   // the top of the piece, so the bubble sits clear of it
+      const [x, y] = cellCentre(i % N, Math.floor(i / N)), el = document.getElementById('squishMe'); if (!el) return;
+      el.textContent = 'Squish me!'; { const pw = (el.offsetParent || el.parentElement).clientWidth, hw = el.offsetWidth / 2 + 6; el.style.left = Math.max(hw, Math.min(pw - hw, x)) + 'px'; } el.style.top = (y - L.c * 0.42) + 'px';   /* kept on screen */
+      el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); shownThisLull = true;
+    }, 900);
+  }
+  window.addEventListener('pointerdown', () => { const el = document.getElementById('squishMe'); if (el && el.classList.contains('go')) el.classList.remove('go'); }, { passive: true });
+  return { touch, firstLook };
 })();
 /* ---- Quips: short witty lines on big moments, and a glowing ring while a combo is alive (Mark, 25 Nov) ---- */
 const Quip = (() => {
@@ -8217,6 +8233,7 @@ function playResult(res, pointerGesture) {
   const T = CONFIG.timing;
   shownTarget += res.placePts;
   const placed = new Set(res.piece.shape.cells.map(([x, y]) => Logic.idx(res.gx + x, res.gy + y)));
+  try { SquishMe.firstLook([...placed]); } catch (_) {}   // (28 Nov) first piece in a look: "Squish me!"
   FX.land.push({ t0: now, cells: res.piece.shape.cells.map(([x, y]) => cellCentre(res.gx + x, res.gy + y)) });
   for (const [x, y] of res.piece.shape.cells) FX.settle.set(Logic.idx(res.gx + x, res.gy + y), { t0: now + (x + y) * CONFIG.feel.rippleMs, amp: CONFIG.feel.landAmp });
   if (skin().popcorn) res.piece.shape.cells.forEach(([x, y], k) => { const at = now + 90 + k * 55 + Math.random() * 40; POPT.set(Logic.idx(res.gx + x, res.gy + y), at); Sound.popcorn((at - now) / 1000, (res.gx + x - 3.5) / 5, 2.1); });   // placing pops as loud as a row popping (26 Nov)
