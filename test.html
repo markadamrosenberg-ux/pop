@@ -641,7 +641,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-acti
       <div class="card setcard">
         <button class="setx" id="setX" aria-label="Close">✕</button>
         <h2 id="titleText">Popadop</h2>
-        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 9:05pm, slide to sing</div>
+        <div id="buildTag" style="font-size:11px;opacity:0.45;margin:-4px 0 6px">Test build 28 Nov, 9:10pm, staccato row</div>
         <div class="row"><span>Sound</span><div class="vol"><input type="range" min="0" max="100" id="vSfx" aria-label="Sound effects volume"><span id="vSfxV"></span></div></div>
         <div class="row"><span>Vibration<div class="note" id="vibeNote"></div></span><button class="toggle" id="tVibe" aria-label="Vibration"></button></div>
         <div class="row diffrow" style="display:none"><span>Difficulty<div class="note">Easy scores ½ points · Hard scores 2×</div></span>
@@ -2306,10 +2306,11 @@ const Sound = (() => {
     },
     singRun(k = 0, pan = 0) {   // (28 Nov) one of Mark's sung notes, short and sweet, for a line of Singers popping: A B C D E F G then the high A
       if (!ok()) return; k = Math.max(0, Math.min(7, k)); const b = sample(k >= 7 ? 'noteA2' : 'note' + 'ABCDEFG'[k]); if (!b) return;
-      const t = ac.currentTime, src = ac.createBufferSource(), g = ac.createGain(), len = Math.min(0.55, b.duration);
-      src.buffer = b; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.85, t + 0.02); g.gain.setValueAtTime(0.85, t + len - 0.2); g.gain.linearRampToValueAtTime(0, t + len);
+      const t = ac.currentTime, src = ac.createBufferSource(), g = ac.createGain(), len = Math.min(0.2, b.duration);   // short and detached: staccato
+      src.buffer = b; g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.9, t + 0.012); g.gain.setValueAtTime(0.9, t + len - 0.07); g.gain.linearRampToValueAtTime(0, t + len);
       let d = g; if (ac.createStereoPanner) { const pn = ac.createStereoPanner(); pn.pan.value = pan; g.connect(pn); d = pn; } d.connect(out);
-      src.connect(g); src.start(t, 0.03); src.stop(t + len + 0.05);
+      if (b._on == null) { const d0 = b.getChannelData(0); let pk = 0; for (let i = 0; i < d0.length; i++) pk = Math.max(pk, Math.abs(d0[i])); let i = 0; while (i < d0.length && Math.abs(d0[i]) < pk * 0.3) i++; b._on = Math.max(0, i / b.sampleRate - 0.02); }   // skip the breath before the note, so every note lands right on its pop
+      src.connect(g); src.start(t, b._on); src.stop(t + len + 0.05);
     },
     sing(k = 0, pan = 0, cell = -1) {   // (27 Nov) Mark's own sung notes: the columns are a keyboard, A B C D E F G left to right, then his high A
       if (!ok()) return;
@@ -8362,7 +8363,7 @@ function playResult(res, pointerGesture) {
     const cells = res.piece.shape.cells;
     const ox = res.gx + cells.reduce((a, c) => a + c[0], 0) / cells.length;
     const oy = res.gy + cells.reduce((a, c) => a + c[1], 0) / cells.length;
-    const stagger = settings.reduced ? 12 : T.popStaggerMs;
+    const stagger = settings.reduced ? 12 : skin().singer ? 150 : T.popStaggerMs;   // (28 Nov) Singers pop one note at a time, like a xylophone run
     // bigger clears and streaks make bigger splashes; ordinary play stays calm
     const intensity = Math.min(2.4, 1 + (res.lines - 1) * 0.4 + (res.combo - 1) * 0.2 + (res.mysteryPlaced ? 0.5 : 0));
     // Faces: a moment of terror (and a scream) before they burst
